@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Roll Initiative</title>
+	<style>
+		ol {
+			list-style-type: none;
+			padding: 10px;
+		}
+
+		ol li {
+			padding: 8px 8px;
+			margin: 2px;
+			border: 2px solid #000000;
+			text-align: center;
+			vertical-align: center;
+		}
+
+		ol li.current-entity {
+			border: 4px solid #000000;
+		}
+
+		ol li.full-health {
+			background-color: #FF0800;
+		}
+
+		ol li.mid-health {
+			background-color: #CC0000;
+		}
+
+		ol li.low-health {
+			background-color: #B31B1B;
+		}
+
+		ol li.rlc {
+			background-color: #960018
+		}
+
+		ol li.dead {
+			background-color: #585858;
+		}
+	</style>
+</head>
+<body>
+	<h1>Roll Initiative</h1>
+	<p>Combat timer: <div id="combat_timer"></div></p>
+	<p>Turn timer: <div id="turn_timer"></div></p>
+	<p>Round: <div id="round"></div></p>
+	<p>Entities: </p>
+	<ol id="entities"></ol>
+	<script type="text/javascript">
+		var events = new EventSource("/data", {
+			headers: {
+				'Content-Type': 'text/event-stream',
+				'Cache-Control': 'no-cache',
+				'Connection': 'keep-alive'
+			},
+		});
+
+		var cmbt_timer = document.getElementById("combat_timer");
+		var turn_timer = document.getElementById("turn_timer");
+		var entities = document.getElementById("entities");
+		//events.onmessage = function(e) {
+
+		events.onmessage = function(e) {
+			console.log("Got event");
+			console.log(e);
+			var test = JSON.parse(e.data);
+			cmbt_timer.innerHTML = test.combat_timer;
+			turn_timer.innerHTML = test.turn_timer;
+			round.innerHTML = test.round;
+
+			while (entities.firstChild) {
+				entities.removeChild(entities.lastChild);
+			}
+
+			for (var i in test.entities) {
+				var entity = test.entities[i]
+				console.log(entity.name);
+				console.log(entity.img_url)
+				if (entity.visible) {
+					var entry = document.createElement("li");
+					var img = document.createElement("img");
+					var text = document.createElement("div");
+					if (entity.type == "player") {
+						console.log("Setting player image");
+						img.src = "data:image/png;base64," + entity.img_url;
+						img.width = 128;
+						img.height = 128;
+					} else {
+						console.log("Setting monster image");
+						img.src = entity.img_url;
+						img.width = 128;
+						img.height = 128;
+					}
+
+					text.appendChild(document.createTextNode("\t" + entity.name + "\t"));
+
+
+					if (i == test.current_entity_index) {
+						console.log("Set current entity");
+						entry.classList.add('current-entity');
+					}
+
+					if (entity.health == entity.max_health) {
+						entry.classList.add('full-health');
+					} else if ((entity.health < entity.max_health) && (entity.health > (entity.max_health / 2))) {
+						entry.classList.add('mid-health');
+					} else if ((entity.health > 0) && (entity.health < (entity.max_health / 2))) {
+						entry.classList.add('low-health');
+					} else if ((entity.health > 0) && (entity.health <= 10)) {
+						entry.classList.add('rlc');
+					} else if (entity.health == 0) {
+						entry.classList.add('dead');
+					}
+
+					if ((entity.type == "player") || (entity.type == "NPC")) {
+						text.appendChild(document.createTextNode(entity.health));
+						text.appendChild(document.createTextNode("/"));
+						text.appendChild(document.createTextNode(entity.max_health));
+					} else {
+						//If it's a monster display bloodied, regretting life choices, etc.
+					}
+					entry.appendChild(img);
+					entry.appendChild(text);
+
+					entities.appendChild(entry);
+				} else {
+				}
+			}
+		};
+
+		//async function fetchAsync(url) {
+		//	let response = await fetch(url, {
+		//		headers: {
+		//			'Content-Type': 'text/event-stream',
+		//			'Cache-Control': 'no-cache',
+		//			'Connection': 'keep-alive'
+		//		},
+		//	});
+		//}
+
+		//function runFunction() {
+		//	console.log("Sending request");
+		//	fetchAsync("http://192.168.0.243:3000/data");
+		//}
+
+		//var t = setInterval(runFunction, 1000);
+	</script>
+</body>
+</html>

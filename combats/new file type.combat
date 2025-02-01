@@ -1,0 +1,22 @@
+{
+	"Aboleth"
+	{
+		initiative=5,
+	},
+	"Acolyte"
+	{
+		initiative=4,
+	},
+	"Adult Black Dragon"
+	{
+		initiative=3,
+	},
+	"Adult Blue Dragon"
+	{
+		initiative=2,
+	},
+	"Adult Brass Dragon"
+	{
+		initiative=1,
+	},
+}

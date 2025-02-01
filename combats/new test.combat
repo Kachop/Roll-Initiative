@@ -1,0 +1,22 @@
+{
+	"Adult Black Dragon"
+	{
+		initiative=5,
+	},
+	"Acolyte"
+	{
+		initiative=22,
+	},
+	"Adult Bronze Dragon"
+	{
+		initiative=11,
+	},
+	"Ape"
+	{
+		initiative=7,
+	},
+	"Awakened Tree"
+	{
+		initiative=19,
+	},
+}
