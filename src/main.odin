@@ -29,7 +29,7 @@ when ODIN_OS == .Windows {
 }
 
 app_title :: "/Roll Initiative"
-app_dir :: #directory
+app_dir := fmt.tprint(#directory, "../", sep="")
 current_dir :: #directory[:len(#directory)-1]
 
 CONFIG: Config
@@ -68,6 +68,7 @@ server_thread: ^thread.Thread
 
 @(init)
 init :: proc() {
+  fmt.println(#directory)
   //Initialisation steps
   rl.InitWindow(1080, 720, "Roll Initiative")
   rl.SetTargetFPS(60)
