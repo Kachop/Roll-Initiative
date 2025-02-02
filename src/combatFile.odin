@@ -90,7 +90,6 @@ CMBT_lexer_tokenize_string :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (r
     value := [dynamic]rune{}
     
     if (rune(lexer.char) != '"') {
-        //fmt.println("Not a string", #line)
         return false
     }
 
@@ -104,7 +103,6 @@ CMBT_lexer_tokenize_string :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (r
     CMBT_lexer_read(lexer)
 
     token^ = CMBT_Token{.CMBT_TOKEN_STRING, utf8.runes_to_string(value[:]), pos}
-    //fmt.println("processed string:", value, #line)
     result = true
     return result
 }
@@ -118,7 +116,6 @@ CMBT_lexer_tokenize_number :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (r
     negative := false
 
     if !(((48 <= lexer.char) && (lexer.char <= 57)) || (lexer.char == 46) || (lexer.char == 45)) { //check if it's a digit, decimal or minus
-        //fmt.println("Expected to find digit or ., found neither", lexer.char, #line)
         result = false
         return
     }
@@ -178,7 +175,6 @@ CMBT_lexer_tokenize_number :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (r
 
     CMBT_lexer_read(lexer)
 
-    //fmt.println("Processed number: ", value)
     token^ = CMBT_Token{.CMBT_TOKEN_NUMBER, string(int_to_str(i32(value))), pos}
     return true
 }
@@ -191,7 +187,6 @@ CMBT_lexer_tokenize_field_name :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -
     }
 
     CMBT_lexer_read(lexer)
-    //fmt.println("Going to process value, first digit:", rune(lexer.char), lexer.char)
     result = CMBT_lexer_tokenize_number(lexer, token)
 
     token^ = CMBT_Token{.CMBT_TOKEN_FIELD, token.value, pos}
@@ -200,10 +195,7 @@ CMBT_lexer_tokenize_field_name :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -
 }
 
 CMBT_parser_parse_fields :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token, combat: ^CombatFile) -> (result: bool) {
-    //Parse {} things
-
     if (!CMBT_lexer_next(lexer, token)) {
-        //fmt.println("Failed to get the next token", #line)
         result = false
         return
     }
@@ -215,25 +207,20 @@ CMBT_parser_parse_fields :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token, combat:
     for (token.kind != .CMBT_TOKEN_RSQRLY) {
         fmt.println(token.kind, #line)
         if (!CMBT_parser_parse_object(lexer, token, combat)) {
-            //fmt.println("Failed to parse object value", token.kind, #line)
             result = false
             return
         }
 
         if (!CMBT_lexer_next(lexer, token)) {
-            //fmt.println("Failed to get the next token", #line)
             result = false
             return
         }
-        //fmt.println(token.kind, #line)
     }
-    //fmt.println("Found RSQRLy")
     result = true
     return
 }
 
 CMBT_parser_parse_object :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token, combat: ^CombatFile) -> (result: bool) {
-    //fmt.println("Parse object called with: ", token.kind, token.value)
 
     if (token.kind == .CMBT_TOKEN_STRING) {
         index, ok := match_entity(token.value)
@@ -244,14 +231,11 @@ CMBT_parser_parse_object :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token, combat:
     } else if (token.kind == .CMBT_TOKEN_LSQRLY) {
         result = CMBT_parser_parse_fields(lexer, token, combat)
     } else if (token.kind == .CMBT_TOKEN_FIELD) {
-        //append(&combat.initiatives, str_to_int(token.value))
         combat.entities[len(combat.entities)-1].initiative = str_to_int(token.value)
         result = true
     } else if (token.kind == .CMBT_TOKEN_COMMA) {
-        //Skip over
         result = true
     }
-    //fmt.println("Excitting parse object")
     return
 }
 
@@ -264,41 +248,30 @@ CMBT_lexer_next :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (result: bool
         CMBT_lexer_read(lexer)
         token^ = CMBT_Token{.CMBT_TOKEN_LSQRLY, "", pos}
         result = true
-        //fmt.println("Processing {")
     case '}':
         CMBT_lexer_read(lexer)
         token^ = CMBT_Token{.CMBT_TOKEN_RSQRLY, "", pos}
         result = true
-        //fmt.println("Processing }")
     case '=':
         CMBT_lexer_read(lexer)
         token^ = CMBT_Token{.CMBT_TOKEN_EQUALS, "", pos}
         result = true
-        //fmt.println("Processing =")
     case ',':
         CMBT_lexer_read(lexer)
         token^ = CMBT_Token{.CMBT_TOKEN_COMMA, "", pos}
         result = true
-        //fmt.println("Processing ,")
     case '"':
-        //fmt.println("Processing str")
         return CMBT_lexer_tokenize_string(lexer, token)
     case '0'..='9':
-        //fmt.println("Processing numb")
         return CMBT_lexer_tokenize_number(lexer, token)
     case '-':
-        //fmt.println("Processing numb")
         return CMBT_lexer_tokenize_number(lexer, token)
     case '.':
-        //fmt.println("Processing numb")
         return CMBT_lexer_tokenize_number(lexer, token)
     case 'a'..='z':
-        //fmt.println("processing field name")
         return CMBT_lexer_tokenize_field_name(lexer, token)
     case:
         CMBT_lexer_read(lexer)
-        //fmt.println("Processing exceptions", lexer.char, rune(lexer.char))
-            //Some sort of other character
     }
     result = true
     return
@@ -321,16 +294,13 @@ CMBT_parse_file :: proc(lexer: ^CMBT_Lexer, combat: ^CombatFile) -> (result: boo
     cmbt_token := CMBT_Token{}
 
     fmt.println("Parsing file...", combat.name)
-    //fmt.println(lexer.buffer_length)
 
     if (!CMBT_lexer_next(lexer, &cmbt_token)) {
-        //fmt.println("Failed to get the next token", #line)
         result = false
         return
     }
 
     if (!CMBT_parser_parse_object(lexer, &cmbt_token, combat)) {
-        //fmt.println("Failed to parse file", #line)
         result = false
         return
     }
@@ -338,7 +308,6 @@ CMBT_parse_file :: proc(lexer: ^CMBT_Lexer, combat: ^CombatFile) -> (result: boo
     fmt.println("Parsed object...")
 
     if (CMBT_lexer_read(lexer) != cast(u8)CMBT_Token_Kind.CMBT_TOKEN_EOF) {
-        //fmt.println("Expected to fine EOF, didn't", lexer.read_pos, #line)
         result = false
         return
     }
@@ -346,7 +315,7 @@ CMBT_parse_file :: proc(lexer: ^CMBT_Lexer, combat: ^CombatFile) -> (result: boo
     return
 }
 
-read_combat_file :: proc(filename: string, setupState: ^SetupState) -> (combat: CombatFile) {
+read_combat_file :: proc(filename: string, setupState: ^SetupScreenState) -> (combat: CombatFile) {
     buffer := rl.LoadFileText(strings.clone_to_cstring(filename))
     lexer := CMBT_Lexer{}
     CMBT_lexer_init(&lexer, buffer, i32(len(cstring(buffer))))
@@ -373,7 +342,7 @@ writeCombatFile :: proc(filename: string, combat: CombatFile) -> (result: bool) 
     line_string = "}"
     file_string = strings.join([]string{file_string, line_string}, "")
 
-    return rl.SaveFileText(strings.clone_to_cstring(strings.join([]string{CONFIG.COMBAT_FILES_PATH, filename}, FILE_SEPERATOR)), raw_data(file_string))
+    return rl.SaveFileText(strings.clone_to_cstring(strings.join([]string{state.config.COMBAT_FILES_PATH, filename}, FILE_SEPERATOR)), raw_data(file_string))
 }
 
 isSpace :: proc(char: u8) -> bool {

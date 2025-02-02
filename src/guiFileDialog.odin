@@ -3,38 +3,7 @@ package main
 import "core:strings"
 import rl "vendor:raylib"
 
-GuiFileDialogState :: struct {
-  first_load: bool,
-  dir_nav_list: [dynamic]cstring,
-  current_dir_index: u32,
-  current_dir: cstring,
-  files_list: [dynamic]cstring,
-  dirs_list: [dynamic]cstring,
-  selected_file: cstring,
-  panelRec: rl.Rectangle,
-  panelContentRec: rl.Rectangle,
-  panelView: rl.Rectangle,
-  panelScroll: rl.Vector2,
-}
-
-InitFileDialog :: proc(fileDialogState: ^GuiFileDialogState) {
-  fileDialogState.first_load = true
-  fileDialogState.dir_nav_list = [dynamic]cstring{}
-  fileDialogState.current_dir_index = 0
-  fileDialogState.current_dir = current_dir
-  fileDialogState.files_list = [dynamic]cstring{}
-  fileDialogState.dirs_list = [dynamic]cstring{}
-  fileDialogState.selected_file = nil
-  fileDialogState.panelRec = {0, 0, 0, 0}
-  fileDialogState.panelContentRec = {}
-  fileDialogState.panelView = {0, 0, 0, 0}
-  fileDialogState.panelScroll = {0, 0}
-
-  getCurrentDirFiles(fileDialogState)
-  append(&fileDialogState.dir_nav_list, current_dir)
-}
-
-GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -> bool {
+GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^LoadScreenState) -> bool {
   using state.gui_properties
   
   cursor_x : f32 = rec.x
@@ -50,7 +19,7 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
 
     inject_at(&fileDialogState.dir_nav_list, fileDialogState.current_dir_index, outer_directory)
     fileDialogState.current_dir = outer_directory
-    getCurrentDirFiles(fileDialogState)
+    get_current_dir_files(fileDialogState)
   }
   cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
 
@@ -58,7 +27,7 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
     if (fileDialogState.current_dir_index < (cast(u32)len(fileDialogState.dir_nav_list) - 1)) {
       fileDialogState.current_dir = fileDialogState.dir_nav_list[fileDialogState.current_dir_index + 1]
       fileDialogState.current_dir_index += 1
-      getCurrentDirFiles(fileDialogState)
+      get_current_dir_files(fileDialogState)
     }
   }
   cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
@@ -87,7 +56,7 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
     //State reset in case of going in and out of loading screen.
     fileDialogState.selected_file = nil
     fileDialogState.first_load = false
-    fileDialogState.panelContentRec = {
+    fileDialogState.panel.contentRec = {
       cursor_x,
       cursor_y,
       panel_width,
@@ -101,7 +70,7 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
       panel_height,
     }, "Files")
 
-  fileDialogState.panelRec = {
+  fileDialogState.panel.rec = {
     cursor_x,
     cursor_y + 23,
     panel_width,
@@ -109,12 +78,10 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
   }
   
   cursor_x += PADDING_ICONS
-  cursor_y += PADDING_ICONS + 23 + fileDialogState.panelScroll.y
+  cursor_y += PADDING_ICONS + 23 + fileDialogState.panel.scroll.y
 
-  //Break the current width and height into a grid, draw all folders files in current directory
-
-  icons_per_row := cast(i32)(fileDialogState.panelContentRec.width / (ICON_SIZE + PADDING_ICONS))
-  num_rows_max := cast(i32)((fileDialogState.panelRec.height - PADDING_TOP - PADDING_BOTTOM) / (ICON_SIZE + PADDING_ICONS))
+  icons_per_row := cast(i32)(fileDialogState.panel.contentRec.width / (ICON_SIZE + PADDING_ICONS))
+  num_rows_max := cast(i32)((fileDialogState.panel.rec.height - PADDING_TOP - PADDING_BOTTOM) / (ICON_SIZE + PADDING_ICONS))
 
   file_counter : u32 = 0
   dir_count : u32 = cast(u32)len(fileDialogState.dirs_list)
@@ -126,20 +93,20 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
     num_rows_needed = cast(f32)cast(i32)(num_rows_needed) + 1
   }
 
-  dynamic_icon_padding := cast(f32)((cast(i32)fileDialogState.panelContentRec.width % (icons_per_row * cast(i32)ICON_SIZE)) / (icons_per_row + 1))
+  dynamic_icon_padding := cast(f32)((cast(i32)fileDialogState.panel.contentRec.width % (icons_per_row * cast(i32)ICON_SIZE)) / (icons_per_row + 1))
 
   if (dynamic_icon_padding < PADDING_ICONS) {
     dynamic_icon_padding = PADDING_ICONS
   }
   
   if (cast(i32)num_rows_needed > num_rows_max) {
-    fileDialogState.panelContentRec.width = panel_width - 14
-    fileDialogState.panelContentRec.height = (num_rows_needed * ICON_SIZE + PADDING_ICONS) + (PADDING_ICONS * 2) + 69
-    rl.GuiScrollPanel(fileDialogState.panelRec, nil, fileDialogState.panelContentRec, &fileDialogState.panelScroll, &fileDialogState.panelView)
+    fileDialogState.panel.contentRec.width = panel_width - 14
+    fileDialogState.panel.contentRec.height = (num_rows_needed * ICON_SIZE + PADDING_ICONS) + (PADDING_ICONS * 2) + 69
+    rl.GuiScrollPanel(fileDialogState.panel.rec, nil, fileDialogState.panel.contentRec, &fileDialogState.panel.scroll, &fileDialogState.panel.view)
 
-    rl.BeginScissorMode(cast(i32)fileDialogState.panelView.x, cast(i32)fileDialogState.panelView.y, cast(i32)fileDialogState.panelView.width, cast(i32)fileDialogState.panelView.height)
+    rl.BeginScissorMode(cast(i32)fileDialogState.panel.view.x, cast(i32)fileDialogState.panel.view.y, cast(i32)fileDialogState.panel.view.width, cast(i32)fileDialogState.panel.view.height)
   } else {
-    fileDialogState.panelContentRec.width = panel_width
+    fileDialogState.panel.contentRec.width = panel_width
   }
 
   draw_loop: for _ in 0..<num_rows_needed {
@@ -155,7 +122,7 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
             //Folder clicked, change this to be current folder.
             inject_at(&fileDialogState.dir_nav_list, fileDialogState.current_dir_index, fileDialogState.dirs_list[file_counter])
             fileDialogState.current_dir = fileDialogState.dirs_list[file_counter]
-            getCurrentDirFiles(fileDialogState)
+            get_current_dir_files(fileDialogState)
             break draw_loop
           }
           state.gui_properties.TEXT_SIZE = 20
@@ -180,12 +147,12 @@ GuiFileDialog :: proc(rec: rl.Rectangle, fileDialogState: ^GuiFileDialogState) -
   if (cast(i32)num_rows_needed > num_rows_max) {
     rl.EndScissorMode()
   } else {
-    fileDialogState.panelScroll.y = 0
+    fileDialogState.panel.scroll.y = 0
   }
   return false
 }
 
-getCurrentDirFiles :: proc(fileDialogState: ^GuiFileDialogState) {
+get_current_dir_files :: proc(fileDialogState: ^LoadScreenState) {
   file_list := rl.LoadDirectoryFiles(fileDialogState.current_dir)
   clear(&fileDialogState.dirs_list)
   clear(&fileDialogState.files_list)

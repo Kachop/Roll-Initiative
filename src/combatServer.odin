@@ -63,7 +63,7 @@ get_ip_linux :: proc() -> (ip_string: string, err: os2.Error) {
     fields := ip_info.(json.Object)
     if fields["operstate"].(string) == "UP" {
       ip_string = fields["addr_info"].(json.Array)[0].(json.Object)["local"].(string)
-      CONFIG.IP_ADDRESS = str_to_ipaddr(ip_string)
+      state.config.IP_ADDRESS = str_to_ipaddr(ip_string)
     }
   }
   return
@@ -97,14 +97,14 @@ run_combat_server :: proc() {
 
   routed := http.router_handler(&router)
 
-	log.info("Listening on ", CONFIG.IP_ADDRESS, ":", CONFIG.PORT)
+	log.info("Listening on ", state.config.IP_ADDRESS, ":", state.config.PORT)
 
-	err := http.listen_and_serve(&s, routed, net.Endpoint{address = CONFIG.IP_ADDRESS, port = CONFIG.PORT})
+	err := http.listen_and_serve(&s, routed, net.Endpoint{address = state.config.IP_ADDRESS, port = state.config.PORT})
 	fmt.assertf(err == nil, "server stopped with error: %v", err)
 }
 
 index :: proc(req: ^http.Request, res: ^http.Response) {
-	http.respond_file(res, CONFIG.WEBPAGE_FILE_PATH)
+	http.respond_file(res, state.config.WEBPAGE_FILE_PATH)
 }
 
 event :: proc(req: ^http.Request, res: ^http.Response) {

@@ -34,7 +34,8 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "Common, Draconic",
-		"img_url": "/run/media/kachop/Guido/Development/Odin/Roll-Initiative-master/Custom entities/images/Darty_small.png"
+		"img_url": "/run/media/kachop/Guido/Development/Odin/Roll-Initiative/Custom entities/images/Darty_small.png",
+		"img_border": ""
 	},
 	{
 		"Name": "Sera",
@@ -71,6 +72,45 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "",
-		"img_url": "/run/media/kachop/Guido/Development/Odin/Roll-Initiative-master/Custom entities/images/Sera_small.png"
+		"img_url": "/run/media/kachop/Guido/Development/Odin/Roll-Initiative/Custom entities/images/Sera_small.png",
+		"img_border": ""
+	},
+	{
+		"Name": "Belasar",
+		"Race": "Half-OrcMedium",
+		"Size": "Medium",
+		"Type": "player",
+		"Armour Class": 18,
+		"Hit Points": 48,
+		"Hit Points Max": 48,
+		"Temp Hit Points": 0,
+		"Speed": "",
+		"STR": 20,
+		"STR_mod": 5,
+		"STR_save": 0,
+		"DEX": 10,
+		"DEX_mod": 0,
+		"DEX_save": 0,
+		"CON": 14,
+		"CON_mod": 2,
+		"CON_save": 0,
+		"INT": 0,
+		"INT_mod": -5,
+		"INT_save": 0,
+		"WIS": 10,
+		"WIS_mod": 0,
+		"WIS_save": 0,
+		"CHA": 10,
+		"CHA_mod": 0,
+		"CHA_save": 0,
+		"Skills": "",
+		"Damage Vulnerabilities": [],
+		"Damage Resistances": [],
+		"Damage Immunities": [],
+		"Condition Immunities": [],
+		"Senses": "",
+		"Languages": "",
+		"img_url": "/run/media/kachop/Guido/Development/Odin/Roll-Initiative/Custom entities/images/Belasar_small.png",
+		"img_border": ""
 	}
 ]

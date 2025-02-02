@@ -280,7 +280,7 @@ match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
     return
 }
 
-combat_to_json :: proc(combatState: CombatState) {
+combat_to_json :: proc(combatState: CombatScreenState) {
     //Convert current combat state to json string.
     /*{
         "combat_timer": 154,
@@ -384,8 +384,6 @@ combat_to_json :: proc(combatState: CombatState) {
     
     result = strings.join([]string{result, "]}"}, "")
     
-    fmt.println(result)
-
     serverState.json_data = result
     //delete(result)
     return

@@ -32,18 +32,19 @@ Config :: struct {
 }
 
 LOAD_CONFIG :: proc(config: ^Config) {
-  file_data, ok := os.read_entire_file(fmt.tprint(app_dir, "config.json", sep=FILE_SEPERATOR))
+  file_data, ok := os.read_entire_file(fmt.tprint(#directory, "../config.json", sep=""))
   if (ok) {
     config_json, err := json.parse(file_data)
     if (err == .None) {
       config_fields := config_json.(json.Object)
 
-      config.ENTITY_FILE_PATH = config_fields["entity_file_path"].(string) if ("entity_file_path" in config_fields) else ""
-      config.CUSTOM_ENTITY_PATH = "Custom entities"
+      config.ENTITY_FILE_PATH = fmt.tprint(#directory, "../", config_fields["entity_file_path"].(string), sep="") if ("entity_file_path" in config_fields) else ""
+      fmt.println(config.ENTITY_FILE_PATH)
+      config.CUSTOM_ENTITY_PATH = fmt.tprint(#directory, "../Custom entities/", sep="")
       config.CUSTOM_ENTITY_FILE = config_fields["custom_entity_file_path"].(string) if ("custom_entity_file_path" in config_fields) else ""
       config.CUSTOM_ENTITY_FILE_PATH = fmt.tprint(config.CUSTOM_ENTITY_PATH, config.CUSTOM_ENTITY_FILE, sep=FILE_SEPERATOR)
-      config.WEBPAGE_FILE_PATH = config_fields["webpage_file_path"].(string) if ("webpage_file_path" in config_fields) else ""
-      config.COMBAT_FILES_PATH = config_fields["combat_files_path"].(string) if ("combat_files_path" in config_fields) else ""
+      config.WEBPAGE_FILE_PATH = fmt.tprint(#directory, "../", config_fields["webpage_file_path"].(string), sep="") if ("webpage_file_path" in config_fields) else ""
+      config.COMBAT_FILES_PATH = fmt.tprint(#directory, "../", config_fields["combat_files_path"].(string)) if ("combat_files_path" in config_fields) else ""
     } else {
       fmt.println("Error parsing JSON file, ", err)
     }
@@ -64,8 +65,11 @@ LOAD_CONFIG :: proc(config: ^Config) {
   config.DROPDOWN_SELECTED_COLOUR = rl.DARKBLUE
 }
 
+unload_config :: proc(config: ^Config) {
+}
+
 SAVE_CONFIG :: proc(config: Config) {
-  //Save the current config to file.  
+  //Save the current config to file. 
   file_string : string = "{\n\t"
   file_string = fmt.tprintf("%v\"entity_file_path\": \"%v\",\n\t", file_string, config.ENTITY_FILE_PATH)
   file_string = fmt.tprintf("%v\"custom_entities_path\": \"%v\",\n\t", file_string, config.CUSTOM_ENTITY_PATH)

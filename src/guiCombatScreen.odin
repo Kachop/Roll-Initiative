@@ -45,65 +45,10 @@ Condition :: enum {
   EXHAUSTION,
 }
 
-CombatState :: struct {
-    first_load: bool,
-    entities: [dynamic]Entity,
-    current_entity_index: i32,
-    current_entity: ^Entity,
-    current_round: i32,
-    turn_timer: time.Stopwatch,
-    combat_timer: time.Stopwatch,
-    panelLeft: PanelState,
-    panelMid: PanelState,
-    scroll_lock_mid: bool,
-    height_needed_mid: f32,
-    from_dropdown: DropdownState,
-    to_dropdown: DropdownSelectState,
-    dmg_type_selected: DamageType,
-    dmg_type_dropdown: DropdownState,
-    dmg_input: TextInputState,
-    heal_input: TextInputState,
-    condition_dropdown: DropdownState,
-    temp_HP_input: TextInputState,
-    panelRight: PanelState,
-    json_data: string,
-    stats_lines_needed: f32,
-}
-
-InitCombatState :: proc(combatState: ^CombatState) {
-    combatState.first_load = true
-    combatState.entities = [dynamic]Entity{}
-    combatState.current_entity_index = 0
-    combatState.current_entity = nil
-    combatState.current_round = 1
-    combatState.turn_timer = time.Stopwatch{}
-    combatState.combat_timer = time.Stopwatch{}
-    InitPanelState(&combatState.panelLeft)
-    InitPanelState(&combatState.panelMid)
-    InitDropdownState(&combatState.from_dropdown, "From:", []cstring{})
-    InitDropdownSelectState(&combatState.to_dropdown, "To:", []cstring{})
-    dmg_type_options := [dynamic]cstring{"Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
-    InitDropdownState(&combatState.dmg_type_dropdown, "Type:", dmg_type_options[:])
-    InitTextInputState(&combatState.dmg_input)
-    InitTextInputState(&combatState.heal_input)
-    conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconsious", "Exhaustion"}
-    InitDropdownState(&combatState.condition_dropdown, "Condition:", conditions[:])
-    InitTextInputState(&combatState.temp_HP_input)
-    InitPanelState(&combatState.panelRight)
-    combatState.json_data = "{}"
-    combatState.stats_lines_needed = 0
-    //delete(dmg_type_options)
-    //delete(conditions)
-}
-
-DeInitCombatState :: proc(combatState: ^CombatState) {
-  delete(combatState.entities)
-}
-
 dropdown_btn_list: [dynamic]i32
 dropdown_btn_list_active: [dynamic]^bool
 
-GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
+GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     using state.gui_properties
 
     cursor_x : f32 = PADDING_LEFT
@@ -119,7 +64,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE_DEFAULT)
     
     if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
-        state.current_view_index -= 1
+        state.current_screen_state = state.setup_screen_state
         combatState.first_load = true
         return
     }
@@ -242,7 +187,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
         panel_height - entity_select_button_height,
     }
     //Text header
-    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)entity_select_button_height, CONFIG.HEADER_COLOUR)
+    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)entity_select_button_height, state.config.HEADER_COLOUR)
     //Text
     turn_text := fmt.ctprintf("Round %v:", combatState.current_round)
     fit_text(turn_text, panel_width / 2, &TEXT_SIZE)
@@ -303,7 +248,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
         },
         "Combat Controls")
 
-    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)50, CONFIG.HEADER_COLOUR)
+    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)50, state.config.HEADER_COLOUR)
     rl.GuiLabel({cursor_x, cursor_y, panel_width, 50}, "Combat Controls")
     cursor_y += 50
 
@@ -353,9 +298,9 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
         }
     }
  
-    if (combatState.height_needed_mid > draw_height) {
+    if (combatState.panelMid.height_needed > draw_height) {
         combatState.panelMid.contentRec.width = panel_width - 14
-        combatState.panelMid.contentRec.height = combatState.height_needed_mid
+        combatState.panelMid.contentRec.height = combatState.panelMid.height_needed
         draw_width = panel_width - (PANEL_PADDING * 2) - 14
         //rl.DrawRectangle(cast(i32)combatState.panelMid.rec.x, cast(i32)combatState.panelMid.rec.y, cast(i32)combatState.panelMid.rec.width, cast(i32)combatState.panelMid.rec.height, rl.ColorAlpha(rl.WHITE, 1))
         rl.GuiLine({combatState.panelMid.rec.x, combatState.panelMid.rec.y, combatState.panelMid.rec.width, 5}, "") 
@@ -371,7 +316,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
 
     {
         cursor_y += PANEL_PADDING + combatState.panelMid.scroll.y
-        combatState.height_needed_mid = 0
+        combatState.panelMid.height_needed = 0
         start_y := cursor_y
         rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Damage")
         cursor_x += draw_width / 2
@@ -477,10 +422,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
 
         if rl.GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {}
         cursor_y += line_height_mid + PANEL_PADDING
-        combatState.height_needed_mid = cursor_y - start_y
+        combatState.panelMid.height_needed = cursor_y - start_y
     }
   
-    if (combatState.height_needed_mid > draw_height) {
+    if (combatState.panelMid.height_needed > draw_height) {
         rl.EndScissorMode()
     } else {
         combatState.panelMid.scroll.y = 0
@@ -499,7 +444,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatState) {
         },
         "Entity Info")
 
-    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, 50, CONFIG.HEADER_COLOUR)
+    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, 50, state.config.HEADER_COLOUR)
     rl.GuiLabel({cursor_x, cursor_y, panel_width, 50}, "Entity Info")
     cursor_y += 50 
   
@@ -561,11 +506,11 @@ GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entit
 
     mouse_pos := rl.GetMousePosition()
     //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, CONFIG.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, CONFIG.BUTTON_COLOUR)
+    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
+    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
 
     if rl.CheckCollisionPointRec(mouse_pos, rec) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(CONFIG.BUTTON_HOVER_COLOUR, 0.2))
+        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
         
         if rl.IsMouseButtonDown(.LEFT) {
             clicked = true
@@ -630,8 +575,8 @@ GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index:
     width := rec.width
     height := rec.height
     //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, CONFIG.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, CONFIG.BUTTON_COLOUR)
+    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
+    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
     
     initial_text_size := TEXT_SIZE_DEFAULT
     
@@ -736,11 +681,11 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
     if dropdown_state.active {
         
         if (cast(i32)len(dropdown_state.labels) >= max_items) {
-            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, CONFIG.BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * max_items) - (border * 2), CONFIG.DROPDOWN_COLOUR)
+            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, state.config.BUTTON_BORDER_COLOUR)
+            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * max_items) - (border * 2), state.config.DROPDOWN_COLOUR)
         } else {
-            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * cast(i32)len(dropdown_state.labels), CONFIG.BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * cast(i32)len(dropdown_state.labels)) - (border * 2), CONFIG.DROPDOWN_COLOUR)
+            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * cast(i32)len(dropdown_state.labels), state.config.BUTTON_BORDER_COLOUR)
+            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * cast(i32)len(dropdown_state.labels)) - (border * 2), state.config.DROPDOWN_COLOUR)
         }
         
         if (cast(i32)len(dropdown_state.labels) > max_items) {
@@ -748,18 +693,18 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
             dropdownContentRec.height = cast(f32)len(dropdown_state.labels) * cast(f32)line_height
             rl.GuiScrollPanel(dropdownRec, nil, dropdownContentRec, &dropdownScroll, &dropdownView)
             rl.BeginScissorMode(cast(i32)dropdownView.x, cast(i32)dropdownView.y, cast(i32)dropdownView.width, cast(i32)dropdownView.height)
-            rl.ClearBackground(CONFIG.DROPDOWN_COLOUR)
+            rl.ClearBackground(state.config.DROPDOWN_COLOUR)
         } else {
             dropdownContentRec.width = width
         }
         
         currently_selected := rl.Rectangle{x, y + height + (cast(f32)dropdown_state.selected * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)line_height}
-        rl.DrawRectangle(cast(i32)currently_selected.x, cast(i32)currently_selected.y, cast(i32)currently_selected.width, cast(i32)currently_selected.height, rl.ColorAlpha(CONFIG.DROPDOWN_SELECTED_COLOUR, 0.2))
+        rl.DrawRectangle(cast(i32)currently_selected.x, cast(i32)currently_selected.y, cast(i32)currently_selected.width, cast(i32)currently_selected.height, rl.ColorAlpha(state.config.DROPDOWN_SELECTED_COLOUR, 0.2))
         
         for i in 0..<len(dropdown_state.labels) {
             option_bounds := rl.Rectangle{x, y + height + (cast(f32)i * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)line_height}
             if rl.CheckCollisionPointRec(mouse_pos, option_bounds) {
-                rl.DrawRectangle(cast(i32)option_bounds.x, cast(i32)option_bounds.y, cast(i32)option_bounds.width, cast(i32)option_bounds.height, rl.ColorAlpha(CONFIG.DROPDOWN_HOVER_COLOUR, 0.2))
+                rl.DrawRectangle(cast(i32)option_bounds.x, cast(i32)option_bounds.y, cast(i32)option_bounds.width, cast(i32)option_bounds.height, rl.ColorAlpha(state.config.DROPDOWN_HOVER_COLOUR, 0.2))
                 //Draw highlight colour
                 if rl.IsMouseButtonPressed(.LEFT) {
                     dropdown_state.selected = cast(i32)i
@@ -789,8 +734,8 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
     }
     
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, CONFIG.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), CONFIG.BUTTON_COLOUR)
+    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
+    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
 
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
@@ -844,7 +789,7 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     }
 
     if dropdown_state.active {
-        rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, CONFIG.DROPDOWN_COLOUR)
+        rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, state.config.DROPDOWN_COLOUR)
         if (cast(i32)len(dropdown_state.labels) > max_items) {
             dropdownContentRec.width = width - 14
             dropdownContentRec.height = cast(f32)len(dropdown_state.labels) * cast(f32)line_height
@@ -872,15 +817,15 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
     }
     
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, CONFIG.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), CONFIG.BUTTON_COLOUR)
+    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
+    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
     
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
 }
 
-GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^CombatState) {
+GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^CombatScreenState) {
     using state.gui_properties
 
     current_panel_x := bounds.x
@@ -1077,7 +1022,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
     combatState.stats_lines_needed += 1
 }
 
-resolve_damage :: proc(combatState: ^CombatState) {
+resolve_damage :: proc(combatState: ^CombatScreenState) {
     //Function to resolve damage instances and alter entity HP's.
     //Eventually add logging functionality for statistical output.
     //Add calculation for resistances.
@@ -1103,7 +1048,7 @@ resolve_damage :: proc(combatState: ^CombatState) {
     }
 }
 
-resolve_healing :: proc(combatState: ^CombatState) {
+resolve_healing :: proc(combatState: ^CombatScreenState) {
     //Same as dmg function but for healing
     heal_amount : i32 = str_to_int(string(combatState.heal_input.text))
     
@@ -1116,7 +1061,7 @@ resolve_healing :: proc(combatState: ^CombatState) {
     }
 }
 
-resolve_temp_HP :: proc(combatState: ^CombatState) {
+resolve_temp_HP :: proc(combatState: ^CombatScreenState) {
   HP_amount : i32 = str_to_int(string(combatState.temp_HP_input.text))
 
   for &entity, i in combatState.entities {

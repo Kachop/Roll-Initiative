@@ -7,88 +7,6 @@ import "core:os"
 import "core:strings"
 import rl "vendor:raylib"
 
-EntityScreenState :: struct {
-  first_load: bool,
-  entity_edit_mode: bool,
-  entity_to_edit: i32,
-  height_needed: f32,
-  panelLeft: PanelState,
-  panelMid: PanelState,
-  panelRight: PanelState,
-  img_file_paths: []string,
-  border_file_paths: []string,
-  icons: []rl.Texture,
-  borders: []rl.Texture,
-  current_icon_index: i32,
-  current_border_index: i32,
-  name_input: TextInputState,
-  race_input: TextInputState,
-  size_input: TextInputState,
-  type_dropdown: DropdownState,
-  AC_input: TextInputState,
-  HP_input: TextInputState,
-  HP_max_input: TextInputState,
-  temp_HP_input: TextInputState,
-  speed_input: TextInputState,
-  STR_input: TextInputState,
-  DEX_input: TextInputState,
-  CON_input: TextInputState,
-  INT_input: TextInputState,
-  WIS_input: TextInputState,
-  CHA_input: TextInputState,
-  STR_save_input: TextInputState,
-  DEX_save_input: TextInputState,
-  CON_save_input: TextInputState,
-  INT_save_input: TextInputState,
-  WIS_save_input: TextInputState,
-  CHA_save_input: TextInputState,
-  DMG_vulnerable_input: TextInputState,
-  DMG_resist_input: TextInputState,
-  DMG_immune_input: TextInputState,
-  languages_input: TextInputState,
-}
-
-InitEntityScreenState :: proc(entityScreenState: ^EntityScreenState) {
-  InitPanelState(&entityScreenState.panelLeft)
-  InitPanelState(&entityScreenState.panelMid)
-  InitPanelState(&entityScreenState.panelRight)
-
-  temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(CONFIG.CUSTOM_ENTITY_PATH, "images", sep=FILE_SEPERATOR))
-  file_infos, err := os.read_dir(dir_handle, 0)
-
-  reload_icons(entityScreenState)
-  reload_borders(entityScreenState)
-
-  type_options := [dynamic]cstring{"player", "NPC", "monster"}
-  InitTextInputState(&entityScreenState.name_input)
-  InitTextInputState(&entityScreenState.race_input)
-  InitTextInputState(&entityScreenState.size_input)
-  InitDropdownState(&entityScreenState.type_dropdown, "", type_options[:])
-  InitTextInputState(&entityScreenState.AC_input)
-  InitTextInputState(&entityScreenState.HP_input)
-  InitTextInputState(&entityScreenState.HP_max_input)
-  InitTextInputState(&entityScreenState.temp_HP_input)
-  InitTextInputState(&entityScreenState.speed_input)
-  InitTextInputState(&entityScreenState.STR_input)
-  InitTextInputState(&entityScreenState.DEX_input)
-  InitTextInputState(&entityScreenState.CON_input)
-  InitTextInputState(&entityScreenState.INT_input)
-  InitTextInputState(&entityScreenState.WIS_input)
-  InitTextInputState(&entityScreenState.CHA_input)
-  InitTextInputState(&entityScreenState.STR_save_input)
-  InitTextInputState(&entityScreenState.DEX_save_input)
-  InitTextInputState(&entityScreenState.CON_save_input)
-  InitTextInputState(&entityScreenState.INT_save_input)
-  InitTextInputState(&entityScreenState.WIS_save_input)
-  InitTextInputState(&entityScreenState.CHA_save_input)
-  InitTextInputState(&entityScreenState.DMG_vulnerable_input)
-  InitTextInputState(&entityScreenState.DMG_resist_input)
-  InitTextInputState(&entityScreenState.DMG_immune_input)
-  InitTextInputState(&entityScreenState.languages_input)
-  entityScreenState.first_load = true
-}
-
 GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
   using state.gui_properties
 
@@ -103,7 +21,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
   if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
     rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
     entityScreenState.first_load = true
-    state.current_view_index -= 1
+    state.current_screen_state = state.title_screen_state
     return
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
@@ -163,7 +81,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     panel_height - LINE_HEIGHT,
   }
 
-  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, CONFIG.HEADER_COLOUR)
+  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, state.config.HEADER_COLOUR)
   rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Edit:")
   cursor_x += panel_width - (LINE_HEIGHT - (PANEL_PADDING * 2)) - PANEL_PADDING
   cursor_y += PANEL_PADDING
@@ -238,7 +156,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
   draw_width = panel_width - (PANEL_PADDING * 2)
 
-  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, CONFIG.HEADER_COLOUR)
+  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, state.config.HEADER_COLOUR)
   rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Entity Options")
   cursor_x += panel_width - (LINE_HEIGHT - (PANEL_PADDING * 2)) - PANEL_PADDING
   cursor_y += PANEL_PADDING
@@ -505,21 +423,21 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           "",
           "",
           "",
-          cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]),
-          cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]),
+          cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]) if len(entityScreenState.img_file_paths) > 0 else "",
+          cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]) if len(entityScreenState.border_file_paths) > 0 else "",
       }
       if !entityScreenState.entity_edit_mode {
-          add_entity_to_file(new_entitiy)
+          add_entity_to_file(new_entitiy, state.config.CUSTOM_ENTITY_FILE_PATH)
       } else {
           //Edit file. Re-write whole file with current entity being replaced.
-          temp_entities_list := load_entities_from_file(CONFIG.CUSTOM_ENTITY_FILE_PATH)
+          temp_entities_list := load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
           defer delete_soa(temp_entities_list)
           temp_entities_list[entityScreenState.entity_to_edit] = new_entitiy
           for entity, i in temp_entities_list {
               if i == 0 {
-                  add_entity_to_file(entity, wipe=true)
+                  add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe=true)
               } else {
-                  add_entity_to_file(entity)
+                  add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)
               }
           }
       }
@@ -548,7 +466,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
   draw_width = panel_width - (PANEL_PADDING * 2)
 
-  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, CONFIG.HEADER_COLOUR)
+  rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, state.config.HEADER_COLOUR)
   rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Icon options")
   cursor_x += panel_width - (LINE_HEIGHT - (PANEL_PADDING * 2)) - PANEL_PADDING
   cursor_y += PANEL_PADDING
@@ -629,6 +547,7 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.DMG_immune_input.text = cstr(strings.join(gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities), ", "))
     entityScreenState.languages_input.text = cstr(entity.languages)
     for file_path, i in entityScreenState.img_file_paths {
+      fmt.println(file_path)
       if cstr(file_path) == entity.img_url {
         entityScreenState.current_icon_index = cast(i32)i
       }
@@ -668,7 +587,7 @@ delete_custom_entity :: proc(index: i32) {
   ordered_remove_soa(&state.custom_entities, index)
 
   for entity, i in state.custom_entities {
-    if i == 0 {add_entity_to_file(entity, wipe=true)} else {add_entity_to_file(entity)}
+    if i == 0 {add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe=true)} else {add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)}
   }
 }
 
@@ -683,7 +602,7 @@ reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   }
 
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(CONFIG.CUSTOM_ENTITY_PATH, "images", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "images", sep=FILE_SEPERATOR))
   defer os.close(dir_handle)
   file_infos, err := os.read_dir(dir_handle, 0)
 
@@ -722,7 +641,7 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   }
 
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(app_dir, "images", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "borders", sep=FILE_SEPERATOR))
   defer os.close(dir_handle)
   file_infos, err := os.read_dir(dir_handle, 0)
 

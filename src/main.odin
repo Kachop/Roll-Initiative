@@ -19,6 +19,7 @@ Features TODO:
 */
 
 cstr :: fmt.ctprint
+str :: fmt.tprint
 
 when ODIN_OS == .Windows {
   FILE_SEPERATOR :: "\\"
@@ -29,10 +30,8 @@ when ODIN_OS == .Windows {
 }
 
 app_title :: "/Roll Initiative"
-app_dir := fmt.tprint(#directory, "../", sep="")
-current_dir :: #directory[:len(#directory)-1]
 
-CONFIG: Config
+//CONFIG: Config
 
 View :: enum {
   TITLE_SCREEN,
@@ -43,32 +42,11 @@ View :: enum {
   ENTITY_SCREEN,
 }
 
-State :: struct {
-  window_width, window_height: f32,
-  views_list: [dynamic]View,
-  current_view_index: u32,
-  srd_entities: #soa[dynamic]Entity,
-  custom_entities: #soa[dynamic]Entity,
-  gui_properties: GuiProperties,
-  hover_consumed: bool,
-}
-
-InitState :: proc(state: ^State) {
-  state.window_width = cast(f32)rl.GetRenderWidth()
-  state.window_height = cast(f32)rl.GetRenderHeight()
-  state.views_list = [dynamic]View{.TITLE_SCREEN}
-  state.current_view_index = 0
-  state.srd_entities = load_entities_from_file(CONFIG.ENTITY_FILE_PATH)
-  state.custom_entities = load_entities_from_file(CONFIG.CUSTOM_ENTITY_FILE_PATH)
-  state.gui_properties = getDefaultProperties()
-}
-
 state: State
 server_thread: ^thread.Thread
 
 @(init)
 init :: proc() {
-  fmt.println(#directory)
   //Initialisation steps
   rl.InitWindow(1080, 720, "Roll Initiative")
   rl.SetTargetFPS(60)
@@ -84,13 +62,13 @@ init :: proc() {
   } else when ODIN_OS == .Linux {
     ip_string, _ = get_ip_linux()
   }
-  LOAD_CONFIG(&CONFIG)
+  //LOAD_CONFIG(&CONFIG)
 
-  InitState(&state)
+  init_state(&state)
 
   server_thread = thread.create_and_start(run_combat_server)
   
-  web_addr := fmt.tprintf("http://%v:%v", ip_string, CONFIG.PORT)
+  web_addr := fmt.tprintf("http://%v:%v", ip_string, state.config.PORT)
   p, err := os2.process_start({
       command = {BROWSER_COMMAND, web_addr},
     })
@@ -102,18 +80,6 @@ init :: proc() {
 
 main :: proc() {
   defer rl.CloseWindow()
- 
-  fileDialogState: GuiFileDialogState
-  setupState: SetupState
-  combatState: CombatState
-  settingsState: SettingsState
-  entityScreenState: EntityScreenState
-
-  InitFileDialog(&fileDialogState)
-  InitSetupState(&setupState)
-  InitCombatState(&combatState)
-  InitSettingsState(&settingsState)
-  InitEntityScreenState(&entityScreenState)
 
   for (!rl.WindowShouldClose()) {
     //Do non-drawing stuff
@@ -125,30 +91,18 @@ main :: proc() {
     rl.BeginDrawing()
     defer rl.EndDrawing()
 
-    rl.ClearBackground(CONFIG.BACKGROUND_COLOUR)
-
-    switch state.views_list[state.current_view_index] {
-    case .TITLE_SCREEN:
-      drawTitleScreen()
-    case .LOAD_SCREEN:
-      drawLoadScreen(&fileDialogState, &setupState)
-    case .SETUP_SCREEN:
-      GuiDrawSetupScreen(&setupState, &combatState)
-    case .COMBAT_SCREEN:
-      GuiDrawCombatScreen(&combatState)
-    case .SETTINGS_SCREEN:
-      GuiDrawSettingsScreen(&settingsState)
-    case .ENTITY_SCREEN:
-      GuiDrawEntityScreen(&entityScreenState)
+    rl.ClearBackground(state.config.BACKGROUND_COLOUR)
+    switch s in &state.current_screen_state {
+    case TitleScreenState: drawTitleScreen()
+    case LoadScreenState: drawLoadScreen(&state.load_screen_state)
+    case SetupScreenState: GuiDrawSetupScreen(&state.setup_screen_state, &state.combat_screen_state)
+    case CombatScreenState: GuiDrawCombatScreen(&state.combat_screen_state)
+    case SettingsScreenState: GuiDrawSettingsScreen(&state.settings_screen_state)
+    case EntityScreenState: GuiDrawEntityScreen(&state.entity_screen_state)
     }
   }
   
-  for texture in entityScreenState.icons {
-    rl.UnloadTexture(texture)
-  }
-
-  delete_soa(state.srd_entities)
-  delete_soa(state.custom_entities)
+  d_init_state(&state)
 
   thread.terminate(server_thread, 0)
   thread.destroy(server_thread)
@@ -163,8 +117,7 @@ drawTitleScreen :: proc() {
   TITLE_BUTTON_WIDTH = state.window_width / 2
 
   if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_GEAR_BIG, ""))) {
-    inject_at(&state.views_list, state.current_view_index+1, View.SETTINGS_SCREEN)
-    state.current_view_index += 1
+    state.current_screen_state = state.settings_screen_state
     return
   }
 
@@ -175,28 +128,25 @@ drawTitleScreen :: proc() {
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
 
   if (rl.GuiButton({cursor_x, cursor_y, TITLE_BUTTON_WIDTH, TITLE_BUTTON_HEIGHT}, "New Combat")) {
-    inject_at(&state.views_list, state.current_view_index+1, View.SETUP_SCREEN)
-    state.current_view_index += 1
+    state.current_screen_state = state.setup_screen_state
     return
   }
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
 
   if (rl.GuiButton({cursor_x, cursor_y, TITLE_BUTTON_WIDTH, TITLE_BUTTON_HEIGHT}, "Load Combat")) {
-    inject_at(&state.views_list, state.current_view_index+1, View.LOAD_SCREEN)
-    state.current_view_index += 1
+    state.current_screen_state = state.load_screen_state
     return
   }
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
 
   if rl.GuiButton({cursor_x, cursor_y, TITLE_BUTTON_WIDTH, TITLE_BUTTON_HEIGHT}, "Add Entity") {
-    inject_at(&state.views_list, state.current_view_index+1, View.ENTITY_SCREEN)
-    state.current_view_index += 1
+    state.current_screen_state = state.entity_screen_state
     return
   }
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_WIDTH
 }
 
-drawLoadScreen :: proc(fileDialogState: ^GuiFileDialogState, setupState: ^SetupState) {
+drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
   using state.gui_properties
 
   cursor_x : f32 = PADDING_LEFT
@@ -205,8 +155,6 @@ drawLoadScreen :: proc(fileDialogState: ^GuiFileDialogState, setupState: ^SetupS
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE_DEFAULT)
 
   if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
-    fileDialogState.first_load = true
-    state.current_view_index -= 1
     return
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
@@ -226,14 +174,13 @@ drawLoadScreen :: proc(fileDialogState: ^GuiFileDialogState, setupState: ^SetupS
   if (GuiFileDialog({cursor_x, cursor_y, state.window_width - PADDING_LEFT - PADDING_RIGHT, state.window_height - cursor_y - PADDING_BOTTOM}, fileDialogState)) {
     //Go to the setup screen and load all the information from the selected file.
     //load_combat(fileDialogState.selected_file)
-    combat := read_combat_file(string(fileDialogState.selected_file), setupState)
-    setupState.entities_selected = combat.entities
+    //combat := read_combat_file(string(fileDialogState.selected_file), state.setup_screen_state)
+    //state.setup_screen_state.entities_selected = combat.entities
     //setupState.initiatives = combat.initiatives
-    inject_at(&state.views_list, state.current_view_index+1, View.SETUP_SCREEN)
-    state.current_view_index += 1
+    state.current_screen_state = state.setup_screen_state
   }
 }
 
 reload_entities :: proc() {
-  state.custom_entities = load_entities_from_file(CONFIG.CUSTOM_ENTITY_FILE_PATH)
+  state.custom_entities = load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
 }

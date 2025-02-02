@@ -80,6 +80,7 @@ Entity :: struct {
 
 load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
   entities: #soa[dynamic]Entity
+  fmt.println(state.config.ENTITY_FILE_PATH)
   file_data, ok :=  os.read_entire_file(filename)
   fmt.println("Loading: ", filename)
   if (ok) {
@@ -152,7 +153,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
   return entities
 }
 
-add_entity_to_file :: proc(entity: Entity, filename: string = CONFIG.CUSTOM_ENTITY_FILE_PATH, wipe: bool = false) {
+add_entity_to_file :: proc(entity: Entity, filename: string = state.config.CUSTOM_ENTITY_FILE_PATH, wipe: bool = false) {
     fmt.println(filename)
     file_data, ok := os.read_entire_file(filename)
     file_string := string(file_data)
