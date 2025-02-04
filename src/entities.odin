@@ -28,6 +28,41 @@ EntitySize :: enum {
   gargantuan,
 }
 
+DamageType :: enum {
+  SLASHING,
+  PIERCING,
+  BLUDGEONING,
+  NON_MAGICAL,
+  POISON,
+  ACID,
+  FIRE,
+  COLD,
+  RADIANT,
+  NECROTIC,
+  LIGHTNING,
+  THUNDER,
+  FORCE,
+  PSYCHIC,
+}
+
+Condition :: enum {
+  BLINDED,
+  CHARMED,
+  DEAFENED,
+  FRIGHTENED,
+  GRAPPLED,
+  INCAPACITATED,
+  INVISIBLE,
+  PARALYZED,
+  PETRIFIED,
+  POISONED,
+  PRONE,
+  RESTRAINED,
+  STUNNED,
+  UNCONSCIOUS,
+  EXHAUSTION,
+}
+
 DamageSet :: bit_set[DamageType]
 
 ConditionSet :: bit_set[Condition]

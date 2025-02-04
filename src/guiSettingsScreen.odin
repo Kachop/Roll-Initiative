@@ -80,5 +80,6 @@ GuiDrawSettingsScreen :: proc(settingsState: ^SettingsScreenState) {
     state.config.COMBAT_FILES_PATH = fmt.tprint(settingsState.combats_dir_input.text)
     SAVE_CONFIG(state.config)
     LOAD_CONFIG(&state.config)
-  } 
+  }
+  cursor_y += LINE_HEIGHT + PANEL_PADDING
 }

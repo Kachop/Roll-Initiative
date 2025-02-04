@@ -56,7 +56,7 @@ SetupScreenState :: struct {
   entities_selected: [dynamic]Entity,
   selected_entity: ^Entity,
   selected_entity_index: int,
-  filter_dropdown: DropdownState,
+  filter_tab: TabControlState,
   panelLeft: PanelState,
   panelMid: PanelState,
   panelRight: PanelState,
@@ -72,8 +72,8 @@ init_setup_screen :: proc(screenState: ^SetupScreenState) {
   screenState.entities_selected = [dynamic]Entity{}
   screenState.selected_entity = nil
   screenState.selected_entity_index = 0
-  entity_types := [dynamic]cstring{"Monster", "Character"}
-  InitDropdownState(&screenState.filter_dropdown, "Entity type:", entity_types[:])
+  options := [dynamic]cstring{"Monsters", "Characters"}
+  InitTabControlState(&screenState.filter_tab, options[:])
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
   InitPanelState(&screenState.panelRight)
@@ -120,9 +120,6 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.combat_timer = time.Stopwatch{}
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
-  InitDropdownState(&screenState.from_dropdown, "From:", []cstring{})
-  InitDropdownSelectState(&screenState.to_dropdown, "To:", []cstring{})
-
   dmg_type_options := [dynamic]cstring{"Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
   InitDropdownState(&screenState.dmg_type_dropdown, "Type:", dmg_type_options[:])
   InitTextInputState(&screenState.dmg_input)

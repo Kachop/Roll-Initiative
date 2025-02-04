@@ -3,6 +3,8 @@
 package main
 
 import "core:fmt"
+import "core:log"
+import "core:mem"
 import "core:strings"
 import rl "vendor:raylib"
 import "core:thread"
@@ -79,6 +81,25 @@ init :: proc() {
 }
 
 main :: proc() {
+  context.logger = log.create_console_logger()
+  
+  default_allocator := context.allocator
+  tracking_allocator: mem.Tracking_Allocator
+  mem.tracking_allocator_init(&tracking_allocator, default_allocator)
+  context.allocator = mem.tracking_allocator(&tracking_allocator)
+
+  reset_tracking_allocator :: proc(a: ^mem.Tracking_Allocator) -> bool {
+    err := false
+
+    for _, value in a.allocation_map {
+      fmt.printf("%v: Leaked %v bytes\n", value.location, value.size)
+      err = true
+    }
+
+    mem.tracking_allocator_reset(a)
+    return err
+  }
+
   defer rl.CloseWindow()
 
   for (!rl.WindowShouldClose()) {
@@ -103,6 +124,10 @@ main :: proc() {
   }
   
   d_init_state(&state)
+
+  free_all(context.temp_allocator)
+
+  //reset_tracking_allocator(&tracking_allocator)
 
   thread.terminate(server_thread, 0)
   thread.destroy(server_thread)

@@ -10,41 +10,6 @@ import rl "vendor:raylib"
 
 frame := 0
 
-DamageType :: enum {
-  SLASHING,
-  PIERCING,
-  BLUDGEONING,
-  NON_MAGICAL,
-  POISON,
-  ACID,
-  FIRE,
-  COLD,
-  RADIANT,
-  NECROTIC,
-  LIGHTNING,
-  THUNDER,
-  FORCE,
-  PSYCHIC,
-}
-
-Condition :: enum {
-  BLINDED,
-  CHARMED,
-  DEAFENED,
-  FRIGHTENED,
-  GRAPPLED,
-  INCAPACITATED,
-  INVISIBLE,
-  PARALYZED,
-  PETRIFIED,
-  POISONED,
-  PRONE,
-  RESTRAINED,
-  STUNNED,
-  UNCONSCIOUS,
-  EXHAUSTION,
-}
-
 dropdown_btn_list: [dynamic]i32
 dropdown_btn_list_active: [dynamic]^bool
 
@@ -170,6 +135,15 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             panel_width,
             0,
         }
+        
+        entity_names: [dynamic]cstring
+        
+        for entity in combatState.entities {
+            append(&entity_names, entity.name)
+            append(&combatState.to_dropdown.selected, false)
+        }
+        InitDropdownState(&combatState.from_dropdown, "From:", entity_names[:])
+        InitDropdownSelectState(&combatState.to_dropdown, "To:", entity_names[:])
     }
 
     rl.GuiPanel(
@@ -258,18 +232,11 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     draw_width = panel_width - (PANEL_PADDING * 2)
     draw_height = panel_height - line_height_mid - PANEL_PADDING - 50
         
-    entity_names := [dynamic]cstring{}
-    for entity in combatState.entities {
-        append(&entity_names, entity.name)
-    }
-    defer delete(entity_names)
-
     //Damage control
     cursor_x_from_dropdown := cursor_x
     cursor_y_from_dropdown := cursor_y
 
-    combatState.from_dropdown.labels = entity_names[:]
-
+    //combatState.from_dropdown.labels = entity_names[:]
     defer GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
     defer register_button(&dropdown_btn_list, 0, &dropdown_btn_list_active, &combatState.from_dropdown.active)
     cursor_x += draw_width / 2
@@ -277,8 +244,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_x_to_dropdown := cursor_x
     cursor_y_to_dropdown := cursor_y
 
-    combatState.to_dropdown.labels = entity_names[:]
-        
+    //combatState.to_dropdown.labels = entity_names[:]
     defer GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
     defer register_button(&dropdown_btn_list, 1, &dropdown_btn_list_active, &combatState.to_dropdown.active)
     cursor_x = current_panel_x + PANEL_PADDING
@@ -302,13 +268,11 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         combatState.panelMid.contentRec.width = panel_width - 14
         combatState.panelMid.contentRec.height = combatState.panelMid.height_needed
         draw_width = panel_width - (PANEL_PADDING * 2) - 14
-        //rl.DrawRectangle(cast(i32)combatState.panelMid.rec.x, cast(i32)combatState.panelMid.rec.y, cast(i32)combatState.panelMid.rec.width, cast(i32)combatState.panelMid.rec.height, rl.ColorAlpha(rl.WHITE, 1))
         rl.GuiLine({combatState.panelMid.rec.x, combatState.panelMid.rec.y, combatState.panelMid.rec.width, 5}, "") 
         if !scroll_locked {
             rl.GuiScrollPanel(combatState.panelMid.rec, nil, combatState.panelMid.contentRec, &combatState.panelMid.scroll, &combatState.panelMid.view)
         }
         rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
-        //rl.ClearBackground(CONFIG.PANEL_BACKGROUND_COLOUR)
     } else {
         combatState.panelMid.contentRec.width = panel_width
         draw_width = panel_width - (PANEL_PADDING * 2)
@@ -330,34 +294,20 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y += line_height_mid + PANEL_PADDING
         
         switch combatState.dmg_type_dropdown.labels[combatState.dmg_type_dropdown.selected] {
-        case "Slashing":
-            combatState.dmg_type_selected = .SLASHING
-        case "Piercing":
-            combatState.dmg_type_selected = .PIERCING
-        case "Bludgeoning":
-            combatState.dmg_type_selected = .BLUDGEONING
-        case "Non-magical":
-            combatState.dmg_type_selected = .NON_MAGICAL
-        case "Poison":
-            combatState.dmg_type_selected = .POISON
-        case "Acid":
-            combatState.dmg_type_selected = .ACID
-        case "Fire":
-            combatState.dmg_type_selected = .FIRE
-        case "Cold":
-            combatState.dmg_type_selected = .COLD
-        case "Radiant":
-            combatState.dmg_type_selected = .RADIANT
-        case "Necrotic":
-            combatState.dmg_type_selected = .NECROTIC
-        case "Lightning":
-            combatState.dmg_type_selected = .LIGHTNING
-        case "Thunder":
-            combatState.dmg_type_selected = .THUNDER
-        case "Force":
-            combatState.dmg_type_selected = .FORCE
-        case "Psychic":
-            combatState.dmg_type_selected = .PSYCHIC
+        case "Slashing": combatState.dmg_type_selected = .SLASHING
+        case "Piercing": combatState.dmg_type_selected = .PIERCING
+        case "Bludgeoning": combatState.dmg_type_selected = .BLUDGEONING
+        case "Non-magical": combatState.dmg_type_selected = .NON_MAGICAL
+        case "Poison": combatState.dmg_type_selected = .POISON
+        case "Acid": combatState.dmg_type_selected = .ACID
+        case "Fire": combatState.dmg_type_selected = .FIRE
+        case "Cold": combatState.dmg_type_selected = .COLD
+        case "Radiant": combatState.dmg_type_selected = .RADIANT
+        case "Necrotic": combatState.dmg_type_selected = .NECROTIC
+        case "Lightning": combatState.dmg_type_selected = .LIGHTNING
+        case "Thunder": combatState.dmg_type_selected = .THUNDER
+        case "Force": combatState.dmg_type_selected = .FORCE
+        case "Psychic": combatState.dmg_type_selected = .PSYCHIC
         }
 
         fit_text("Amount:", draw_width / 3, &TEXT_SIZE)
@@ -743,6 +693,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
 }
 
 GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
+    fmt.println(dropdown_state.title, dropdown_state.labels)
     using state.gui_properties
 
     x := bounds.x

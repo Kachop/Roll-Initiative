@@ -49,6 +49,10 @@ DropdownSelectState :: struct {
 InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstring, labels: []cstring) {
   dropdownState.title = title
   dropdownState.labels = labels
+
+  for _ in dropdownState.labels {
+    append(&dropdownState.selected, false)
+  }
 }
 
 DeInitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState) {

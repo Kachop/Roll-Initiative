@@ -125,47 +125,45 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     panel_height - LINE_HEIGHT,
   }
 
-  num_rows_needed := len(setupState.entities_filtered)
-  num_rows_max := setupState.panelLeft.rec.height / LINE_HEIGHT
-
   {
-    dropdown_x := cursor_x
-    dropdown_y := cursor_y
-
-    defer GuiDropdownControl({dropdown_x, dropdown_y, panel_width, LINE_HEIGHT}, &setupState.filter_dropdown)
-    if setupState.filter_dropdown.selected == 0 {
-      setupState.entities_filtered = state.srd_entities
-    } else if setupState.filter_dropdown.selected == 1 {
-      setupState.entities_filtered = state.custom_entities
+    switch GuiTabControl({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, &setupState.filter_tab) {
+    case 0: setupState.entities_filtered = state.srd_entities
+    case 1: setupState.entities_filtered = state.custom_entities
     }
-
-    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, rl.GRAY)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Available entities")
     cursor_y += LINE_HEIGHT + setupState.panelLeft.scroll.y
-  
-   if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+
+    setupState.panelLeft.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_filtered)-1) + PANEL_PADDING
+
+    if (setupState.panelLeft.height_needed > setupState.panelLeft.rec.height) {
       setupState.panelLeft.contentRec.width = panel_width - 14
-      setupState.panelLeft.contentRec.height = (cast(f32)num_rows_needed * LINE_HEIGHT)
+      setupState.panelLeft.contentRec.height = setupState.panelLeft.height_needed
+      draw_width = panel_width - (PANEL_PADDING * 2) - 14
       rl.GuiScrollPanel(setupState.panelLeft.rec, nil, setupState.panelLeft.contentRec, &setupState.panelLeft.scroll, &setupState.panelLeft.view)
-  
       rl.BeginScissorMode(cast(i32)setupState.panelLeft.view.x, cast(i32)setupState.panelLeft.view.y, cast(i32)setupState.panelLeft.view.width, cast(i32)setupState.panelLeft.view.height)
-      //rl.ClearBackground(CONFIG.PANEL_BACKGROUND_COLOUR)
     } else {
       setupState.panelLeft.contentRec.width = panel_width
+      draw_width = panel_width - (PANEL_PADDING * 2)
     }
 
-    for entity in setupState.entities_filtered {
-      //Check text width needed and reduce size if needed.
-      fit_text(entity.name, setupState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
-      if rl.GuiButton({cursor_x, cursor_y, setupState.panelLeft.contentRec.width, LINE_HEIGHT}, entity.name) && (!setupState.filter_dropdown.active) {
-        append(&setupState.entities_selected, entity)
+    {
+      cursor_x += PANEL_PADDING
+      start_x := cursor_x
+      cursor_y += PANEL_PADDING
+      start_y := cursor_y
+
+      for entity in setupState.entities_filtered {
+        //Check text width needed and reduce size if needed.
+        fit_text(entity.name, setupState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
+        if rl.GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
+          append(&setupState.entities_selected, entity)
+        }
+        cursor_y += LINE_HEIGHT + PANEL_PADDING
+        TEXT_SIZE = initial_text_size
+        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
       }
-      cursor_y += LINE_HEIGHT
-      TEXT_SIZE = initial_text_size
-      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
     }
 
-    if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+    if (setupState.panelLeft.height_needed > setupState.panelLeft.rec.height) {
       rl.EndScissorMode()
     } else {
       setupState.panelLeft.scroll.y = 0
@@ -194,56 +192,62 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)LINE_HEIGHT, state.config.HEADER_COLOUR)
   rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "In Combat")
   cursor_y += LINE_HEIGHT + setupState.panelMid.scroll.y
-   
-  num_rows_needed = len(setupState.entities_selected)
-  num_rows_max = setupState.panelMid.rec.height / LINE_HEIGHT
+
+    setupState.panelMid.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_selected)-1) + PANEL_PADDING 
     
-  if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+  if (setupState.panelMid.height_needed > setupState.panelMid.rec.height) {
     setupState.panelMid.contentRec.width = panel_width - 14
-    setupState.panelMid.contentRec.height = (cast(f32)num_rows_needed * LINE_HEIGHT)
+    setupState.panelMid.contentRec.height = setupState.panelMid.height_needed
+    draw_width = panel_width - (PANEL_PADDING * 2) - 14
     rl.GuiScrollPanel(setupState.panelMid.rec, nil, setupState.panelMid.contentRec, &setupState.panelMid.scroll, &setupState.panelMid.view)
-    
     rl.BeginScissorMode(cast(i32)setupState.panelMid.view.x, cast(i32)setupState.panelMid.view.y, cast(i32)setupState.panelMid.view.width, cast(i32)setupState.panelMid.view.height)
     //rl.ClearBackground(CONFIG.PANEL_BACKGROUND_COLOUR)
   } else {
     setupState.panelMid.contentRec.width = panel_width
-  }
-
-  for _, i in setupState.entities_selected {
-    if GuiEntityButtonClickable({cursor_x, cursor_y, setupState.panelMid.contentRec.width - LINE_HEIGHT, LINE_HEIGHT}, &setupState.entities_selected, cast(i32)i) {
-          setupState.selected_entity = &setupState.entities_selected[i]
-          setupState.selected_entity_index = i
-          setupState.initiative_input.text = cstr(setupState.entities_selected[i].initiative)
-      }
-
-    cursor_x += setupState.panelMid.contentRec.width - LINE_HEIGHT
-
-    if rl.GuiButton(
-      {
-        cursor_x,
-        cursor_y,
-        LINE_HEIGHT,
-        LINE_HEIGHT,
-      },
-      rl.GuiIconText(.ICON_CROSS, ""),
-    ) {
-      if (&setupState.entities_selected[i] == setupState.selected_entity) {
-        setupState.selected_entity = nil
-        setupState.selected_entity_index = 0
-      } else if (i < setupState.selected_entity_index) {
-        setupState.selected_entity_index -= 1
-        setupState.selected_entity = &setupState.entities_selected[setupState.selected_entity_index]
-      }
-      ordered_remove(&setupState.entities_selected, i)
-      //ordered_remove(&setupState.initiatives, i)
-    }
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    draw_width = panel_width - (PANEL_PADDING * 2)
   }
   
-  if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+  {
+    cursor_x += PANEL_PADDING
+    start_x := cursor_x
+    cursor_y += PANEL_PADDING
+    start_y := cursor_y
+
+    for _, i in setupState.entities_selected {
+      if GuiEntityButtonClickable({cursor_x, cursor_y, draw_width - LINE_HEIGHT, LINE_HEIGHT}, &setupState.entities_selected, cast(i32)i) {
+            setupState.selected_entity = &setupState.entities_selected[i]
+            setupState.selected_entity_index = i
+            setupState.initiative_input.text = cstr(setupState.entities_selected[i].initiative)
+        }
+
+      cursor_x += draw_width - LINE_HEIGHT
+
+      if rl.GuiButton(
+        {
+          cursor_x,
+          cursor_y,
+          LINE_HEIGHT,
+          LINE_HEIGHT,
+        },
+        rl.GuiIconText(.ICON_CROSS, ""),
+      ) {
+        if (&setupState.entities_selected[i] == setupState.selected_entity) {
+          setupState.selected_entity = nil
+          setupState.selected_entity_index = 0
+        } else if (i < setupState.selected_entity_index) {
+          setupState.selected_entity_index -= 1
+          setupState.selected_entity = &setupState.entities_selected[setupState.selected_entity_index]
+        }
+        ordered_remove(&setupState.entities_selected, i)
+      }
+      cursor_x = start_x
+      cursor_y += LINE_HEIGHT + PANEL_PADDING
+      TEXT_SIZE = initial_text_size
+      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    }
+  }
+  
+  if (setupState.panelMid.height_needed > setupState.panelMid.rec.height) {
     rl.EndScissorMode()
   } else {
     setupState.panelMid.scroll.y = 0
