@@ -43,8 +43,6 @@
 </head>
 <body>
 	<h1>Roll Initiative</h1>
-	<p>Combat timer: <div id="combat_timer"></div></p>
-	<p>Turn timer: <div id="turn_timer"></div></p>
 	<p>Round: <div id="round"></div></p>
 	<p>Entities: </p>
 	<ol id="entities"></ol>
@@ -57,17 +55,10 @@
 			},
 		});
 
-		var cmbt_timer = document.getElementById("combat_timer");
-		var turn_timer = document.getElementById("turn_timer");
 		var entities = document.getElementById("entities");
-		//events.onmessage = function(e) {
 
 		events.onmessage = function(e) {
-			console.log("Got event");
-			console.log(e);
 			var test = JSON.parse(e.data);
-			cmbt_timer.innerHTML = test.combat_timer;
-			turn_timer.innerHTML = test.turn_timer;
 			round.innerHTML = test.round;
 
 			while (entities.firstChild) {
@@ -76,8 +67,6 @@
 
 			for (var i in test.entities) {
 				var entity = test.entities[i]
-				console.log(entity.name);
-				console.log(entity.img_url)
 				if (entity.visible) {
 					var entry = document.createElement("li");
 					var img = document.createElement("img");
@@ -129,23 +118,6 @@
 				}
 			}
 		};
-
-		//async function fetchAsync(url) {
-		//	let response = await fetch(url, {
-		//		headers: {
-		//			'Content-Type': 'text/event-stream',
-		//			'Cache-Control': 'no-cache',
-		//			'Connection': 'keep-alive'
-		//		},
-		//	});
-		//}
-
-		//function runFunction() {
-		//	console.log("Sending request");
-		//	fetchAsync("http://192.168.0.243:3000/data");
-		//}
-
-		//var t = setInterval(runFunction, 1000);
 	</script>
 </body>
 </html>

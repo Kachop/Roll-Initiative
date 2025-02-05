@@ -103,7 +103,7 @@ CombatScreenState :: struct {
   dmg_type_dropdown: DropdownState,
   dmg_input: TextInputState,
   heal_input: TextInputState,
-  condition_dropdown: DropdownState,
+  condition_dropdown: DropdownSelectState,
   temp_HP_input: TextInputState,
   panelRight: PanelState,
   json_data: string,
@@ -126,7 +126,8 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   InitTextInputState(&screenState.heal_input)
 
   conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconsious", "Exhaustion"}
-  InitDropdownState(&screenState.condition_dropdown, "Condition:", conditions[:])
+  //conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened"}
+  InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:])
   InitTextInputState(&screenState.temp_HP_input)
 
   InitPanelState(&screenState.panelRight)

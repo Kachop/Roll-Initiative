@@ -177,31 +177,37 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_y += entity_select_button_height + combatState.panelLeft.scroll.y
     TEXT_SIZE = initial_text_size
 
-    num_rows_needed := len(combatState.entities)
-    num_rows_max := combatState.panelLeft.rec.height / entity_select_button_height
-  
-    if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+    combatState.panelLeft.height_needed = cast(f32)len(combatState.entities) * (LINE_HEIGHT + PANEL_PADDING) + PANEL_PADDING
+
+    if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
         combatState.panelLeft.contentRec.width = panel_width - 14
-        combatState.panelLeft.contentRec.height = (cast(f32)num_rows_needed * entity_select_button_height)
+        combatState.panelLeft.contentRec.height = combatState.panelLeft.height_needed
+        draw_width = panel_width - (PANEL_PADDING * 2) -14
         rl.GuiScrollPanel(combatState.panelLeft.rec, nil, combatState.panelLeft.contentRec, &combatState.panelLeft.scroll, &combatState.panelLeft.view)
   
         rl.BeginScissorMode(cast(i32)combatState.panelLeft.view.x, cast(i32)combatState.panelLeft.view.y, cast(i32)combatState.panelLeft.view.width, cast(i32)combatState.panelLeft.view.height)
         //rl.ClearBackground(rl.SKYBLUE)
     } else {
         combatState.panelLeft.contentRec.width = panel_width
+        draw_width = panel_width - (PANEL_PADDING * 2)
+    }
+    
+    {
+      cursor_x += PANEL_PADDING
+      cursor_y += PANEL_PADDING
+
+      for _, i in combatState.entities {
+          GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entities, cast(i32)i)
+          if (cast(i32)i == combatState.current_entity_index) {
+              rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
+          }
+          cursor_y += entity_select_button_height + PANEL_PADDING
+          TEXT_SIZE = 30
+          rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+      }
     }
 
-    for _, i in combatState.entities {
-        GuiEntityButton({cursor_x, cursor_y, combatState.panelLeft.contentRec.width, entity_select_button_height}, &combatState.entities, cast(i32)i)
-        if (cast(i32)i == combatState.current_entity_index) {
-            rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)combatState.panelLeft.contentRec.width, cast(i32)entity_select_button_height, rl.ColorAlpha(rl.BLUE, 0.2))
-        }
-        cursor_y += entity_select_button_height
-        TEXT_SIZE = 30
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-
-    if (cast(i32)num_rows_needed > cast(i32)num_rows_max) {
+    if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
         rl.EndScissorMode()
     } else {
         combatState.panelLeft.scroll.y = 0
@@ -236,7 +242,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_x_from_dropdown := cursor_x
     cursor_y_from_dropdown := cursor_y
 
-    //combatState.from_dropdown.labels = entity_names[:]
     defer GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
     defer register_button(&dropdown_btn_list, 0, &dropdown_btn_list_active, &combatState.from_dropdown.active)
     cursor_x += draw_width / 2
@@ -244,7 +249,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_x_to_dropdown := cursor_x
     cursor_y_to_dropdown := cursor_y
 
-    //combatState.to_dropdown.labels = entity_names[:]
     defer GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
     defer register_button(&dropdown_btn_list, 1, &dropdown_btn_list_active, &combatState.to_dropdown.active)
     cursor_x = current_panel_x + PANEL_PADDING
@@ -254,7 +258,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_x - PANEL_PADDING,
         cursor_y,
         panel_width,
-        draw_height,
+        draw_height - PANEL_PADDING,
     }
 
     scroll_locked := false
@@ -276,11 +280,13 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     } else {
         combatState.panelMid.contentRec.width = panel_width
         draw_width = panel_width - (PANEL_PADDING * 2)
-    } 
+    }
 
     {
-        cursor_y += PANEL_PADDING + combatState.panelMid.scroll.y
         combatState.panelMid.height_needed = 0
+
+        cursor_y += PANEL_PADDING + combatState.panelMid.scroll.y
+        combatState.panelMid.height_needed += PANEL_PADDING
         start_y := cursor_y
         rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Damage")
         cursor_x += draw_width / 2
@@ -292,6 +298,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         defer register_button(&dropdown_btn_list, 2, &dropdown_btn_list_active, &combatState.dmg_type_dropdown.active)
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
+
+        defer if combatState.panelMid.height_needed > draw_height {
+            rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
+        }
         
         switch combatState.dmg_type_dropdown.labels[combatState.dmg_type_dropdown.selected] {
         case "Slashing": combatState.dmg_type_selected = .SLASHING
@@ -366,13 +376,17 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_x_conditions := cursor_x
         cursor_y_conditions := cursor_y
 
-        defer GuiDropdownControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
+        defer GuiDropdownSelectControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
         defer register_button(&dropdown_btn_list, 3, &dropdown_btn_list_active, &combatState.condition_dropdown.active)
         cursor_x += draw_width / 2
 
+        defer if combatState.panelMid.height_needed > draw_height {
+            rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
+        }
+
         if rl.GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {}
         cursor_y += line_height_mid + PANEL_PADDING
-        combatState.panelMid.height_needed = cursor_y - start_y
+        combatState.panelMid.height_needed = cursor_y - start_y + PANEL_PADDING
     }
   
     if (combatState.panelMid.height_needed > draw_height) {
@@ -420,8 +434,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         combatState.panelRight.contentRec.width = panel_width
     }
 
-    if (combatState.current_entity != nil) {
-        GuiEntityStats({cursor_x, cursor_y, panel_width, line_height}, combatState.current_entity^, combatState)
+    {
+        if (combatState.current_entity != nil) {
+            GuiEntityStats({cursor_x, cursor_y, panel_width, line_height}, combatState.current_entity^, combatState)
+        }
     }
 
     if (combatState.stats_lines_needed * line_height > combatState.panelRight.rec.height - y_offset) {
@@ -446,335 +462,10 @@ register_button :: proc(buttons: ^[dynamic]i32, button_index: i32, buttons_activ
     }
 }
 
-GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) -> (clicked: bool) {
-    using state.gui_properties
-
-    x := rec.x
-    y := rec.y
-    width := rec.width
-    height := rec.height
-
-    mouse_pos := rl.GetMousePosition()
-    //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
-
-    if rl.CheckCollisionPointRec(mouse_pos, rec) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
-        
-        if rl.IsMouseButtonDown(.LEFT) {
-            clicked = true
-            return
-        }
-    }
-    
-    initial_text_size := TEXT_SIZE_DEFAULT
-    
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-
-    available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
-    fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
-
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
-    
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
-
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (index > 0) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index-1, temp_entity)
-        }
-    }
-    
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (index < cast(i32)len(entity_list^)-1) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index+1, temp_entity)
-        }
-    }
-    //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, int_to_str(entity_list[index].initiative))
-    //Health label
-    health_label_text: cstring
-    if entity_list[index].temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
-    } else {
-        health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
-    }
-
-    fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
-    rl.GuiLabel({x + (width * 0.8), y + (height * 0.05), (width * 0.18), (height * 0.85)}, cstr(health_label_text))
-    //Visibility option 
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
-    rl.GuiSetStyle(.CHECKBOX, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_RIGHT)
-    rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
-    return
-}
-
-GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) {
-    using state.gui_properties
-
-    x := rec.x
-    y := rec.y
-    width := rec.width
-    height := rec.height
-    //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
-    
-    initial_text_size := TEXT_SIZE_DEFAULT
-    
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-
-    available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
-    fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
-
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
-    
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
-
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (index > 0) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index-1, temp_entity)
-        }
-    }
-    
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (index < cast(i32)len(entity_list^)-1) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index+1, temp_entity)
-        }
-    }
-    //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, int_to_str(entity_list[index].initiative))
-    //Health label
-    health_label_text: cstring
-    if entity_list[index].temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
-    } else {
-        health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
-    }
-
-    fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
-    rl.GuiLabel({x + (width * 0.8), y + (height * 0.05), (width * 0.18), (height * 0.85)}, cstr(health_label_text))
-    //Visibility option 
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
-    rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
-}
-
 dropdownRec: rl.Rectangle
 dropdownContentRec: rl.Rectangle
 dropdownView: rl.Rectangle
 dropdownScroll: rl.Vector2
-
-GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
-    using state.gui_properties
-
-    x := bounds.x
-    y := bounds.y
-    width := bounds.width
-    height := bounds.height
-    
-    initial_text_size := TEXT_SIZE
-    initial_scroll_speed := rl.GuiGetStyle(.SCROLLBAR, cast(i32)rl.GuiScrollBarProperty.SCROLL_SPEED)
-    
-    defer {
-        state.gui_properties.TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-    
-    border : i32 : 2
-    line_height : i32 : 50
-    max_items : i32 : 4
-    
-    mouse_pos := rl.GetMousePosition()
-    
-    if rl.IsMouseButtonPressed(.LEFT) {
-        if (rl.CheckCollisionPointRec(mouse_pos, bounds)) {
-            collision := rl.CheckCollisionRecs(dropdownView, bounds)
-            if (!collision || !state.hover_consumed) {
-                if !dropdown_state.active {
-                    for &dropdown_active in dropdown_btn_list_active {
-                        dropdown_active^ = false
-                    }
-                }
-                dropdown_state.active = !dropdown_state.active
-                if (dropdown_state.active) {
-                    dropdownRec = {x, y + height, width, cast(f32)line_height * cast(f32)max_items}
-                    dropdownContentRec = {x, y + height, width, 0}
-                    dropdownView = {0, 0, 0, 0}
-                    dropdownScroll = {0, 0}
-                }
-                if (!collision && !state.hover_consumed) {
-                    state.hover_consumed = !state.hover_consumed
-                } else if (!dropdown_state.active) {
-                    state.hover_consumed = false
-                }
-            fmt.println("Dropdown button clicked")
-            }
-        }
-    }
-    
-    if dropdown_state.active {
-        
-        if (cast(i32)len(dropdown_state.labels) >= max_items) {
-            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, state.config.BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * max_items) - (border * 2), state.config.DROPDOWN_COLOUR)
-        } else {
-            rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * cast(i32)len(dropdown_state.labels), state.config.BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)x + border, cast(i32)(y + height) + border, cast(i32)width - (border * 2), (line_height * cast(i32)len(dropdown_state.labels)) - (border * 2), state.config.DROPDOWN_COLOUR)
-        }
-        
-        if (cast(i32)len(dropdown_state.labels) > max_items) {
-            dropdownContentRec.width = width - 14
-            dropdownContentRec.height = cast(f32)len(dropdown_state.labels) * cast(f32)line_height
-            rl.GuiScrollPanel(dropdownRec, nil, dropdownContentRec, &dropdownScroll, &dropdownView)
-            rl.BeginScissorMode(cast(i32)dropdownView.x, cast(i32)dropdownView.y, cast(i32)dropdownView.width, cast(i32)dropdownView.height)
-            rl.ClearBackground(state.config.DROPDOWN_COLOUR)
-        } else {
-            dropdownContentRec.width = width
-        }
-        
-        currently_selected := rl.Rectangle{x, y + height + (cast(f32)dropdown_state.selected * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)line_height}
-        rl.DrawRectangle(cast(i32)currently_selected.x, cast(i32)currently_selected.y, cast(i32)currently_selected.width, cast(i32)currently_selected.height, rl.ColorAlpha(state.config.DROPDOWN_SELECTED_COLOUR, 0.2))
-        
-        for i in 0..<len(dropdown_state.labels) {
-            option_bounds := rl.Rectangle{x, y + height + (cast(f32)i * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)line_height}
-            if rl.CheckCollisionPointRec(mouse_pos, option_bounds) {
-                rl.DrawRectangle(cast(i32)option_bounds.x, cast(i32)option_bounds.y, cast(i32)option_bounds.width, cast(i32)option_bounds.height, rl.ColorAlpha(state.config.DROPDOWN_HOVER_COLOUR, 0.2))
-                //Draw highlight colour
-                if rl.IsMouseButtonPressed(.LEFT) {
-                    dropdown_state.selected = cast(i32)i
-                    dropdown_state.active = false
-                    state.hover_consumed = false
-                }
-            }
-        }
-        
-        for label, i in dropdown_state.labels {
-            label_string: cstring
-            if !fit_text(label, dropdownContentRec.width- (cast(f32)border * 2), &TEXT_SIZE) {
-                label_string = crop_text(label, dropdownContentRec.width - (cast(f32)border * 2), TEXT_SIZE)
-            } else {
-                label_string = label
-            }
-            rl.GuiLabel({x + (cast(f32)border * 2), y + height + (cast(f32)i * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)line_height}, label_string)
-            rl.GuiLine({x, y + height + (cast(f32)i * cast(f32)line_height) + dropdownScroll.y - (cast(f32)border / 2), dropdownContentRec.width, cast(f32)border}, "")
-            TEXT_SIZE = initial_text_size
-        }
-
-        if (cast(i32)len(dropdown_state.labels) > max_items) {
-            rl.EndScissorMode()
-        } else {
-            dropdownScroll.y = 0
-        }
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-    
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
-
-    title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
-    fit_text(dropdown_state.title, width, &TEXT_SIZE)
-    rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
-}
-
-GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
-    fmt.println(dropdown_state.title, dropdown_state.labels)
-    using state.gui_properties
-
-    x := bounds.x
-    y := bounds.y
-    width := bounds.width
-    height := bounds.height
-
-    initial_text_size := TEXT_SIZE
-
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-    
-    border : i32 : 2
-    line_height : i32 : 50
-    max_items : i32 : 4
-
-    mouse_pos := rl.GetMousePosition()
-    
-    if rl.IsMouseButtonPressed(.LEFT) {
-        if rl.CheckCollisionPointRec(mouse_pos, bounds) {
-            collision := rl.CheckCollisionRecs(dropdownView, bounds)
-            if (!collision || !state.hover_consumed) {
-                if !dropdown_state.active {
-                    for &dropdown_active in dropdown_btn_list_active {
-                        dropdown_active^ = false
-                    }
-                }
-                dropdown_state.active = !dropdown_state.active
-                if (dropdown_state.active) {
-                    dropdownRec = {x, y + height, width, cast(f32)line_height * cast(f32)max_items}
-                    dropdownContentRec = {x, y + height, width, 0}
-                    dropdownView = {0, 0, 0, 0}
-                    dropdownScroll = {0, 0}
-                }
-                if (!collision && !state.hover_consumed) {
-                    state.hover_consumed = !state.hover_consumed
-                } else if (!dropdown_state.active) {
-                    state.hover_consumed = false
-                }
-            }
-        }
-    }
-
-    if dropdown_state.active {
-        rl.DrawRectangle(cast(i32)x, cast(i32)(y + height), cast(i32)width, line_height * max_items, state.config.DROPDOWN_COLOUR)
-        if (cast(i32)len(dropdown_state.labels) > max_items) {
-            dropdownContentRec.width = width - 14
-            dropdownContentRec.height = cast(f32)len(dropdown_state.labels) * cast(f32)line_height
-            rl.GuiScrollPanel(dropdownRec, nil, dropdownContentRec, &dropdownScroll, &dropdownView)
-            rl.BeginScissorMode(cast(i32)dropdownView.x, cast(i32)dropdownView.y, cast(i32)dropdownView.width, cast(i32)dropdownView.height)
-        } else {
-            dropdownContentRec.width = width
-        }
-        for label, i in dropdown_state.labels {
-            label_string: cstring
-            if !fit_text(label, dropdownContentRec.width - (cast(f32)line_height * 0.4) - (cast(f32)border * 2), &TEXT_SIZE) {
-                label_string = crop_text(label, dropdownContentRec.width - (cast(f32)line_height * 0.4) - (cast(f32)border * 2), TEXT_SIZE)
-            } else {
-                label_string = label
-            }
-            rl.GuiCheckBox({x + cast(f32)border, y + height + (cast(f32)i * cast(f32)line_height) + (cast(f32)line_height * 0.3) + dropdownScroll.y, cast(f32)line_height * 0.4 - cast(f32)border, cast(f32)line_height * 0.4}, label_string, &dropdown_state.selected[i])
-            rl.GuiLine({x, y + height + (cast(f32)i * cast(f32)line_height) + dropdownScroll.y, dropdownContentRec.width, cast(f32)border}, "")
-            TEXT_SIZE = initial_text_size
-        }
-        if (cast(i32)len(dropdown_state.labels) > max_items) {
-            rl.EndScissorMode()
-        } else {
-            dropdownScroll.y = 0
-        }
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
-    
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
-    
-    title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
-    fit_text(dropdown_state.title, width, &TEXT_SIZE)
-    rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
-}
 
 GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^CombatScreenState) {
     using state.gui_properties

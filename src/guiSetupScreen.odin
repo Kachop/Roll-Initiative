@@ -56,16 +56,20 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
   if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, ""))) {
-    for &entity in setupState.entities_selected {
-      if (entity.initiative == 0) {
-        entity_roll_initiative(&entity)
+    if len(setupState.entities_selected) > 0 {
+      for &entity in setupState.entities_selected {
+        if (entity.initiative == 0) {
+          entity_roll_initiative(&entity)
+        }
       }
+      combatState.entities = setupState.entities_selected
+      order_by_initiative(&combatState.entities)
+      combatState.current_entity_index = 0
+      combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+      state.current_screen_state = state.combat_screen_state
+    } else {
+      //Pop up a notification that there are no entities in combat
     }
-    combatState.entities = setupState.entities_selected
-    order_by_initiative(&combatState.entities)
-    combatState.current_entity_index = 0
-    combatState.current_entity = &combatState.entities[combatState.current_entity_index]
-    state.current_screen_state = state.combat_screen_state
   }
   cursor_x = start_x
   cursor_y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
@@ -132,7 +136,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     }
     cursor_y += LINE_HEIGHT + setupState.panelLeft.scroll.y
 
-    setupState.panelLeft.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_filtered)-1) + PANEL_PADDING
+    setupState.panelLeft.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_filtered)) + PANEL_PADDING
 
     if (setupState.panelLeft.height_needed > setupState.panelLeft.rec.height) {
       setupState.panelLeft.contentRec.width = panel_width - 14
@@ -147,9 +151,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
 
     {
       cursor_x += PANEL_PADDING
-      start_x := cursor_x
       cursor_y += PANEL_PADDING
-      start_y := cursor_y
 
       for entity in setupState.entities_filtered {
         //Check text width needed and reduce size if needed.
