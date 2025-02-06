@@ -75,7 +75,7 @@ GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entit
         }
     }
     //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, int_to_str(entity_list[index].initiative))
+    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
     //Health label
     health_label_text: cstring
     if entity_list[index].temp_HP > 0 {
@@ -135,7 +135,7 @@ GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index:
         }
     }
     //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, int_to_str(entity_list[index].initiative))
+    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
     //Health label
     health_label_text: cstring
     if entity_list[index].temp_HP > 0 {

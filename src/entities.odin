@@ -423,7 +423,6 @@ get_conditions_json :: proc(immunities: []json.Value) -> (result: ConditionSet) 
     }
   }
   return
-
 }
 
 gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {

@@ -264,7 +264,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.STR_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod := get_modifier(str_to_int(entityScreenState.STR_input.text))
+    mod := get_modifier(to_i32(entityScreenState.STR_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -277,7 +277,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.DEX_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod = get_modifier(str_to_int(entityScreenState.DEX_input.text))
+    mod = get_modifier(to_i32(entityScreenState.DEX_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -290,7 +290,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.CON_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod = get_modifier(str_to_int(entityScreenState.CON_input.text))
+    mod = get_modifier(to_i32(entityScreenState.CON_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -303,7 +303,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.INT_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod = get_modifier(str_to_int(entityScreenState.INT_input.text))
+    mod = get_modifier(to_i32(entityScreenState.INT_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -316,7 +316,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.WIS_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod = get_modifier(str_to_int(entityScreenState.WIS_input.text))
+    mod = get_modifier(to_i32(entityScreenState.WIS_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -329,7 +329,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.CHA_input)
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    mod = get_modifier(str_to_int(entityScreenState.CHA_input.text))
+    mod = get_modifier(to_i32(entityScreenState.CHA_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
     rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
@@ -433,32 +433,32 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           entityScreenState.size_input.text,
           entity_type,
           0,
-          str_to_int(string(entityScreenState.AC_input.text)),
-          str_to_int(string(entityScreenState.HP_max_input.text)),
-          str_to_int(string(entityScreenState.HP_input.text)),
-          str_to_int(string(entityScreenState.temp_HP_input.text)),
+          to_i32(entityScreenState.AC_input.text),
+          to_i32(entityScreenState.HP_max_input.text),
+          to_i32(entityScreenState.HP_input.text),
+          to_i32(entityScreenState.temp_HP_input.text),
           {},
           true,
           true,
           entityScreenState.speed_input.text,
-          str_to_int(string(entityScreenState.STR_input.text)),
-          get_modifier(str_to_int(entityScreenState.STR_input.text)),
-          str_to_int(string(entityScreenState.STR_save_input.text)),
-          str_to_int(string(entityScreenState.DEX_input.text)),
-          get_modifier(str_to_int(entityScreenState.DEX_input.text)),
-          str_to_int(string(entityScreenState.DEX_save_input.text)),
-          str_to_int(string(entityScreenState.CON_input.text)),
-          get_modifier(str_to_int(entityScreenState.CON_input.text)),
-          str_to_int(string(entityScreenState.CON_save_input.text)),
-          str_to_int(string(entityScreenState.INT_input.text)),
-          get_modifier(str_to_int(entityScreenState.INT_input.text)),
-          str_to_int(string(entityScreenState.INT_save_input.text)),
-          str_to_int(string(entityScreenState.WIS_input.text)),
-          get_modifier(str_to_int(entityScreenState.WIS_input.text)),
-          str_to_int(string(entityScreenState.WIS_save_input.text)),
-          str_to_int(string(entityScreenState.CHA_input.text)),
-          get_modifier(str_to_int(entityScreenState.CHA_input.text)),
-          str_to_int(string(entityScreenState.CHA_save_input.text)),
+          to_i32(entityScreenState.STR_input.text),
+          get_modifier(to_i32(entityScreenState.STR_input.text)),
+          to_i32(entityScreenState.STR_save_input.text),
+          to_i32(entityScreenState.DEX_input.text),
+          get_modifier(to_i32(entityScreenState.DEX_input.text)),
+          to_i32(entityScreenState.DEX_save_input.text),
+          to_i32(entityScreenState.CON_input.text),
+          get_modifier(to_i32(entityScreenState.CON_input.text)),
+          to_i32(entityScreenState.CON_save_input.text),
+          to_i32(entityScreenState.INT_input.text),
+          get_modifier(to_i32(entityScreenState.INT_input.text)),
+          to_i32(entityScreenState.INT_save_input.text),
+          to_i32(entityScreenState.WIS_input.text),
+          get_modifier(to_i32(entityScreenState.WIS_input.text)),
+          to_i32(entityScreenState.WIS_save_input.text),
+          to_i32(entityScreenState.CHA_input.text),
+          get_modifier(to_i32(entityScreenState.CHA_input.text)),
+          to_i32(entityScreenState.CHA_save_input.text),
           "",
           get_vulnerabilities_resistances_or_immunities(vulnerabilities[:]),
           get_vulnerabilities_resistances_or_immunities(resistances[:]),

@@ -8,6 +8,7 @@ import "core:math"
 import "core:time"
 import rl "vendor:raylib"
 import "core:encoding/base64"
+import "core:strconv"
 
 getTextWidth :: proc(text: cstring, text_size: i32) -> i32 {
     return rl.MeasureText(text, text_size)
@@ -63,123 +64,18 @@ crop_text :: proc(text: cstring, width: f32, text_size: i32) -> (result: cstring
     return
 }
 
-str_to_int :: proc{
-    cstr_to_int,
-    _str_to_int}
+to_i32 :: proc{to_i32_str, to_i32_cstr}
 
-cstr_to_int :: proc(cstr: cstring) -> i32 {
-    return _str_to_int(string(cstr))
+to_i32_str :: proc(str: string) -> i32 {
+  int_val, ok := strconv.parse_i64(str)
+  if ok {
+    return cast(i32)int_val
+  }
+  return 0
 }
 
-_str_to_int :: proc(str: string) -> i32 {
-    digits : f32 = cast(f32)len(str)
-    current_digit : f32 = 1
-    num : f32 = 0
-    negative: bool
-
-    if str == "" {
-        return 0
-    }
-    
-    if str[0] == '-' {
-        negative = true
-    }
-  
-    for char in str {
-        switch cast(byte)char {
-        case 49:
-            num += 1 * math.pow10(digits - current_digit)
-        case 50:
-            num += 2 * math.pow10(digits - current_digit)
-        case 51:
-            num += 3 * math.pow10(digits - current_digit)
-        case 52:
-            num += 4 * math.pow10(digits - current_digit)
-        case 53:
-            num += 5 * math.pow10(digits - current_digit)
-        case 54:
-            num += 6 * math.pow10(digits - current_digit)
-        case 55:
-            num += 7 * math.pow10(digits - current_digit)
-        case 56:
-            num += 8 * math.pow10(digits - current_digit)
-        case 57:
-            num += 9 * math.pow10(digits - current_digit)
-        }
-        current_digit += 1
-    }
-    if negative {
-        return cast(i32)-num
-    }
-    return cast(i32)num
-}
- 
-int_to_str :: proc(num: i32) -> cstring {
-    num := num
-    digits := 0
-    temp_num := num
-    runes: [dynamic]rune
-    digit_found: bool = false
-  
-    for {
-        digits += 1
-        temp_num = temp_num / 10
-        if temp_num == 0 {
-            break
-        }
-    }
-
-    if (num < 0) {
-        append(&runes, cast(rune)'-')
-    }
-  
-    temp_num = num
-  
-    digit_loop: for i in 0..<digits {
-        temp_num = num
-        digit_finder: for digit_found == false {
-            if ((temp_num >= 0) && (temp_num < 10)) {
-                digit_found = true
-                break digit_finder
-            } else if ((temp_num < 0) && (temp_num > -10)) {
-                digit_found = true
-                break digit_finder
-            }
-            temp_num = (temp_num / 10)
-        }
-        switch temp_num {
-        case 0:
-            append(&runes, cast(rune)48)
-        case 1, -1:
-            append(&runes, cast(rune)49)
-        case 2, -2:
-            append(&runes, cast(rune)50)
-        case 3, -3:
-            append(&runes, cast(rune)51)
-        case 4, -4:
-            append(&runes, cast(rune)52)
-        case 5, -5:
-            append(&runes, cast(rune)53)
-        case 6, -6:
-            append(&runes, cast(rune)54)
-        case 7, -7:
-            append(&runes, cast(rune)55)
-        case 8, -8:
-            append(&runes, cast(rune)56)
-        case 9, -9:
-            append(&runes, cast(rune)57)
-        }
-        if (num >= 0) {
-            num -= cast(i32)(cast(f32)temp_num * math.pow10(cast(f32)digits - (cast(f32)i + 1)))
-            digit_found = false
-        } else if (num < 0) {
-            num += cast(i32)(cast(f32)temp_num * math.pow10(cast(f32)digits - (cast(f32)i + 1)))
-            digit_found = false
-        }
-    }
-    result := cstr(utf8.runes_to_string(runes[:], context.temp_allocator))
-    delete(runes)
-    return result
+to_i32_cstr :: proc(cstr: cstring) -> i32 {
+  return to_i32_str(str(cstr))
 }
 
 order_by_initiative :: proc(entities: ^[dynamic]Entity) {

@@ -72,10 +72,10 @@ get_ip_linux :: proc() -> (ip_string: string, err: os2.Error) {
 str_to_ipaddr :: proc(addr: string) -> (result: net.IP4_Address) {
   values := strings.split(addr, ".")
   result = net.IP4_Address{
-    cast(u8)str_to_int(values[0]),
-    cast(u8)str_to_int(values[1]),
-    cast(u8)str_to_int(values[2]),
-    cast(u8)str_to_int(values[3]),
+    cast(u8)to_i32(values[0]),
+    cast(u8)to_i32(values[1]),
+    cast(u8)to_i32(values[2]),
+    cast(u8)to_i32(values[3]),
   }
   return
 }

@@ -6,6 +6,7 @@ import "core:fmt"
 import rl "vendor:raylib"
 import "core:strings"
 import "core:unicode/utf8"
+import "core:strconv"
 
 /*
 TODO:
@@ -287,7 +288,6 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     rl.GuiScrollPanel(setupState.panelRight.rec, nil, setupState.panelRight.contentRec, &setupState.panelRight.scroll, &setupState.panelRight.view)
     
     rl.BeginScissorMode(cast(i32)setupState.panelRight.view.x, cast(i32)setupState.panelRight.view.y, cast(i32)setupState.panelRight.view.width, cast(i32)setupState.panelRight.view.height)
-    //rl.ClearBackground(CONFIG.PANEL_BACKGROUND_COLOUR)
   } else {
     setupState.panelRight.contentRec.width = panel_width
   }
@@ -302,7 +302,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, "Initiative: ")
     cursor_x += setupState.panelRight.contentRec.width / 2
     GuiTextInput({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, &setupState.initiative_input)
-    setupState.selected_entity.initiative = str_to_int(cast(string)setupState.initiative_input.text)
+    setupState.selected_entity.initiative = to_i32(setupState.initiative_input.text)
     cursor_x = current_panel_x
     cursor_y += LINE_HEIGHT
     setupState.stats_lines_needed += 1
@@ -314,9 +314,9 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     cursor_y += LINE_HEIGHT
     setupState.stats_lines_needed += 1
 
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_SHIELD, int_to_str(setupState.selected_entity.AC)))
+    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_SHIELD, cstr(setupState.selected_entity.AC)))
     cursor_x += setupState.panelRight.contentRec.width / 2
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_HEART, int_to_str(setupState.selected_entity.HP)))
+    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_HEART, cstr(setupState.selected_entity.HP)))
     cursor_x = current_panel_x
     cursor_y += LINE_HEIGHT
     setupState.stats_lines_needed += 1

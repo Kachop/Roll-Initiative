@@ -677,7 +677,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
 }
 
 resolve_damage :: proc(combatState: ^CombatScreenState) {
-    dmg_amount : i32 = str_to_int(string(combatState.dmg_input.text))
+    dmg_amount : i32 = to_i32(combatState.dmg_input.text)
     
     for &entity, i in combatState.entities {
         if (combatState.to_dropdown.selected[i]) {
@@ -701,7 +701,7 @@ resolve_damage :: proc(combatState: ^CombatScreenState) {
 
 resolve_healing :: proc(combatState: ^CombatScreenState) {
     //Same as dmg function but for healing
-    heal_amount : i32 = str_to_int(string(combatState.heal_input.text))
+    heal_amount : i32 = to_i32(combatState.heal_input.text)
     
     for &entity, i in combatState.entities {
         if (combatState.to_dropdown.selected[i]) {
@@ -713,7 +713,7 @@ resolve_healing :: proc(combatState: ^CombatScreenState) {
 }
 
 resolve_temp_HP :: proc(combatState: ^CombatScreenState) {
-  HP_amount : i32 = str_to_int(string(combatState.temp_HP_input.text))
+  HP_amount : i32 = to_i32(combatState.temp_HP_input.text)
 
   for &entity, i in combatState.entities {
     if (combatState.to_dropdown.selected[i]) {

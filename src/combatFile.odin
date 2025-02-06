@@ -175,7 +175,7 @@ CMBT_lexer_tokenize_number :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token) -> (r
 
     CMBT_lexer_read(lexer)
 
-    token^ = CMBT_Token{.CMBT_TOKEN_NUMBER, string(int_to_str(i32(value))), pos}
+    token^ = CMBT_Token{.CMBT_TOKEN_NUMBER, str(value), pos}
     return true
 }
 
@@ -231,7 +231,7 @@ CMBT_parser_parse_object :: proc(lexer: ^CMBT_Lexer, token: ^CMBT_Token, combat:
     } else if (token.kind == .CMBT_TOKEN_LSQRLY) {
         result = CMBT_parser_parse_fields(lexer, token, combat)
     } else if (token.kind == .CMBT_TOKEN_FIELD) {
-        combat.entities[len(combat.entities)-1].initiative = str_to_int(token.value)
+        combat.entities[len(combat.entities)-1].initiative = to_i32(token.value)
         result = true
     } else if (token.kind == .CMBT_TOKEN_COMMA) {
         result = true
@@ -335,7 +335,7 @@ writeCombatFile :: proc(filename: string, combat: CombatFile) -> (result: bool) 
     for entity in combat.entities {
         line_string = string(entity.name)
         file_string = strings.join([]string{file_string, "\t\"", line_string, "\"", "\n", "\t", "{\n"}, "")
-        file_string = strings.join([]string{file_string, "\t\tinitiative=", string(int_to_str(entity.initiative)), ",\n"}, "")
+        file_string = strings.join([]string{file_string, "\t\tinitiative=", str(entity.initiative), ",\n"}, "")
         file_string = strings.join([]string{file_string, "\t},\n"}, "")
     }
 
