@@ -245,11 +245,7 @@ combat_to_json :: proc(combatState: CombatScreenState) {
     turn_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(combatState.turn_timer))
 
     result = strings.join([]string{
-        "{\"combat_timer\": ",
-        fmt.tprint(combat_timer),
-        ",\"turn_timer\": ",
-        fmt.tprint(turn_timer),
-        ",\"round\": ",
+        "{\"round\": ",
         fmt.tprint(combatState.current_round),
         ",\"current_entity_index\": ",
         fmt.tprint(combatState.current_entity_index),
@@ -286,7 +282,10 @@ combat_to_json :: proc(combatState: CombatScreenState) {
                 fmt.tprint(entity.HP),
                 ",\"max_health\": ",
                 fmt.tprint(entity.HP_max),
-                ",\"conditions\": [\"none\"]",
+                ",\"temp_health\": ",
+                fmt.tprint(entity.temp_HP),
+                ",\"conditions\": ",
+                fmt.tprintf("%v", gen_condition_string(entity.conditions)),
                 ",\"visible\": ",
                 "true" if entity.visible else "false",
                 ",\"dead\": ",
@@ -306,7 +305,10 @@ combat_to_json :: proc(combatState: CombatScreenState) {
                 fmt.tprint(entity.HP),
                 ",\"max_health\": ",
                 fmt.tprint(entity.HP_max),
-                ",\"conditions\": [\"none\"]",
+                ",\"temp_health\": ",
+                fmt.tprint(entity.temp_HP),
+                ",\"conditions\": ",
+                fmt.tprintf("%v", gen_condition_string(entity.conditions)),
                 ",\"visible\": ",
                 "true" if entity.visible else "false",
                 ",\"dead\": ",
@@ -323,6 +325,5 @@ combat_to_json :: proc(combatState: CombatScreenState) {
     result = strings.join([]string{result, "]}"}, "")
     
     serverState.json_data = result
-    //delete(result)
     return
 }

@@ -384,7 +384,9 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
         }
 
-        if rl.GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {}
+        if rl.GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {
+            resolve_conditions(combatState)
+        }
         cursor_y += line_height_mid + PANEL_PADDING
         combatState.panelMid.height_needed = cursor_y - start_y + PANEL_PADDING
     }
@@ -498,6 +500,16 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
     cursor_x = current_panel_x
     cursor_y += LINE_HEIGHT
     combatState.stats_lines_needed += 1
+
+    rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Conditions:")
+    cursor_y += LINE_HEIGHT
+    combatState.stats_lines_needed += 1
+    
+    for condition in gen_condition_string(entity.conditions) {
+      rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, cstr(condition))
+      cursor_y += LINE_HEIGHT
+      combatState.stats_lines_needed += 1
+    } 
 
     rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, entity.speed)
     cursor_y += LINE_HEIGHT
@@ -665,9 +677,6 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
 }
 
 resolve_damage :: proc(combatState: ^CombatScreenState) {
-    //Function to resolve damage instances and alter entity HP's.
-    //Eventually add logging functionality for statistical output.
-    //Add calculation for resistances.
     dmg_amount : i32 = str_to_int(string(combatState.dmg_input.text))
     
     for &entity, i in combatState.entities {
@@ -711,5 +720,80 @@ resolve_temp_HP :: proc(combatState: ^CombatScreenState) {
       entity.temp_HP = HP_amount if (HP_amount > entity.temp_HP) else entity.temp_HP
     }
     combatState.to_dropdown.selected[i] = false
+  }
+}
+
+resolve_conditions :: proc(combatState: ^CombatScreenState) {
+  for &entity, i in combatState.entities {
+    if combatState.to_dropdown.selected[i] {
+      entity.conditions = ConditionSet{}
+      for condition, j in combatState.condition_dropdown.labels {
+        if combatState.condition_dropdown.selected[j] {
+          switch strings.to_lower(str(condition)) {
+          case "blinded":
+            if .BLINDED not_in entity.condition_immunities {
+              entity.conditions |= {.BLINDED}
+            }
+          case "charmed":
+            if .CHARMED not_in entity.condition_immunities {
+              entity.conditions |= {.CHARMED}
+            }
+          case "deafened": 
+            if .DEAFENED not_in entity.condition_immunities {
+              entity.conditions |= {.DEAFENED}
+            }
+          case "frightened":
+            if .FRIGHTENED not_in entity.condition_immunities {
+              entity.conditions |= {.FRIGHTENED}
+            }
+          case "grappled":
+            if .GRAPPLED not_in entity.condition_immunities{
+              entity.conditions |= {.GRAPPLED}
+            }
+          case "incapacitated": 
+            if .INCAPACITATED not_in entity.condition_immunities {
+              entity.conditions |= {.INCAPACITATED}
+            }
+          case "invisible":
+            if .INVISIBLE not_in entity.condition_immunities {
+              entity.conditions |= {.INVISIBLE}
+            }
+          case "paralyzed":
+            if  .PARALYZED not_in entity.condition_immunities {
+              entity.conditions |= {.PARALYZED}
+            }
+          case "petrified":
+            if .PETRIFIED not_in entity.condition_immunities {
+              entity.conditions |= {.PETRIFIED}
+            }
+          case "poisoned":
+            if .POISONED not_in entity.condition_immunities {
+              entity.conditions |= {.POISONED}
+            }
+          case "prone":
+            if .PRONE not_in entity.condition_immunities {
+              entity.conditions |= {.PRONE}
+            }
+          case "restrained":
+            if .RESTRAINED not_in entity.condition_immunities {
+              entity.conditions |= {.RESTRAINED}
+            }
+          case "stunned":
+            if .STUNNED not_in entity.condition_immunities {
+              entity.conditions |= {.STUNNED}
+            }
+          case "unconscious":
+            if .UNCONSCIOUS not_in entity.condition_immunities {
+              entity.conditions |= {.UNCONSCIOUS}
+            }
+          case "exhaustion":
+            if .EXHAUSTION not_in entity.condition_immunities {
+              entity.conditions |= {.EXHAUSTION}
+            }
+          case: continue
+          }
+        }
+      }
+    }
   }
 }

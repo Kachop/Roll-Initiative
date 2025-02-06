@@ -77,6 +77,7 @@ Entity :: struct {
   HP_max: i32,
   HP: i32,
   temp_HP: i32,
+  conditions: ConditionSet,
   visible: bool,
   alive: bool,
   speed: cstring,
@@ -146,6 +147,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           cast(i32)entity_fields["Hit Points Max"].(f64) if ("Hit Points Max" in entity_fields) else cast(i32)entity_fields["Hit Points"].(f64),
           cast(i32)entity_fields["Hit Points"].(f64),
           cast(i32)entity_fields["Temp Hit Points"].(f64) if ("Temp Hit Points" in entity_fields) else 0,
+          get_conditions(entity_fields["Conditions"].(json.Array)[:]) if ("Conditions" in entity_fields) else {},
           true,
           true,
           fmt.ctprint(entity_fields["Speed"].(string)),
@@ -171,7 +173,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Vulnerabilities"].(json.Array)[:]) if ("Damage Vulnerabilities" in entity_fields) else {},
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Resistances"].(json.Array)[:]) if ("Damage Resistances" in entity_fields) else {},
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Immunities"].(json.Array)[:]) if ("Damage Immunities" in entity_fields) else {},
-          get_condition_immunities(entity_fields["Condition Immunities"].(json.Array)[:]) if ("Condition Immunities" in entity_fields) else {},
+          get_conditions(entity_fields["Condition Immunities"].(json.Array)[:]) if ("Condition Immunities" in entity_fields) else {},
           fmt.ctprint(entity_fields["Senses"].(string)) if ("Senses" in entity_fields) else "",
           fmt.ctprint(entity_fields["Languages"].(string)) if ("Languages" in entity_fields) else "",
           fmt.ctprint(entity_fields["Challenge"].(string)) if ("Challenge" in entity_fields) else "",
@@ -233,6 +235,9 @@ add_entity_to_file :: proc(entity: Entity, filename: string = state.config.CUSTO
             file_string = fmt.tprintf("%v\"Temp Hit Points\": %v,\n\t\t", file_string, entity.temp_HP)
         }
 
+        conditions_string := fmt.tprint(gen_condition_string(entity.conditions), sep="")
+        file_string = fmt.tprintf("%v\"Conditions\": %v,\n\t\t", file_string, conditions_string)
+
         file_string = fmt.tprintf("%v\"Speed\": \"%v\",\n\t\t", file_string, entity.speed)
         file_string = fmt.tprintf("%v\"STR\": %v,\n\t\t", file_string, entity.STR)
         file_string = fmt.tprintf("%v\"STR_mod\": %v,\n\t\t", file_string, entity.STR_mod)
@@ -263,7 +268,7 @@ add_entity_to_file :: proc(entity: Entity, filename: string = state.config.CUSTO
         immunity_string := fmt.tprint(gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities), sep=", ")
         file_string = fmt.tprintf("%v\"Damage Immunities\": %v,\n\t\t", file_string, immunity_string)
 
-        conditions_string := fmt.tprint(gen_condition_immunities_string(entity.condition_immunities), sep=", ")
+        conditions_string = fmt.tprint(gen_condition_string(entity.condition_immunities), sep=", ")
         file_string = fmt.tprintf("%v\"Condition Immunities\": %v,\n\t\t", file_string, conditions_string)
         file_string = fmt.tprintf("%v\"Senses\": \"%v\",\n\t\t", file_string, entity.senses)
         file_string = fmt.tprintf("%v\"Languages\": \"%v\",\n\t\t", file_string, entity.languages)
@@ -370,9 +375,9 @@ gen_vulnerability_resistance_or_immunity_string :: proc(values: DamageSet) -> (r
   return
 }
 
-get_condition_immunities :: proc{get_condition_immunities_string, get_condition_immunities_json}
+get_conditions :: proc{get_conditions_string, get_conditions_json}
 
-get_condition_immunities_string :: proc(immunities: []string) -> (result: ConditionSet) {
+get_conditions_string :: proc(immunities: []string) -> (result: ConditionSet) {
   for immunity in immunities {
     switch strings.to_lower(immunity, allocator=context.temp_allocator) {
     case "blinded": result |= {.BLINDED}
@@ -396,7 +401,7 @@ get_condition_immunities_string :: proc(immunities: []string) -> (result: Condit
   return
 }
 
-get_condition_immunities_json :: proc(immunities: []json.Value) -> (result: ConditionSet) {
+get_conditions_json :: proc(immunities: []json.Value) -> (result: ConditionSet) {
   for immunity in immunities {
     switch strings.to_lower(immunity.(string), allocator=context.temp_allocator) {
     case "blinded": result |= {.BLINDED}
@@ -421,7 +426,7 @@ get_condition_immunities_json :: proc(immunities: []json.Value) -> (result: Cond
 
 }
 
-gen_condition_immunities_string :: proc(values: ConditionSet) -> (result: []string) {
+gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {
   temp_list: [dynamic]string
   //defer delete(temp_list)
   types := []Condition{.BLINDED, .CHARMED, .DEAFENED, .FRIGHTENED, .GRAPPLED, .INCAPACITATED, .INVISIBLE, .PARALYZED, .PETRIFIED, .POISONED, .PRONE, .RESTRAINED, .STUNNED, .UNCONSCIOUS, .EXHAUSTION}

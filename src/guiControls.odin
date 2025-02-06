@@ -313,8 +313,6 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     cursor_x : f32 = x
     cursor_y : f32 = y
 
-    fmt.println("Original:", cursor_y)
-
     initial_text_size := TEXT_SIZE
 
     defer {
@@ -382,7 +380,6 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
         } else {
             dropdownContentRec.width = width
         }
-        
         for label, i in dropdown_state.labels {
             label_string: cstring
             if !fit_text(label, dropdownContentRec.width - (cast(f32)line_height * 0.4) - (cast(f32)border * 2), &TEXT_SIZE) {

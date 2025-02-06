@@ -126,7 +126,6 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   InitTextInputState(&screenState.heal_input)
 
   conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconsious", "Exhaustion"}
-  //conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened"}
   InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:])
   InitTextInputState(&screenState.temp_HP_input)
 
@@ -196,9 +195,9 @@ EntityScreenState :: struct {
   INT_save_input: TextInputState,
   WIS_save_input: TextInputState,
   CHA_save_input: TextInputState,
-  DMG_vulnerable_input: TextInputState,
-  DMG_resist_input: TextInputState,
-  DMG_immune_input: TextInputState,
+  DMG_vulnerable_input: DropdownSelectState,
+  DMG_resist_input: DropdownSelectState,
+  DMG_immune_input: DropdownSelectState,
   languages_input: TextInputState,
 }
 
@@ -237,9 +236,10 @@ init_entity_screen :: proc(screenState: ^EntityScreenState) {
   InitTextInputState(&screenState.INT_save_input)
   InitTextInputState(&screenState.WIS_save_input)
   InitTextInputState(&screenState.CHA_save_input)
-  InitTextInputState(&screenState.DMG_vulnerable_input)
-  InitTextInputState(&screenState.DMG_resist_input)
-  InitTextInputState(&screenState.DMG_immune_input)
+  dmg_type_options := [dynamic]cstring{"Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
+  InitDropdownSelectState(&screenState.DMG_vulnerable_input, "Type:", dmg_type_options[:])
+  InitDropdownSelectState(&screenState.DMG_resist_input, "Type:", dmg_type_options[:])
+  InitDropdownSelectState(&screenState.DMG_immune_input, "Type:", dmg_type_options[:])
   InitTextInputState(&screenState.languages_input)
 }
 

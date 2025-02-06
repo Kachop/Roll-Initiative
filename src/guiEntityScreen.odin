@@ -332,28 +332,49 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     mod = get_modifier(str_to_int(entityScreenState.CHA_input.text))
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, fmt.ctprintf("+%v" if mod >= 0 else "%v", mod))
     cursor_x += draw_width / 4
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
+    rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
     GuiTextInput({cursor_x, cursor_y, draw_width / 4, TEXT_INPUT_HEIGHT}, &entityScreenState.CHA_save_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Vulnerabilities:")
-    cursor_x += draw_width / 2
-    GuiTextInput({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_vulnerable_input)
+    cursor_x += draw_width / 2 
+
+    dropdown_cursor_x_vuln := cursor_x
+    dropdown_cursor_y_vuln := cursor_y
+    defer GuiDropdownSelectControl({dropdown_cursor_x_vuln, dropdown_cursor_y_vuln, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_vulnerable_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+
+    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+      rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
+    }
 
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Resistances:")
     cursor_x += draw_width / 2
-    GuiTextInput({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_resist_input)
+
+    dropdown_cursor_x_resist := cursor_x
+    dropdown_cursor_y_resist := cursor_y
+    defer GuiDropdownSelectControl({dropdown_cursor_x_resist, dropdown_cursor_y_resist, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_resist_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
+    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+      rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
+    }
+
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Immunities:")
     cursor_x += draw_width / 2
-    GuiTextInput({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_immune_input)
+
+    dropdown_cursor_x_immune := cursor_x
+    dropdown_cursor_y_immune := cursor_y
+    defer GuiDropdownSelectControl({dropdown_cursor_x_immune, dropdown_cursor_y_immune, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_immune_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+
+    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+      rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
+    }
 
     rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Languages:")
     cursor_x += draw_width / 2
@@ -381,6 +402,31 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
       case "NPC": entity_type = .NPC
       case "monster": entity_type = .MONSTER
       }
+      
+      vulnerabilities: [dynamic]string
+      defer delete(vulnerabilities)
+      for type, i in entityScreenState.DMG_vulnerable_input.labels {
+          if entityScreenState.DMG_vulnerable_input.selected[i] {
+              append(&vulnerabilities, str(type))
+          }
+      }
+
+      resistances: [dynamic]string
+      defer delete(resistances)
+      for type, i in entityScreenState.DMG_resist_input.labels {
+          if entityScreenState.DMG_resist_input.selected[i] {
+              append(&vulnerabilities, str(type))
+          }
+      }
+
+      immunities: [dynamic]string
+      defer delete(immunities)
+      for type, i in entityScreenState.DMG_immune_input.labels {
+          if entityScreenState.DMG_immune_input.selected[i] {
+              append(&vulnerabilities, str(type))
+          }
+      }
+
       new_entitiy := Entity{
           entityScreenState.name_input.text,
           entityScreenState.race_input.text,
@@ -391,6 +437,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           str_to_int(string(entityScreenState.HP_max_input.text)),
           str_to_int(string(entityScreenState.HP_input.text)),
           str_to_int(string(entityScreenState.temp_HP_input.text)),
+          {},
           true,
           true,
           entityScreenState.speed_input.text,
@@ -413,10 +460,10 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           get_modifier(str_to_int(entityScreenState.CHA_input.text)),
           str_to_int(string(entityScreenState.CHA_save_input.text)),
           "",
-          get_vulnerabilities_resistances_or_immunities(strings.split(string(entityScreenState.DMG_vulnerable_input.text), ", ")),
-          get_vulnerabilities_resistances_or_immunities(strings.split(string(entityScreenState.DMG_resist_input.text), ", ")),
-          get_vulnerabilities_resistances_or_immunities(strings.split(string(entityScreenState.DMG_immune_input.text), ", ")),
-          get_condition_immunities(strings.split(string(""), ", ")),
+          get_vulnerabilities_resistances_or_immunities(vulnerabilities[:]),
+          get_vulnerabilities_resistances_or_immunities(resistances[:]),
+          get_vulnerabilities_resistances_or_immunities(immunities[:]),
+          get_conditions(strings.split(string(""), ", ")),
           "",
           entityScreenState.languages_input.text,
           "",
@@ -542,9 +589,64 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.WIS_save_input.text = cstr(entity.WIS_save)
     entityScreenState.CHA_input.text = cstr(entity.CHA)
     entityScreenState.CHA_save_input.text = cstr(entity.CHA_save)
-    entityScreenState.DMG_vulnerable_input.text = cstr(strings.join(gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities), ", "))
-    entityScreenState.DMG_resist_input.text = cstr(strings.join(gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances), ", "))
-    entityScreenState.DMG_immune_input.text = cstr(strings.join(gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities), ", "))
+ 
+    for vulnerability in entity.dmg_vulnerabilities {
+      switch vulnerability {
+      case .SLASHING: entityScreenState.DMG_vulnerable_input.selected[0] = true
+      case .PIERCING: entityScreenState.DMG_vulnerable_input.selected[1] = true
+      case .BLUDGEONING: entityScreenState.DMG_vulnerable_input.selected[2] = true
+      case .NON_MAGICAL: entityScreenState.DMG_vulnerable_input.selected[3] = true
+      case .POISON: entityScreenState.DMG_vulnerable_input.selected[4] = true
+      case .ACID: entityScreenState.DMG_vulnerable_input.selected[5] = true
+      case .FIRE: entityScreenState.DMG_vulnerable_input.selected[6] = true
+      case .COLD: entityScreenState.DMG_vulnerable_input.selected[7] = true
+      case .RADIANT: entityScreenState.DMG_vulnerable_input.selected[8] = true
+      case .NECROTIC: entityScreenState.DMG_vulnerable_input.selected[9] = true
+      case .LIGHTNING: entityScreenState.DMG_vulnerable_input.selected[10] = true
+      case .THUNDER: entityScreenState.DMG_vulnerable_input.selected[11] = true
+      case .FORCE: entityScreenState.DMG_vulnerable_input.selected[12] = true
+      case .PSYCHIC: entityScreenState.DMG_vulnerable_input.selected[13] = true
+      }
+    }
+
+    for resistance in entity.dmg_vulnerabilities {
+      switch resistance {
+      case .SLASHING: entityScreenState.DMG_resist_input.selected[0] = true
+      case .PIERCING: entityScreenState.DMG_resist_input.selected[1] = true
+      case .BLUDGEONING: entityScreenState.DMG_resist_input.selected[2] = true
+      case .NON_MAGICAL: entityScreenState.DMG_resist_input.selected[3] = true
+      case .POISON: entityScreenState.DMG_resist_input.selected[4] = true
+      case .ACID: entityScreenState.DMG_resist_input.selected[5] = true
+      case .FIRE: entityScreenState.DMG_resist_input.selected[6] = true
+      case .COLD: entityScreenState.DMG_resist_input.selected[7] = true
+      case .RADIANT: entityScreenState.DMG_resist_input.selected[8] = true
+      case .NECROTIC: entityScreenState.DMG_resist_input.selected[9] = true
+      case .LIGHTNING: entityScreenState.DMG_resist_input.selected[10] = true
+      case .THUNDER: entityScreenState.DMG_resist_input.selected[11] = true
+      case .FORCE: entityScreenState.DMG_resist_input.selected[12] = true
+      case .PSYCHIC: entityScreenState.DMG_resist_input.selected[13] = true
+      }
+    }
+
+    for immunity in entity.dmg_vulnerabilities {
+      switch immunity {
+      case .SLASHING: entityScreenState.DMG_immune_input.selected[0] = true
+      case .PIERCING: entityScreenState.DMG_immune_input.selected[1] = true
+      case .BLUDGEONING: entityScreenState.DMG_immune_input.selected[2] = true
+      case .NON_MAGICAL: entityScreenState.DMG_immune_input.selected[3] = true
+      case .POISON: entityScreenState.DMG_immune_input.selected[4] = true
+      case .ACID: entityScreenState.DMG_immune_input.selected[5] = true
+      case .FIRE: entityScreenState.DMG_immune_input.selected[6] = true
+      case .COLD: entityScreenState.DMG_immune_input.selected[7] = true
+      case .RADIANT: entityScreenState.DMG_immune_input.selected[8] = true
+      case .NECROTIC: entityScreenState.DMG_immune_input.selected[9] = true
+      case .LIGHTNING: entityScreenState.DMG_immune_input.selected[10] = true
+      case .THUNDER: entityScreenState.DMG_immune_input.selected[11] = true
+      case .FORCE: entityScreenState.DMG_immune_input.selected[12] = true
+      case .PSYCHIC: entityScreenState.DMG_immune_input.selected[13] = true
+      }
+    }
+
     entityScreenState.languages_input.text = cstr(entity.languages)
     for file_path, i in entityScreenState.img_file_paths {
       fmt.println(file_path)
@@ -574,9 +676,13 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.WIS_save_input.text = cstr("")
     entityScreenState.CHA_input.text = cstr("")
     entityScreenState.CHA_save_input.text = cstr("")
-    entityScreenState.DMG_vulnerable_input.text = cstr("")
-    entityScreenState.DMG_resist_input.text = cstr("")
-    entityScreenState.DMG_immune_input.text = cstr("")
+    
+    for _, i in entityScreenState.DMG_vulnerable_input.selected {
+      entityScreenState.DMG_vulnerable_input.selected[i] = false
+      entityScreenState.DMG_resist_input.selected[i] = false
+      entityScreenState.DMG_immune_input.selected[i] = false
+    }
+
     entityScreenState.languages_input.text = cstr("")
     entityScreenState.current_icon_index = 0
   }
