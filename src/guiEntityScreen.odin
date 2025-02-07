@@ -427,6 +427,8 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           }
       }
 
+      _, icon_data := get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
+
       new_entitiy := Entity{
           entityScreenState.name_input.text,
           entityScreenState.race_input.text,
@@ -472,6 +474,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
           "",
           cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]) if len(entityScreenState.img_file_paths) > 0 else "",
           cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]) if len(entityScreenState.border_file_paths) > 0 else "",
+          icon_data,
       }
       if !entityScreenState.entity_edit_mode {
           add_entity_to_file(new_entitiy, state.config.CUSTOM_ENTITY_FILE_PATH)
@@ -521,6 +524,8 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
   if rl.GuiButton({cursor_x, cursor_y, LINE_HEIGHT - (PANEL_PADDING * 2), LINE_HEIGHT - (PANEL_PADDING * 2)}, rl.GuiIconText(.ICON_RESTART, "")) {
     reload_icons(entityScreenState)
     reload_borders(entityScreenState)
+    entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
+
   }
   cursor_x = current_panel_x
   cursor_y += LINE_HEIGHT + PANEL_PADDING + entityScreenState.panelRight.scroll.y
@@ -530,12 +535,26 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     start_x := cursor_x
 
     if len(entityScreenState.icons) > 0 {
-      rl.GuiButton({cursor_x, cursor_y, PANEL_PADDING * 3, 128}, rl.GuiIconText(.ICON_ARROW_LEFT_FILL, ""))
+      if rl.GuiButton({cursor_x, cursor_y, PANEL_PADDING * 3, 128}, rl.GuiIconText(.ICON_ARROW_LEFT_FILL, "")) {
+        if entityScreenState.current_border_index >= 1 {
+          entityScreenState.current_border_index -= 1
+        } else {
+          entityScreenState.current_border_index = cast(i32)len(entityScreenState.borders) - 1
+        }
+        entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
+      }
       cursor_x = start_x
       cursor_x += (draw_width / 2) - 64
-      rl.DrawTexture(entityScreenState.icons[entityScreenState.current_icon_index], cast(i32)cursor_x, cast(i32)cursor_y, rl.WHITE)
+      rl.DrawTexture(entityScreenState.combined_image, cast(i32)cursor_x, cast(i32)cursor_y, rl.WHITE)
       cursor_x = start_x + panel_width - (PANEL_PADDING * 5)
-      rl.GuiButton({cursor_x, cursor_y, PANEL_PADDING * 3, 128}, rl.GuiIconText(.ICON_ARROW_RIGHT_FILL, ""))
+      if rl.GuiButton({cursor_x, cursor_y, PANEL_PADDING * 3, 128}, rl.GuiIconText(.ICON_ARROW_RIGHT_FILL, "")) {
+        if entityScreenState.current_border_index < cast(i32)len(entityScreenState.borders) - 1 {
+          entityScreenState.current_border_index += 1
+        } else {
+          entityScreenState.current_border_index = 0
+        }
+        entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
+      }
       cursor_x = start_x
       cursor_y += cast(f32)entityScreenState.icons[entityScreenState.current_icon_index].height + PANEL_PADDING
 
@@ -545,6 +564,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
         } else {
           entityScreenState.current_icon_index = cast(i32)len(entityScreenState.icons) - 1
         }
+        entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
       }
       cursor_x += draw_width / 2
       
@@ -554,6 +574,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
         } else {
           entityScreenState.current_icon_index = 0
         }
+        entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
       }
     } else {
       rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "No images found")
@@ -649,11 +670,16 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
 
     entityScreenState.languages_input.text = cstr(entity.languages)
     for file_path, i in entityScreenState.img_file_paths {
-      fmt.println(file_path)
       if cstr(file_path) == entity.img_url {
         entityScreenState.current_icon_index = cast(i32)i
       }
     }
+    for file_path, i in entityScreenState.border_file_paths {
+      if cstr(file_path) == entity.img_border {
+        entityScreenState.current_border_index = cast(i32)i
+      }
+    }
+    entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
   } else {
     //Set everything to default options. Will happen when some clear button is clicked.
     entityScreenState.name_input.text = cstr("")
@@ -685,6 +711,8 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
 
     entityScreenState.languages_input.text = cstr("")
     entityScreenState.current_icon_index = 0
+    entityScreenState.current_border_index = 0
+    entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
   }
 }
 
@@ -697,7 +725,6 @@ delete_custom_entity :: proc(index: i32) {
   }
 }
 
-@(private)
 reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   delete(entityScreenState.img_file_paths)
   delete(entityScreenState.icons)
@@ -736,7 +763,6 @@ reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   entityScreenState.current_icon_index = 0
 }
 
-@(private)
 reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   delete(entityScreenState.border_file_paths)
   delete(entityScreenState.borders)
@@ -747,7 +773,7 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   }
 
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "borders", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "../borders", sep=FILE_SEPERATOR))
   defer os.close(dir_handle)
   file_infos, err := os.read_dir(dir_handle, 0)
 
@@ -773,3 +799,42 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   entityScreenState.borders = temp_texture_list[:]
   entityScreenState.current_border_index = 0
 }
+/*
+combine_border :: proc{combine_border_state, combine_border_entity}
+
+combine_border_state :: proc(entityScreenState: ^EntityScreenState) -> rl.Texture {
+  current_img := rl.LoadImageFromTexture(entityScreenState.icons[entityScreenState.current_icon_index])
+  if current_img.width != 128 || current_img.height != 128 {
+    rl.ImageResize(&current_img, 128, 128)
+  }
+  defer rl.UnloadImage(current_img)
+  current_border := rl.LoadImageFromTexture(entityScreenState.borders[entityScreenState.current_border_index])
+  if current_border.width != 128 || current_border.height != 128 {
+    rl.ImageResize(&current_border, 128, 128)
+  }
+  defer rl.UnloadImage(current_border)
+
+  rl.ImageAlphaMask(&current_img, current_border)
+
+  rl.ImageDraw(&current_border, current_img, {0, 0, cast(f32)current_img.width, cast(f32)current_img.height}, {0, 0, cast(f32)current_img.width, cast(f32)current_img.height}, rl.WHITE)
+  return rl.LoadTextureFromImage(current_border)
+}
+
+combine_border_entity :: proc(entity: Entity) -> rl.Texture {
+  current_img := rl.LoadImage(entity.img_url)
+  if current_img.width != 128 || current_img.height != 128 {
+    rl.ImageResize(&current_img, 128, 128)
+  }
+  defer rl.UnloadImage(current_img)
+  current_border := rl.LoadImage(entity.img_border)
+  if current_border.width != 128 || current_border.height != 128 {
+    rl.ImageResize(&current_border, 128, 128)
+  }
+  defer rl.UnloadImage(current_border)
+
+  rl.ImageAlphaMask(&current_img, current_border)
+
+  rl.ImageDraw(&current_border, current_img, {0, 0, cast(f32)current_img.width, cast(f32)current_img.height}, {0, 0, cast(f32)current_img.width, cast(f32)current_img.height}, rl.WHITE)
+  return rl.LoadTextureFromImage(current_border)
+
+}*/

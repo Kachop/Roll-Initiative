@@ -112,6 +112,7 @@ Entity :: struct {
   legendary_actions: cstring,
   img_url: cstring,
   img_border: cstring,
+  icon_data: []u8,
 }
 
 load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
@@ -135,6 +136,12 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           entity_type = .NPC
         case "monster":
           entity_type = .MONSTER
+        }
+        
+        icon_data: []u8
+
+        if (("img_url" in entity_fields) && ("img_border" in entity_fields)) {
+          _, icon_data = get_entity_icon_data(cstr(entity_fields["img_url"].(string)), cstr(entity_fields["img_border"].(string)))
         }
 
         new_entity := Entity{
@@ -182,6 +189,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           fmt.ctprint(entity_fields["Legendary Actions"].(string)) if ("Legendary Actions" in entity_fields) else "",
           fmt.ctprint(entity_fields["img_url"].(string)) if ("img_url" in entity_fields) else "",
           cstr(entity_fields["img_border"].(string)) if ("img_border" in entity_fields) else "",
+          icon_data,
         }
         append_soa(&entities, new_entity)
       }

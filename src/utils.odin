@@ -100,7 +100,6 @@ order_by_initiative :: proc(entities: ^[dynamic]Entity) {
             append(&entities_sorted, entity)
         }
     }
-    entities^ = entities_sorted
 }
 
 match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
@@ -112,6 +111,36 @@ match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
         }
     }
     return
+}
+
+get_entity_icon_data :: proc{get_entity_icon_from_paths, get_entity_icon_from_entity}
+
+get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> (rl.Texture, []u8) {
+  temp_icon_image := rl.LoadImage(icon_path)
+  defer rl.UnloadImage(temp_icon_image)
+  temp_border_image := rl.LoadImage(border_path)
+  defer rl.UnloadImage(temp_border_image)
+
+  if temp_icon_image.width != 128 || temp_icon_image.height != 128 {
+    rl.ImageResize(&temp_icon_image, 128, 128)
+  }
+  if temp_border_image.width != 128 || temp_border_image.height != 128 {
+    rl.ImageResize(&temp_border_image, 128, 128)
+  }
+
+  rl.ImageAlphaMask(&temp_icon_image, temp_border_image)
+
+  rl.ImageDraw(&temp_border_image, temp_icon_image, {0, 0, cast(f32)temp_icon_image.width, cast(f32)temp_icon_image.height}, {0, 0, cast(f32)temp_icon_image.width, cast(f32)temp_icon_image.height}, rl.WHITE)
+  rl.ExportImage(temp_border_image, "temp.png")
+  icon_data, _ := os.read_entire_file("temp.png")
+  os.remove("temp.png")
+  return rl.LoadTextureFromImage(temp_border_image), icon_data
+}
+
+get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, []u8) {
+  texture, data := get_entity_icon_from_paths(entity.img_url, entity.img_border)
+  entity.icon_data = data
+  return get_entity_icon_from_paths(entity.img_url, entity.img_border)
 }
 
 combat_to_json :: proc(combatState: CombatScreenState) {
@@ -151,21 +180,17 @@ combat_to_json :: proc(combatState: CombatScreenState) {
         entity_string: string
         defer delete(entity_string)
         entity_type: string
-        img: []u8
-        defer delete(img)
         
         switch entity.type {
         case .MONSTER:
             entity_type = "monster"
         case .PLAYER:
             entity_type = "player"
-            img, _ = os.read_entire_file(string(entity.img_url))
         case .NPC:
             entity_type = "NPC"
-            img, _ = os.read_entire_file(string(entity.img_url))
         }
         
-        img_str := base64.encode(img)
+        img_str := base64.encode(entity.icon_data)
         defer delete(img_str)
         
         if (i < len(combatState.entities) - 1) {

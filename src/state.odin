@@ -174,6 +174,7 @@ EntityScreenState :: struct {
   borders: []rl.Texture,
   current_icon_index: i32,
   current_border_index: i32,
+  combined_image: rl.Texture,
   name_input: TextInputState,
   race_input: TextInputState,
   size_input: TextInputState,
@@ -212,6 +213,7 @@ init_entity_screen :: proc(screenState: ^EntityScreenState) {
 
   reload_icons(screenState)
   reload_borders(screenState)
+  screenState.combined_image, _ = get_entity_icon_data(cstr(screenState.img_file_paths[screenState.current_icon_index]), cstr(screenState.border_file_paths[screenState.current_border_index]))
 
   type_options := [dynamic]cstring{"player", "NPC", "monster"}
   screenState.first_load = true

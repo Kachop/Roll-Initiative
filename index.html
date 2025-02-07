@@ -1,19 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap" rel="stylesheet">
 	<title>Roll Initiative</title>
 	<style>
+		.fantasy-font {
+			font-family: "UnifrakturMaguntia", serif;
+			font-weight: 600;
+			font-style: normal;
+		}
+
+		.title-bar {
+			text-align: center;
+			display: grid;
+		}
+
+		.app-name {
+			grid-column: 1;
+		}
+
+		.combat-title {
+			grid-column: 2;
+		}
+
+		.round-label {
+			grid-column: 3;
+		}
+
 		ol {
 			list-style-type: none;
 			padding: 10px;
 		}
 
 		ol li {
+			font-size: 50px;
 			padding: 8px 8px;
 			margin: 2px;
 			border: 2px solid #000000;
 			text-align: center;
 			vertical-align: center;
+			border-radius: 10px;
 		}
 
 		ol li.current-entity {
@@ -39,12 +67,45 @@
 		ol li.dead {
 			background-color: #585858;
 		}
+
+		.container {
+			display: grid;
+			text-align: center;
+			vertical-align: center;
+			align-content: center;
+		}
+
+		.entity_img {
+			align-content: center;
+			grid-column-start: 1;
+			grid-column-end: 2;
+		}
+
+		.entity_label {
+			text-align: center;
+			grid-column-start: 3;
+			grid-column-end: 4;
+		}
+
+		.entity_health {
+			text-align: center;
+			grid-column-start: 5;
+			grid-column-end: 6;
+		}
+
+		.entity_conditions {
+			text-align: center;
+			grid-column-start: 7;
+			grid-column-end: 8;
+		}
 	</style>
 </head>
 <body>
-	<h1>Roll Initiative</h1>
-	<p>Round: <div id="round"></div></p>
-	<p>Entities: </p>
+	<div class=title-bar>
+		<h1 class=fantasy-font class=app-name>Roll Initiative</h1>
+		<p class=round-label>Round: <stretch id="round"></stretch></p>
+	</div>
+
 	<ol id="entities"></ol>
 	<script type="text/javascript">
 		var events = new EventSource("/data", {
@@ -59,7 +120,6 @@
 
 		events.onmessage = function(e) {
 			var test = JSON.parse(e.data);
-			console.log(test);
 			round.innerHTML = test.round;
 
 			while (entities.firstChild) {
@@ -70,24 +130,30 @@
 				var entity = test.entities[i]
 				if (entity.visible) {
 					var entry = document.createElement("li");
+					var container = document.createElement("div");
+					container.classList.add("container");
 					var img = document.createElement("img");
+					img.classList.add("entity_img");
 					var character_label = document.createElement("div");
+					character_label.classList.add("entity_label");
 					var health_label = document.createElement("div");
+					health_label.classList.add("entity_health");
 					var conditions_label = document.createElement("div");
+					conditions_label.classList.add("entity_conditions");
 
 					if (entity.type == "player") {
-						console.log("Setting player image");
 						img.src = "data:image/png;base64," + entity.img_url;
-						img.width = 128;
-						img.height = 128;
+						img.width = 64;
+						img.height = 64;
 					} else {
 						console.log("Setting monster image");
 						img.src = entity.img_url;
-						img.width = 128;
-						img.height = 128;
+						img.width = 64;
+						img.height = 64;
 					}
 
 					character_label.appendChild(document.createTextNode("\t" + entity.name + "\t"));
+					character_label.classList.add("fantasy-font");
 
 					if (i == test.current_entity_index) {
 						entry.classList.add('current-entity');
@@ -100,6 +166,18 @@
 						if (entity.temp_health > 0) {
 							health_label.appendChild(document.createTextNode("+"));
 							health_label.appendChild(document.createTextNode(entity.temp_health));
+						}
+
+						if ((entity.health + entity.temp_health) == entity.max_health) {
+							entry.classList.add('full-health');
+						} else if ((entity.health + entity.temp_health) == 0) {
+							entry.classList.add('dead');
+						} else if ((entity.health + entity.temp_health) <= 10) {
+							entry.classList.add('rlc');
+						} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
+							entry.classList.add('low-health');
+						} else {
+							entry.classList.add('mid-health');
 						}
 					} else {
 						//If it's a monster display bloodied, regretting life choices, etc.
@@ -126,10 +204,12 @@
 						conditions_label.appendChild(document.createTextNode("\n"));
 					}
 
-					entry.appendChild(img);
-					entry.appendChild(character_label);
-					entry.appendChild(health_label);
-					entry.appendChild(conditions_label);
+					container.appendChild(img);
+					container.appendChild(character_label);
+					container.appendChild(health_label);
+					container.appendChild(conditions_label);
+
+					entry.appendChild(container);
 
 					entities.appendChild(entry);
 				}
