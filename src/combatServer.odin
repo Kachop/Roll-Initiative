@@ -25,20 +25,23 @@ serverState := ServerState{
 }
 
 get_ip_windows :: proc() -> (ip_string: string, err: os2.Error) {
-  fmt.println("Setting server ADDR: WINDOWS")
-  r, w := os2.pipe() or_return
-  defer os2.close(r)
+  fmt.println("Setting up server ADDR: WINDOWS")
 
-  p: os2.Process; {
-    defer os2.close(w)
+  interfaces, _ := net.enumerate_interfaces()
 
-    p = os2.process_start({
-      command = {"ipconfig"},
-      stdout = w,
-    }) or_return
+  for interface in interfaces {
+    if interface.friendly_name == "WiFi" {
+      for item in interface.unicast {
+        switch t in item.address {
+        case net.IP4_Address:
+          if item.address.(net.IP4_Address)[0] == 192 {
+            state.config.IP_ADDRESS = item.address.(net.IP4_Address)
+          }
+        case net.IP6_Address:
+        }
+      }
+    }
   }
-  output := os2.read_entire_file(r, context.temp_allocator) or_return
-  //TODO: Parse the Windows JSON output
   return 
 }
 

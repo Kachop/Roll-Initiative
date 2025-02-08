@@ -69,10 +69,9 @@ GuiDrawSettingsScreen :: proc(settingsState: ^SettingsScreenState) {
   rl.GuiLabel({cursor_x, cursor_y, 250, LINE_HEIGHT}, "Combat files dir: ")
   cursor_x += label_widths
   GuiTextInput({cursor_x, cursor_y, 500, LINE_HEIGHT}, &settingsState.combats_dir_input)
-  cursor_x = PADDING_LEFT
   cursor_y += LINE_HEIGHT + PANEL_PADDING
 
-  if rl.GuiButton({cursor_x, cursor_y, 750, LINE_HEIGHT}, "Save") {
+  if rl.GuiButton({cursor_x, cursor_y, 500, LINE_HEIGHT}, "Save") {
     state.config.ENTITY_FILE_PATH = fmt.tprint(settingsState.entities_file_input.text)
     state.config.CUSTOM_ENTITY_PATH = fmt.tprint(settingsState.entities_dir.text)
     state.config.CUSTOM_ENTITY_FILE = fmt.tprint(settingsState.custom_entities_input.text)

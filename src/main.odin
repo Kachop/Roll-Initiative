@@ -60,7 +60,7 @@ init :: proc() {
   
   ip_string: string
   when ODIN_OS == .Windows {
-    continue
+    ip_string, _ = get_ip_windows()
   } else when ODIN_OS == .Linux {
     ip_string, _ = get_ip_linux()
   }
@@ -70,14 +70,12 @@ init :: proc() {
 
   server_thread = thread.create_and_start(run_combat_server)
   
-  web_addr := fmt.tprintf("http://%v:%v", ip_string, state.config.PORT)
+  web_addr := fmt.tprintf("http://%v:%v", state.config.IP_ADDRESS, state.config.PORT)
   p, err := os2.process_start({
       command = {BROWSER_COMMAND, web_addr},
     })
 
   _, err = os2.process_wait(p)
-
-  fmt.println(net.enumerate_interfaces())
 }
 
 main :: proc() {
@@ -180,6 +178,7 @@ drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE_DEFAULT)
 
   if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
+    state.current_screen_state = state.title_screen_state
     return
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
@@ -196,7 +195,7 @@ drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
   rl.GuiLine({cursor_x, cursor_y, state.window_width - PADDING_LEFT - PADDING_RIGHT, LINE_WIDTH}, "")
   cursor_y += LINE_WIDTH + MENU_BUTTON_PADDING
 
-  if (GuiFileDialog({cursor_x, cursor_y, state.window_width - PADDING_LEFT - PADDING_RIGHT, state.window_height - cursor_y - PADDING_BOTTOM}, fileDialogState)) {
+  if (GuiFileScreen({cursor_x, cursor_y, state.window_width - PADDING_LEFT - PADDING_RIGHT, state.window_height - cursor_y - PADDING_BOTTOM}, fileDialogState)) {
     //Go to the setup screen and load all the information from the selected file.
     //load_combat(fileDialogState.selected_file)
     //combat := read_combat_file(string(fileDialogState.selected_file), state.setup_screen_state)
