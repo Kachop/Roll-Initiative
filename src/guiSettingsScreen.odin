@@ -4,16 +4,17 @@ import "core:fmt"
 import rl "vendor:raylib"
 import "core:strings"
 import "core:unicode/utf8"
+import "core:os"
 
 GuiDrawSettingsScreen :: proc(settingsState: ^SettingsScreenState) {
   using state.gui_properties
 
   if (settingsState.first_load) {
-    settingsState.entities_file_input.text = cstr(state.config.ENTITY_FILE_PATH[len(#directory)+3:])
-    settingsState.entities_dir.text = cstr(state.config.CUSTOM_ENTITY_PATH[len(#directory)+3:])
+    settingsState.entities_file_input.text = cstr(state.config.ENTITY_FILE_PATH[len(os.get_current_directory())+3:])
+    settingsState.entities_dir.text = cstr(state.config.CUSTOM_ENTITY_PATH[len(os.get_current_directory())+3:])
     settingsState.custom_entities_input.text = cstr(state.config.CUSTOM_ENTITY_FILE)
-    settingsState.webpage_file_inpit.text = cstr(state.config.WEBPAGE_FILE_PATH[len(#directory)+3:])
-    settingsState.combats_dir_input.text = cstr(state.config.COMBAT_FILES_PATH[len(#directory)+3:])
+    settingsState.webpage_file_inpit.text = cstr(state.config.WEBPAGE_FILE_PATH[len(os.get_current_directory())+3:])
+    settingsState.combats_dir_input.text = cstr(state.config.COMBAT_FILES_PATH[len(os.get_current_directory())+3:])
     settingsState.first_load = false
   }
 

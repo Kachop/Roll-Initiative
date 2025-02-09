@@ -49,6 +49,7 @@ server_thread: ^thread.Thread
 
 @(init)
 init :: proc() {
+  rl.SetTraceLogLevel(.NONE)
   //Initialisation steps
   rl.InitWindow(1080, 720, "Roll Initiative")
   rl.SetTargetFPS(60)
@@ -70,7 +71,7 @@ init :: proc() {
 
   server_thread = thread.create_and_start(run_combat_server)
   
-  web_addr := fmt.tprintf("http://%v:%v", state.config.IP_ADDRESS, state.config.PORT)
+  web_addr := fmt.tprintf("http://%v:%v", ip_string, state.config.PORT)
   p, err := os2.process_start({
       command = {BROWSER_COMMAND, web_addr},
     })

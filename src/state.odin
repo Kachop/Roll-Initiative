@@ -41,7 +41,7 @@ init_load_screen :: proc(screenState: ^LoadScreenState) {
   InitPanelState(&screenState.panel)
   
   get_current_dir_files(screenState)
-  append(&screenState.dir_nav_list, #directory)
+  append(&screenState.dir_nav_list, cstr(state.app_dir))
 }
 
 d_init_load_screen :: proc(screenState: ^LoadScreenState) {
@@ -275,11 +275,13 @@ State :: struct {
   gui_properties: GuiProperties,
   hover_consumed: bool,
   config: Config,
+  app_dir: string,
 }
 
 init_state :: proc(state: ^State) {
   state.window_width = cast(f32)rl.GetRenderWidth()
   state.window_height = cast(f32)rl.GetRenderHeight()
+  state.app_dir = os.get_current_directory()
   LOAD_CONFIG(&state.config)
   state.srd_entities = load_entities_from_file(state.config.ENTITY_FILE_PATH)
   state.custom_entities = load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
@@ -291,6 +293,7 @@ init_state :: proc(state: ^State) {
   init_settings_screen(&state.settings_screen_state)
   init_entity_screen(&state.entity_screen_state)
   state.current_screen_state = state.title_screen_state
+
 }
 
 d_init_state :: proc(state: ^State) {

@@ -42,6 +42,7 @@ get_ip_windows :: proc() -> (ip_string: string, err: os2.Error) {
       }
     }
   }
+  ip_string = fmt.tprintf("%v.%v.%v.%v", state.config.IP_ADDRESS[0], state.config.IP_ADDRESS[1], state.config.IP_ADDRESS[2], state.config.IP_ADDRESS[3])
   return 
 }
 
@@ -69,6 +70,7 @@ get_ip_linux :: proc() -> (ip_string: string, err: os2.Error) {
       state.config.IP_ADDRESS = str_to_ipaddr(ip_string)
     }
   }
+  fmt.println("Set ADDR to:", ip_string)
   return
 }
 

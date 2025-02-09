@@ -32,19 +32,20 @@ Config :: struct {
 }
 
 LOAD_CONFIG :: proc(config: ^Config) {
-  file_data, ok := os.read_entire_file(fmt.tprint(#directory, "..", FILE_SEPERATOR, "config.json", sep=""))
+  fmt.println("LOOKING FOR CONFIG FILE @:", state.app_dir, FILE_SEPERATOR, "config.json", sep="")
+  file_data, ok := os.read_entire_file(fmt.tprint(state.app_dir, FILE_SEPERATOR, "config.json", sep=""))
   if (ok) {
     config_json, err := json.parse(file_data)
     if (err == .None) {
       config_fields := config_json.(json.Object)
-
-      config.ENTITY_FILE_PATH = fmt.tprint(#directory, "..", FILE_SEPERATOR, config_fields["entity_file_path"].(string), sep="") if ("entity_file_path" in config_fields) else ""
+      
+      config.ENTITY_FILE_PATH = fmt.tprint(state.app_dir, FILE_SEPERATOR, config_fields["entity_file_path"].(string), sep="") if ("entity_file_path" in config_fields) else ""
       fmt.println(config.ENTITY_FILE_PATH)
-      config.CUSTOM_ENTITY_PATH = fmt.tprint(#directory, "..", FILE_SEPERATOR, "Custom entities", FILE_SEPERATOR, sep="")
+      config.CUSTOM_ENTITY_PATH = fmt.tprint(state.app_dir, FILE_SEPERATOR, "Custom entities", FILE_SEPERATOR, sep="")
       config.CUSTOM_ENTITY_FILE = config_fields["custom_entity_file_path"].(string) if ("custom_entity_file_path" in config_fields) else ""
       config.CUSTOM_ENTITY_FILE_PATH = fmt.tprint(config.CUSTOM_ENTITY_PATH, config.CUSTOM_ENTITY_FILE, sep=FILE_SEPERATOR)
-      config.WEBPAGE_FILE_PATH = fmt.tprint(#directory, "..", FILE_SEPERATOR, config_fields["webpage_file_path"].(string), sep="") if ("webpage_file_path" in config_fields) else ""
-      config.COMBAT_FILES_PATH = fmt.tprint(#directory, "..", FILE_SEPERATOR, config_fields["combat_files_path"].(string)) if ("combat_files_path" in config_fields) else ""
+      config.WEBPAGE_FILE_PATH = fmt.tprint(state.app_dir, FILE_SEPERATOR, config_fields["webpage_file_path"].(string), sep="") if ("webpage_file_path" in config_fields) else ""
+      config.COMBAT_FILES_PATH = fmt.tprint(state.app_dir, FILE_SEPERATOR, config_fields["combat_files_path"].(string)) if ("combat_files_path" in config_fields) else ""
     } else {
       fmt.println("Error parsing JSON file, ", err)
     }
