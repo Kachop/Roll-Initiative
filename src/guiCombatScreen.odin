@@ -10,8 +10,7 @@ import rl "vendor:raylib"
 
 frame := 0
 
-dropdown_btn_list: [dynamic]i32
-dropdown_btn_list_active: [dynamic]^bool
+btn_list: map[i32]^bool
 
 GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     using state.gui_properties
@@ -28,14 +27,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     initial_text_size := TEXT_SIZE_DEFAULT
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE_DEFAULT)
     
-    if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
+    if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
         state.current_screen_state = state.setup_screen_state
         combatState.first_load = true
         return
     }
     cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
-    if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_ARROW_LEFT, ""))) {
+    if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_ARROW_LEFT, ""))) {
         //Go back to previous turn
         if (combatState.current_entity_index == 0) {
             if (combatState.current_round > 1) {
@@ -54,7 +53,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
     cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
     
-    if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_ARROW_RIGHT, ""))) {
+    if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_ARROW_RIGHT, ""))) {
         //Go to next turn
         if (combatState.current_entity_index == cast(i32)len(combatState.entities) - 1) {
             combatState.current_entity_index = 0
@@ -83,7 +82,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     TEXT_SIZE = initial_text_size
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 
-    if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, "") if (!combatState.combat_timer.running) else rl.GuiIconText(.ICON_PLAYER_PAUSE, ""))) {
+    if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, "") if (!combatState.combat_timer.running) else rl.GuiIconText(.ICON_PLAYER_PAUSE, ""))) {
         if !combatState.combat_timer.running {
             time.stopwatch_start(&combatState.combat_timer)
             time.stopwatch_start(&combatState.turn_timer)
@@ -99,7 +98,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     fit_text(combat_time, (state.window_height / 8), &TEXT_SIZE)
     rl.GuiLabel({(state.window_width * 0.975) - ((state.window_height / 8) * 2) -20, (state.window_height / 8) + 10, (state.window_height / 8), 40}, combat_time)
     
-    if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_STOP, ""))) {
+    if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_STOP, ""))) {
         //End the combat, do statistics, output files etc.
         //Display key details to the web client.
     }
@@ -115,9 +114,15 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     panel_height := draw_height
     dynamic_x_padding : f32 = (draw_width - (3 * panel_width)) / 2
 
-    //Will contain all entities loaded into the program for adding into the combat. Can filter by entity
     entity_select_button_height : f32 = 50
 
+    entity_names: [dynamic]cstring
+        
+    for entity in combatState.entities {
+        append(&entity_names, entity.name)
+        append(&combatState.to_dropdown.selected, false)
+    }
+    
     if combatState.first_load {
         combatState.first_load = false
         combatState.panelLeft.contentRec = {
@@ -139,12 +144,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             0,
         }
         
-        entity_names: [dynamic]cstring
-        
-        for entity in combatState.entities {
-            append(&entity_names, entity.name)
-            append(&combatState.to_dropdown.selected, false)
-        }
         InitDropdownState(&combatState.from_dropdown, "From:", entity_names[:])
         InitDropdownSelectState(&combatState.to_dropdown, "To:", entity_names[:])
     }
@@ -246,14 +245,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_y_from_dropdown := cursor_y
 
     defer GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
-    defer register_button(&dropdown_btn_list, 0, &dropdown_btn_list_active, &combatState.from_dropdown.active)
+    defer register_button(&btn_list, &combatState.from_dropdown)
     cursor_x += draw_width / 2
         
     cursor_x_to_dropdown := cursor_x
     cursor_y_to_dropdown := cursor_y
 
     defer GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
-    defer register_button(&dropdown_btn_list, 1, &dropdown_btn_list_active, &combatState.to_dropdown.active)
+    defer register_button(&btn_list, &combatState.to_dropdown)
     cursor_x = current_panel_x + PANEL_PADDING
     cursor_y += line_height_mid + PANEL_PADDING
     
@@ -265,8 +264,8 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
 
     scroll_locked := false
-    for btn_active in dropdown_btn_list_active {
-        if btn_active^ {
+    for _, btn in btn_list {
+        if btn^ {
             scroll_locked = true
         }
     }
@@ -298,7 +297,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y_dmg_type := cursor_y
 
         defer GuiDropdownControl({cursor_x_dmg_type, cursor_y_dmg_type, draw_width / 2, line_height_mid}, &combatState.dmg_type_dropdown)
-        defer register_button(&dropdown_btn_list, 2, &dropdown_btn_list_active, &combatState.dmg_type_dropdown.active)
+        defer register_button(&btn_list, &combatState.dmg_type_dropdown)
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
 
@@ -333,7 +332,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
 
         fit_text("Resolve", draw_width / 3, &TEXT_SIZE)
         TEXT_SIZE = initial_text_size
-        if rl.GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") && (!combatState.to_dropdown.active) {
+        if GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") && (!combatState.to_dropdown.active) {
             resolve_damage(combatState)
         }
         cursor_x = current_panel_x + PANEL_PADDING
@@ -352,7 +351,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         
         fit_text("Resolve", draw_width / 3, &TEXT_SIZE)
         TEXT_SIZE = initial_text_size
-        if rl.GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") && (!combatState.to_dropdown.active) {
+        if GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") && (!combatState.to_dropdown.active) {
             resolve_healing(combatState)
         }
         cursor_x = current_panel_x + PANEL_PADDING
@@ -367,7 +366,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         GuiTextInput({cursor_x, cursor_y, draw_width / 3, line_height_mid}, &combatState.temp_HP_input)
         cursor_x += draw_width / 3
    
-        if rl.GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") {
+        if GuiButton({cursor_x, cursor_y, draw_width / 3, line_height_mid}, "Resolve") {
             resolve_temp_HP(combatState)
         }
         cursor_x = current_panel_x + PANEL_PADDING
@@ -380,14 +379,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y_conditions := cursor_y
 
         defer GuiDropdownSelectControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
-        defer register_button(&dropdown_btn_list, 3, &dropdown_btn_list_active, &combatState.condition_dropdown.active)
+        defer register_button(&btn_list, &combatState.condition_dropdown)
         cursor_x += draw_width / 2
 
         defer if combatState.panelMid.height_needed > draw_height {
             rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
         }
 
-        if rl.GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {
+        if GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {
             resolve_conditions(combatState)
         }
         cursor_y += line_height_mid + PANEL_PADDING
@@ -454,19 +453,18 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       }
 }
 
-register_button :: proc(buttons: ^[dynamic]i32, button_index: i32, buttons_active: ^[dynamic]^bool, button_active: ^bool) {
-    registered := false
+register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
+  registered := false
 
-    for button in buttons {
-        if (button == button_index) {
-            registered = true
-        }
+  for test_button, _ in button_list {
+    if (test_button == button.id) {
+      registered = true
     }
-    
-    if !registered {
-        append(buttons, button_index)
-        append(buttons_active, button_active)
-    }
+  }
+
+  if !registered {
+    button_list[button.id] = &button.active
+  }
 }
 
 dropdownRec: rl.Rectangle

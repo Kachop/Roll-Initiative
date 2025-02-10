@@ -4,13 +4,85 @@ import "core:fmt"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
 
+GuiControl :: struct {
+  id: i32,
+  hovered: bool,
+}
+
+HoverStack :: struct {
+  stack: [dynamic]^GuiControl,
+  count: i32,
+}
+
+hover_stack_add :: proc(guiControl: ^GuiControl) {
+  already_added: bool
+
+  if state.hover_stack.count == 0 {
+    for item in state.hover_stack.stack {
+      if item.id ==  guiControl.id {
+        already_added = true
+      }
+    }
+  } else {
+    for item, i in state.hover_stack.stack {
+      if item.id == guiControl.id {
+        ordered_remove(&state.hover_stack.stack, i)
+      }
+    }
+  }
+  if !already_added {
+    append(&state.hover_stack.stack, guiControl)
+    state.hover_stack.count += 1
+  }
+}
+
+is_current_hover :: proc(guiControl: GuiControl) -> bool {
+  if len(state.hover_stack.stack) > 0 {
+    if state.hover_stack.stack[len(state.hover_stack.stack)-1].id == guiControl.id {
+      return true
+    }
+  }
+  return false
+}
+
+clean_hover_stack :: proc() {
+  for item, i in state.hover_stack.stack {
+    if item.hovered == false {
+      ordered_remove(&state.hover_stack.stack, i)
+    }
+  }
+  state.hover_stack.count = 0
+}
+
+GuiButton :: proc(bounds: rl.Rectangle, text: cstring) -> bool {
+  border :: 2
+
+  rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, state.config.BUTTON_BORDER_COLOUR)
+  rl.DrawRectangle(cast(i32)bounds.x + border, cast(i32)bounds.y + border, cast(i32)bounds.width - (border * 2), cast(i32)bounds.height - (border * 2), state.config.BUTTON_COLOUR)
+  rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+  rl.GuiLabel(bounds, text)
+
+  if len(state.hover_stack.stack) == 0 {
+    if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+      rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
+      if rl.IsMouseButtonReleased(.LEFT) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 TextInputState :: struct {
+  using guiControl: GuiControl,
   edit_mode: bool,
   alloc: [256]rune,
   text: cstring,
 }
 
 InitTextInputState :: proc(inputState: ^TextInputState) {
+  inputState.id = GUI_ID
+  GUI_ID += 1
   inputState.text = fmt.ctprint(utf8.runes_to_string(inputState.alloc[:], context.temp_allocator))
 }
 
@@ -152,6 +224,7 @@ GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index:
 }
 
 DropdownState :: struct {
+  using guiControl: GuiControl,
   title: cstring,
   labels: []cstring,
   selected: i32,
@@ -159,6 +232,8 @@ DropdownState :: struct {
 }
 
 InitDropdownState :: proc(state: ^DropdownState, title: cstring, labels: []cstring) {
+  state.id = GUI_ID
+  GUI_ID += 1
   state.title = title
   state.labels = labels
 }
@@ -186,43 +261,49 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
     line_height : i32 : 50
     max_items : i32 : 4
 
+    mouse_pos := rl.GetMousePosition()
+
+    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
+
+    if rl.CheckCollisionPointRec(mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height + dropdown_height}) {
+        dropdown_state.hovered = true
+        hover_stack_add(dropdown_state)
+    } else {
+        dropdown_state.hovered = false
+    }
+
     rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
     rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
+    if is_current_hover(dropdown_state) {
+        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
+    }
 
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title) 
-
-    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
 
     if y <= (state.window_height / 2) {
         cursor_y += cast(f32)line_height
     } else {
         cursor_y -= dropdown_height
     }
-    
-    mouse_pos := rl.GetMousePosition()
-    
-    if rl.IsMouseButtonPressed(.LEFT) {
-        if (rl.CheckCollisionPointRec(mouse_pos, bounds)) {
-            collision := rl.CheckCollisionRecs(dropdownView, bounds)
-            if (!collision || !state.hover_consumed) {
+        
+    if is_current_hover(dropdown_state) {
+        if rl.CheckCollisionPointRec(mouse_pos, bounds) {
+            if rl.IsMouseButtonReleased(.LEFT) {
                 if !dropdown_state.active {
-                    for &dropdown_active in dropdown_btn_list_active {
+                    for _, dropdown_active in btn_list {
                         dropdown_active^ = false
                     }
+                    dropdown_state.active = true
+                } else {
+                    dropdown_state.active = false
                 }
-                dropdown_state.active = !dropdown_state.active
                 if (dropdown_state.active) {
                     dropdownRec = {x, cursor_y, width, cast(f32)line_height * cast(f32)max_items}
                     dropdownContentRec = {x, cursor_y, width, 0}
                     dropdownView = {0, 0, 0, 0}
                     dropdownScroll = {0, 0}
-                }
-                if (!collision && !state.hover_consumed) {
-                    state.hover_consumed = !state.hover_consumed
-                } else if (!dropdown_state.active) {
-                    state.hover_consumed = false
                 }
             }
         }
@@ -283,6 +364,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
 }
 
 DropdownSelectState :: struct {
+  using guiControl: GuiControl,
   title: cstring,
   labels: []cstring,
   selected: [dynamic]bool,
@@ -290,6 +372,8 @@ DropdownSelectState :: struct {
 }
 
 InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstring, labels: []cstring) {
+  dropdownState.id = GUI_ID
+  GUI_ID += 1
   dropdownState.title = title
   dropdownState.labels = labels
 
@@ -324,43 +408,49 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     line_height : i32 : 50
     max_items : i32 : 4
 
+    mouse_pos := rl.GetMousePosition()
+
+    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
+
+    if rl.CheckCollisionPointRec(mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height + dropdown_height}) {
+        dropdown_state.hovered = true
+        hover_stack_add(dropdown_state)
+    } else {
+        dropdown_state.hovered = false
+    }
+
     rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
     rl.DrawRectangle(cast(i32)x + border, cast(i32)y + border, cast(i32)width - (border * 2), cast(i32)height - (border * 2), state.config.BUTTON_COLOUR)
+    if is_current_hover(dropdown_state) {
+        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
+    }
     
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
-
-    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
 
     if y <= (state.window_height / 2) {
         cursor_y += cast(f32)line_height
     } else {
         cursor_y -= dropdown_height
     }
-
-    mouse_pos := rl.GetMousePosition()
     
-    if rl.IsMouseButtonPressed(.LEFT) {
+    if is_current_hover(dropdown_state) {
         if rl.CheckCollisionPointRec(mouse_pos, bounds) {
-            collision := rl.CheckCollisionRecs(dropdownView, bounds)
-            if (!collision || !state.hover_consumed) {
+            if rl.IsMouseButtonReleased(.LEFT) {
                 if !dropdown_state.active {
-                    for &dropdown_active in dropdown_btn_list_active {
+                    for _, dropdown_active in btn_list {
                         dropdown_active^ = false
                     }
+                    dropdown_state.active = true
+                } else {
+                    dropdown_state.active = false
                 }
-                dropdown_state.active = !dropdown_state.active
                 if (dropdown_state.active) {
                     dropdownRec = {x, cursor_y, width, cast(f32)line_height * cast(f32)max_items}
                     dropdownContentRec = {x, cursor_y, width, 0}
                     dropdownView = {0, 0, 0, 0}
                     dropdownScroll = {0, 0}
-                }
-                if (!collision && !state.hover_consumed) {
-                    state.hover_consumed = !state.hover_consumed
-                } else if (!dropdown_state.active) {
-                    state.hover_consumed = false
                 }
             }
         }
@@ -419,11 +509,14 @@ InitPanelState :: proc(state: ^PanelState) {
 }
 
 TabControlState :: struct {
+  using guiControl: GuiControl,
   options: []cstring,
   selected: i32,
 }
 
 InitTabControlState :: proc(tab_state: ^TabControlState, options: []cstring) {
+  tab_state.id = GUI_ID
+  GUI_ID += 1
   tab_state.options = options
 }
 
@@ -492,14 +585,14 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tabState: ^TabControlState) -> i32 {
 }
 
 GuiMessageBoxState :: struct {
-  id: i32,
+  using guiControl: GuiControl,
   title: cstring,
   message: cstring,
 }
 
 init_message_box :: proc(message_box_state: ^GuiMessageBoxState, title: cstring, message: cstring) {
-  message_box_state.id = MESSAGE_BOX_ID
-  MESSAGE_BOX_ID += 1
+  message_box_state.id = GUI_ID
+  GUI_ID += 1
   
   message_box_state.title = title
   message_box_state.message = message
@@ -509,9 +602,23 @@ GuiMessageBox :: proc(bounds: rl.Rectangle, message_box_state: ^GuiMessageBoxSta
   initial_text_size := state.gui_properties.TEXT_SIZE
   defer rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
 
+  if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+    message_box_state.hovered = true
+    hover_stack_add(message_box_state)
+  } else {
+    message_box_state.hovered = false
+  }
+
   state.gui_properties.TEXT_SIZE = state.gui_properties.TEXT_SIZE_DEFAULT
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, state.gui_properties.TEXT_SIZE)
-  return rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
+
+  output := rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
+
+  if is_current_hover(message_box_state) {
+    return output
+  } else {
+    return -1
+  }
 }
 
 GuiMessageBoxQueueState :: struct {
@@ -522,10 +629,11 @@ addMessage :: proc(message_queue: ^GuiMessageBoxQueueState, message_box: GuiMess
   append(&message_queue.messages, message_box)
 }
 
-remove_message :: proc(message_queue: ^GuiMessageBoxQueueState, message_box: GuiMessageBoxState) {
+remove_message :: proc(message_queue: ^GuiMessageBoxQueueState, message_box: ^GuiMessageBoxState) {
   for test_message_box, i in message_queue.messages {
     if test_message_box.id == message_box.id {
       ordered_remove(&message_queue.messages, i)
+      message_box.hovered = false
     }
   }
 }
@@ -536,7 +644,7 @@ GuiMessageBoxQueue :: proc(message_queue_state: ^GuiMessageBoxQueueState) {
 
   message_loop: for &message_box, i in message_queue_state.messages {
     if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) != -1 {
-      remove_message(message_queue_state, message_box)
+      remove_message(message_queue_state, &message_box)
     }
     cursor_y += 110
 

@@ -8,6 +8,8 @@ import "core:os"
 import "core:time"
 import rl "vendor:raylib"
 
+GUI_ID : i32 = 0
+
 TitleScreenState :: struct {
 
 }
@@ -261,6 +263,8 @@ WindowState :: union {
 
 State :: struct {
   window_width, window_height: f32,
+
+  hover_stack: HoverStack,
   
   title_screen_state: TitleScreenState,
   load_screen_state: LoadScreenState,

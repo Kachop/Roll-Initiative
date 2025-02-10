@@ -79,7 +79,10 @@ to_i32_cstr :: proc(cstr: cstring) -> i32 {
 }
 
 order_by_initiative :: proc(entities: ^[dynamic]Entity) {
-    entities_sorted := [dynamic]Entity{} 
+    entities_sorted := [dynamic]Entity{}
+    for entity in entities {
+        fmt.println(entity.name)
+    }
 
     for entity in entities {
         sorting_loop: for sorted_entity, j in entities_sorted {

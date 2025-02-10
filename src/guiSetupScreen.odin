@@ -21,14 +21,14 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   initial_text_size := TEXT_SIZE_DEFAULT
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
   
-  if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
+  if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back")) {
     setupState.first_load = true
     state.current_screen_state = state.title_screen_state
     return
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
-  if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_FILE_OPEN, ""))) {
+  if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_FILE_OPEN, ""))) {
     state.current_screen_state = state.load_screen_state
     return
   }
@@ -44,7 +44,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   TEXT_SIZE = initial_text_size
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 
-  if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_FILE_SAVE, ""))) {
+  if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_FILE_SAVE, ""))) {
     filename_parts := []cstring{setupState.filename_input.text, ".combat"}
     filename := rl.TextJoin(raw_data(filename_parts), 2, "")
     combat := CombatFile{setupState.filename_input.text, setupState.entities_selected}
@@ -52,7 +52,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
-  if (rl.GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, ""))) {
+  if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, ""))) {
     if len(setupState.entities_selected) > 0 {
       for &entity in setupState.entities_selected {
         if (entity.initiative == 0) {

@@ -26,7 +26,7 @@ Features TODO:
 cstr :: fmt.ctprint
 str :: fmt.tprint
 
-MESSAGE_BOX_ID : i32 = 0
+FRAME := 0
 
 when ODIN_OS == .Windows {
   FILE_SEPERATOR :: "\\"
@@ -107,7 +107,6 @@ main :: proc() {
   defer rl.CloseWindow()
 
   for (!rl.WindowShouldClose()) {
-    //Do non-drawing stuff
     state.window_width = cast(f32)rl.GetRenderWidth()
     state.window_height = cast(f32)rl.GetRenderHeight()
 
@@ -115,8 +114,14 @@ main :: proc() {
     //Draw
     rl.BeginDrawing()
     defer rl.EndDrawing()
+    
+    //FRAME += 1
+    //if (FRAME % 60) == 0 {
+    //  fmt.println(state.hover_stack.stack)
+    //}
 
     rl.ClearBackground(state.config.BACKGROUND_COLOUR)
+    clean_hover_stack()
     switch s in &state.current_screen_state {
     case TitleScreenState: drawTitleScreen()
     case LoadScreenState: drawLoadScreen(&state.load_screen_state)
