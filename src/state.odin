@@ -92,6 +92,7 @@ d_init_setup_screen :: proc(screenState: ^SetupScreenState) {
 CombatScreenState :: struct {
   first_load: bool,
   entities: [dynamic]Entity,
+  entity_names: [dynamic]cstring,
   current_entity_index: i32,
   current_entity: ^Entity,
   current_round: i32,

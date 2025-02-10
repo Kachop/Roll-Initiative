@@ -116,11 +116,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
 
     entity_select_button_height : f32 = 50
 
-    entity_names: [dynamic]cstring
-        
+    clear(&combatState.entity_names)
+
     for entity in combatState.entities {
-        append(&entity_names, entity.name)
-        append(&combatState.to_dropdown.selected, false)
+        append(&combatState.entity_names, entity.name)
     }
     
     if combatState.first_load {
@@ -142,10 +141,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             cursor_y,
             panel_width,
             0,
-        }
+        } 
         
-        InitDropdownState(&combatState.from_dropdown, "From:", entity_names[:])
-        InitDropdownSelectState(&combatState.to_dropdown, "To:", entity_names[:])
+        InitDropdownState(&combatState.from_dropdown, "From:", combatState.entity_names[:])
+        InitDropdownSelectState(&combatState.to_dropdown, "To:", combatState.entity_names[:])
     }
 
     rl.GuiPanel(
