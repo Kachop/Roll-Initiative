@@ -46,6 +46,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             combatState.current_entity_index -= 1
         }
         combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+        combatState.from_dropdown.selected = combatState.current_entity_index
         time.stopwatch_reset(&combatState.turn_timer)
         if (combatState.combat_timer.running) {
             time.stopwatch_start(&combatState.turn_timer)
@@ -60,8 +61,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             combatState.current_round += 1
         } else {
             combatState.current_entity_index += 1
+            combatState.from_dropdown.selected = combatState.current_entity_index
         }
         combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+        combatState.from_dropdown.selected = combatState.current_entity_index
         time.stopwatch_reset(&combatState.turn_timer)
         if (combatState.combat_timer.running) {
             time.stopwatch_start(&combatState.turn_timer)
@@ -389,6 +392,8 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         }
         cursor_y += line_height_mid + PANEL_PADDING
         combatState.panelMid.height_needed = cursor_y - start_y + PANEL_PADDING
+        
+        //Temp dmg resistances and immunities!
     }
   
     if (combatState.panelMid.height_needed > draw_height) {
@@ -793,7 +798,9 @@ resolve_conditions :: proc(combatState: ^CombatScreenState) {
           case: continue
           }
         }
+        combatState.condition_dropdown.selected[i] = false
       }
     }
+    combatState.to_dropdown.selected[i] = false
   }
 }

@@ -8,14 +8,10 @@ import "core:strings"
 import "core:unicode/utf8"
 import "core:strconv"
 
-/*
-TODO:
-- Finish displaying all of the selected entity details.
-- Add ability to write in initiative scores for all selected entities.
-*/
-
 GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatScreenState) {
   using state.gui_properties
+
+  defer GuiMessageBoxQueue(&setupState.message_queue)
   
   cursor_x : f32 = PADDING_LEFT
   cursor_y : f32 = PADDING_TOP
@@ -69,7 +65,9 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
       combatState.current_entity = &combatState.entities[combatState.current_entity_index]
       state.current_screen_state = state.combat_screen_state
     } else {
-      //Pop up a notification that there are no entities in combat
+      new_message := GuiMessageBoxState{}
+      init_message_box(&new_message, "Warning!", "No combatants added.")
+      addMessage(&setupState.message_queue, new_message)
     }
   }
   cursor_x = start_x

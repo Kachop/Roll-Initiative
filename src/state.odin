@@ -52,6 +52,7 @@ d_init_load_screen :: proc(screenState: ^LoadScreenState) {
 
 SetupScreenState :: struct {
   first_load: bool,
+  message_queue: GuiMessageBoxQueueState,
   entities_filtered: #soa[dynamic]Entity,
   entities_selected: [dynamic]Entity,
   selected_entity: ^Entity,

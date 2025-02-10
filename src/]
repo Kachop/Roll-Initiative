@@ -491,57 +491,16 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tabState: ^TabControlState) -> i32 {
   return tabState.selected
 }
 
-GuiMessageBoxState :: struct {
-  id: i32,
-  title: cstring,
-  message: cstring,
-}
+GuiMessageBoxState :: struct {}
 
-init_message_box :: proc(message_box_state: ^GuiMessageBoxState, title: cstring, message: cstring) {
-  message_box_state.id = MESSAGE_BOX_ID
-  MESSAGE_BOX_ID += 1
-  
-  message_box_state.title = title
-  message_box_state.message = message
-}
-
-GuiMessageBox :: proc(bounds: rl.Rectangle, message_box_state: ^GuiMessageBoxState) -> i32 {
-  initial_text_size := state.gui_properties.TEXT_SIZE
-  defer rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
-
-  state.gui_properties.TEXT_SIZE = state.gui_properties.TEXT_SIZE_DEFAULT
-  rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, state.gui_properties.TEXT_SIZE)
-  return rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
-}
+GuiMessageBox :: proc(message_box_state: ^GuiMessageBoxState) {}
 
 GuiMessageBoxQueueState :: struct {
   messages: [dynamic]GuiMessageBoxState
 }
 
-addMessage :: proc(message_queue: ^GuiMessageBoxQueueState, message_box: GuiMessageBoxState) {
-  append(&message_queue.messages, message_box)
+addMessage :: proc(message_queue: ^GuiMessageBoxQueueState) {
+  messages: [dynamic]
 }
 
-remove_message :: proc(message_queue: ^GuiMessageBoxQueueState, message_box: GuiMessageBoxState) {
-  for test_message_box, i in message_queue.messages {
-    if test_message_box.id == message_box.id {
-      ordered_remove(&message_queue.messages, i)
-    }
-  }
-}
-
-GuiMessageBoxQueue :: proc(message_queue_state: ^GuiMessageBoxQueueState) {
-  cursor_x : f32 = state.window_width - 350
-  cursor_y : f32 = 50
-
-  message_loop: for &message_box, i in message_queue_state.messages {
-    if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) != -1 {
-      remove_message(message_queue_state, message_box)
-    }
-    cursor_y += 110
-
-    if i >= 4 {
-      break message_loop
-    }
-  }
-}
+GuiMessageBoxQueue :: proc(message_queue_state: ^GuiMessageBoxQueueState) {}

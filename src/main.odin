@@ -13,6 +13,9 @@ import "core:net"
 
 /*
 Features TODO:
+- Add temp resistances / immunities.
+- Make icons and borders relative paths.
+- Make some sort of system for viewing stats and abilities outside of current entity turn!!
 - Logging of combat go by go, with dmg, healing etc.
 - Some sort of built-in media controls and playlist builder / spotify API control.
 - Random CR combat maker.
@@ -22,6 +25,8 @@ Features TODO:
 
 cstr :: fmt.ctprint
 str :: fmt.tprint
+
+MESSAGE_BOX_ID : i32 = 0
 
 when ODIN_OS == .Windows {
   FILE_SEPERATOR :: "\\"
@@ -167,7 +172,7 @@ drawTitleScreen :: proc() {
     state.current_screen_state = state.entity_screen_state
     return
   }
-  cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_WIDTH
+  cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
 }
 
 drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
