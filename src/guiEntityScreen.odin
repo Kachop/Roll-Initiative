@@ -47,7 +47,6 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
   if (entityScreenState.first_load) {
     //Do stuff
-    fmt.println("Doing first load")
     entityScreenState.first_load = false
     entityScreenState.panelLeft.contentRec = {
       cursor_x,
@@ -742,7 +741,6 @@ reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   for file in file_infos {
     if !file.is_dir {
       if strings.split(file.name, ".")[1] == "png" {
-        fmt.println(file.name)
         append(&temp_path_list, file.fullpath)
       }
     }

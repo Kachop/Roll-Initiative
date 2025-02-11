@@ -55,6 +55,10 @@ server_thread: ^thread.Thread
 @(init)
 init :: proc() {
   rl.SetTraceLogLevel(.NONE)
+
+  when ODIN_DEBUG {
+    context.logger = log.create_console_logger()
+  }
   //Initialisation steps
   rl.InitWindow(1080, 720, "Roll Initiative")
   rl.SetTargetFPS(60)
@@ -76,17 +80,20 @@ init :: proc() {
 
   server_thread = thread.create_and_start(run_combat_server)
   
+  log.debugf("Started webserver @: http://%v:%v", ip_string, state.config.PORT)
   web_addr := fmt.tprintf("http://%v:%v", ip_string, state.config.PORT)
   p, err := os2.process_start({
       command = {BROWSER_COMMAND, web_addr},
     })
 
   _, err = os2.process_wait(p)
+  log.debugf("Error launching browser: %v", err)
 }
 
 main :: proc() {
-  context.logger = log.create_console_logger()
-  
+  when ODIN_DEBUG {
+    context.logger = log.create_console_logger()
+  }
   default_allocator := context.allocator
   tracking_allocator: mem.Tracking_Allocator
   mem.tracking_allocator_init(&tracking_allocator, default_allocator)
@@ -104,6 +111,8 @@ main :: proc() {
     return err
   }
 
+  log.debugf("Starting main loop.")
+
   defer rl.CloseWindow()
 
   for (!rl.WindowShouldClose()) {
@@ -115,10 +124,10 @@ main :: proc() {
     rl.BeginDrawing()
     defer rl.EndDrawing()
     
-    //FRAME += 1
-    //if (FRAME % 60) == 0 {
-    //  fmt.println(state.hover_stack.stack)
-    //}
+    FRAME += 1
+    if (FRAME % 60) == 0 {
+      log.debugf("HOVER STACK: %v", state.hover_stack.stack)
+    }
 
     rl.ClearBackground(state.config.BACKGROUND_COLOUR)
     clean_hover_stack()

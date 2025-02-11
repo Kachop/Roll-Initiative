@@ -55,11 +55,14 @@ clean_hover_stack :: proc() {
 }
 
 GuiButton :: proc(bounds: rl.Rectangle, text: cstring) -> bool {
+  initial_alignment := rl.GuiGetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
+
   border :: 2
 
   rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, state.config.BUTTON_BORDER_COLOUR)
   rl.DrawRectangle(cast(i32)bounds.x + border, cast(i32)bounds.y + border, cast(i32)bounds.width - (border * 2), cast(i32)bounds.height - (border * 2), state.config.BUTTON_COLOUR)
   rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+  defer rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)initial_alignment)
   rl.GuiLabel(bounds, text)
 
   if len(state.hover_stack.stack) == 0 {
@@ -345,7 +348,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
             if rl.CheckCollisionPointRec(mouse_pos, option_bounds) {
                 rl.DrawRectangle(cast(i32)option_bounds.x, cast(i32)option_bounds.y, cast(i32)option_bounds.width, cast(i32)option_bounds.height, rl.ColorAlpha(state.config.DROPDOWN_HOVER_COLOUR, 0.2))
                 //Draw highlight colour
-                if rl.IsMouseButtonPressed(.LEFT) {
+                if rl.IsMouseButtonReleased(.LEFT) {
                     dropdown_state.selected = cast(i32)i
                     dropdown_state.active = false
                     state.hover_consumed = false
@@ -434,27 +437,6 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     } else {
         cursor_y -= dropdown_height
     }
-    
-    if is_current_hover(dropdown_state) {
-        if rl.CheckCollisionPointRec(mouse_pos, bounds) {
-            if rl.IsMouseButtonReleased(.LEFT) {
-                if !dropdown_state.active {
-                    for _, dropdown_active in btn_list {
-                        dropdown_active^ = false
-                    }
-                    dropdown_state.active = true
-                } else {
-                    dropdown_state.active = false
-                }
-                if (dropdown_state.active) {
-                    dropdownRec = {x, cursor_y, width, cast(f32)line_height * cast(f32)max_items}
-                    dropdownContentRec = {x, cursor_y, width, 0}
-                    dropdownView = {0, 0, 0, 0}
-                    dropdownScroll = {0, 0}
-                }
-            }
-        }
-    }
 
     if dropdown_state.active {
         rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, state.config.BUTTON_BORDER_COLOUR)
@@ -489,6 +471,29 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
             dropdownScroll.y = 0
         }
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    }
+
+    if is_current_hover(dropdown_state) {
+        if rl.CheckCollisionPointRec(mouse_pos, bounds) {
+            if rl.IsMouseButtonReleased(.LEFT) {
+                if !dropdown_state.active {
+                    for _, dropdown_active in btn_list {
+                        dropdown_active^ = false
+                    }
+                    dropdown_state.active = true
+                } else {
+                    dropdown_state.active = false
+                    return
+                }
+                if (dropdown_state.active) {
+                    dropdownRec = {x, cursor_y, width, cast(f32)line_height * cast(f32)max_items}
+                    dropdownContentRec = {x, cursor_y, width, 0}
+                    dropdownView = {0, 0, 0, 0}
+                    dropdownScroll = {0, 0}
+                    return
+                }
+            }
+        }
     }
 }
 

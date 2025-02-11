@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import "core:os"
 import "core:encoding/json"
 import "core:strings"
@@ -117,13 +118,11 @@ Entity :: struct {
 
 load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
   entities: #soa[dynamic]Entity
-  fmt.println(state.config.ENTITY_FILE_PATH)
+  log.debugf("LOADING FILE: %v", filename)
   file_data, ok :=  os.read_entire_file(filename)
-  fmt.println("Loading: ", filename)
   if (ok) {
     json_data, err := json.parse(file_data)
     //Loop over the entities and fill the struct.
-    fmt.println(err)
     if err == .None {
       for entity in json_data.(json.Array) {
         entity_fields := entity.(json.Object)
@@ -199,7 +198,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
 }
 
 add_entity_to_file :: proc(entity: Entity, filename: string = state.config.CUSTOM_ENTITY_FILE_PATH, wipe: bool = false) {
-    fmt.println(filename)
+    log.debugf("Adding %v to %v", entity.name, filename)
     file_data, ok := os.read_entire_file(filename)
     file_string := string(file_data)
     
@@ -305,7 +304,10 @@ get_entity_type :: proc(type: string) -> (result: EntityType) {
 }
 
 get_modifier :: proc(score: i32) -> (result: i32) {
-    result = (score - 10) / 2
+    switch {
+    case 0 <= score && score <= 9: result = (score - 11) / 2
+    case score >= 11: result = (score - 10) / 2
+    }
     return
 }
 
