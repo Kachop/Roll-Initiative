@@ -747,7 +747,7 @@ reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   for file in file_infos {
     if !file.is_dir {
       if strings.split(file.name, ".")[1] == "png" {
-        append(&temp_path_list, file.fullpath)
+        append(&temp_path_list, file.name)
       }
     }
   }
@@ -755,7 +755,7 @@ reload_icons :: proc(entityScreenState: ^EntityScreenState) {
   
   temp_texture_list := [dynamic]rl.Texture{}
   for img_path in entityScreenState.img_file_paths {
-    temp_img := rl.LoadImage(cstr(img_path))
+    temp_img := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "images", img_path, sep=FILE_SEPERATOR))
     defer rl.UnloadImage(temp_img)
     if (temp_img.width != 128) || (temp_img.height != 128) {
       rl.ImageResize(&temp_img, 128, 128)
@@ -777,14 +777,14 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   }
 
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "..", FILE_SEPERATOR, "borders", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "..", "borders", sep=FILE_SEPERATOR))
   defer os.close(dir_handle)
   file_infos, err := os.read_dir(dir_handle, 0)
 
   for file in file_infos {
     if !file.is_dir {
       if strings.split(file.name, ".")[1] == "png" {
-        append(&temp_path_list, file.fullpath)
+        append(&temp_path_list, file.name)
       }
     }
   }
@@ -792,7 +792,7 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   
   temp_texture_list := [dynamic]rl.Texture{}
   for border_path in entityScreenState.border_file_paths {
-    temp_border := rl.LoadImage(cstr(border_path))
+    temp_border := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "..", "borders", sep=FILE_SEPERATOR))
     defer rl.UnloadImage(temp_border)
     if (temp_border.width != 128) || (temp_border.height != 128) {
       rl.ImageResize(&temp_border, 128, 128)

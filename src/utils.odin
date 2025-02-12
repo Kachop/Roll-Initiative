@@ -120,9 +120,9 @@ match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
 get_entity_icon_data :: proc{get_entity_icon_from_paths, get_entity_icon_from_entity}
 
 get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> (rl.Texture, []u8) {
-  temp_icon_image := rl.LoadImage(icon_path)
+  temp_icon_image := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "images", icon_path, sep=FILE_SEPERATOR))
   defer rl.UnloadImage(temp_icon_image)
-  temp_border_image := rl.LoadImage(border_path)
+  temp_border_image := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "..", "borders", border_path, sep=FILE_SEPERATOR))
   defer rl.UnloadImage(temp_border_image)
 
   if temp_icon_image.width != 128 || temp_icon_image.height != 128 {
