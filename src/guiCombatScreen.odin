@@ -251,17 +251,13 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_x_from_dropdown := cursor_x
     cursor_y_from_dropdown := cursor_y
 
-    GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
-    register_button(&btn_list, &combatState.from_dropdown)
     cursor_x += draw_width / 2
-        
+ 
     cursor_x_to_dropdown := cursor_x
     cursor_y_to_dropdown := cursor_y
 
-    GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
-    register_button(&btn_list, &combatState.to_dropdown)
     cursor_x = current_panel_x + PANEL_PADDING
-    cursor_y += line_height_mid + PANEL_PADDING
+    cursor_y += line_height_mid + PANEL_PADDING 
     
     combatState.panelMid.rec = {
         cursor_x - PANEL_PADDING,
@@ -382,13 +378,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
 
-        rl.GuiLabel({cursor_x, cursor_y, draw_width, line_height_mid}, "Temp Resistances / Immunities")
-        cursor_y += line_height_mid + PANEL_PADDING
+        rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Temp")
+        cursor_x += draw_width / 2
         
-        cursor_x_temp_dmg_stuff := cursor_x
-        cursor_y_temp_dmg_stuff := cursor_y
+        rl.GuiToggleSlider({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Vulnerability;Resistance;Immunity", &combatState.toggle_active)
+        cursor_x = current_panel_x + PANEL_PADDING
+        cursor_y += line_height_mid + PANEL_PADDING
 
-        GuiDropdownSelectControl({cursor_x_temp_dmg_stuff, cursor_y_temp_dmg_stuff, draw_width / 2, line_height_mid}, &combatState.temp_resist_immunity_dropdown)
+        GuiDropdownSelectControl({cursor_x, cursor_y, draw_width / 2, line_height_mid}, &combatState.temp_resist_immunity_dropdown)
         register_button(&btn_list, &combatState.temp_resist_immunity_dropdown)
         cursor_x += draw_width / 2
 
@@ -408,6 +405,12 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     } else {
         combatState.panelMid.scroll.y = 0
     }
+
+    GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
+    register_button(&btn_list, &combatState.from_dropdown)
+
+    GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
+    register_button(&btn_list, &combatState.to_dropdown)
     //Stats and info for the currently selected entity.
     current_panel_x += panel_width + dynamic_x_padding
     cursor_x = current_panel_x
@@ -631,9 +634,15 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
     TEXT_SIZE = TEXT_SIZE_DEFAULT
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
     
-    vulnerabilities: []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities)
-    resistances : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances)
-    immunities : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities)
+    vulnerabilities: [dynamic]string
+    append(&vulnerabilities, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities))
+    append(&vulnerabilities, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_vulnerabilities)[:])
+    resistances : [dynamic]string
+    append(&resistances, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances))
+    append(&resistances, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_resistances))
+    immunities : [dynamic]string
+    append(&immunities, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities))
+    append(&immunities, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_immunities))
 
     vulnerability_y, resistance_y, immunity_y: f32
     prev_y := cursor_y
@@ -710,10 +719,10 @@ resolve_damage :: proc(combatState: ^CombatScreenState) {
     
     for &entity, i in combatState.entities {
         if (combatState.to_dropdown.selected[i]) {
-            if combatState.dmg_type_selected not_in entity.dmg_immunities {
+            if combatState.dmg_type_selected not_in entity.dmg_immunities && combatState.dmg_type_selected not_in entity.temp_dmg_immunities {
                 if combatState.dmg_type_selected in entity.dmg_resistances {
                     dmg_amount /= 2
-                } else if combatState.dmg_type_selected in entity.dmg_vulnerabilities {
+                } else if combatState.dmg_type_selected in entity.dmg_vulnerabilities || combatState.dmg_type_selected in entity.temp_dmg_vulnerabilities {
                     dmg_amount *= 2
                 }
                 dmg_amount -= entity.temp_HP
@@ -821,10 +830,9 @@ resolve_conditions :: proc(combatState: ^CombatScreenState) {
             if .EXHAUSTION not_in entity.condition_immunities {
               entity.conditions |= {.EXHAUSTION}
             }
-          case: continue
           }
+          combatState.condition_dropdown.selected[j] = false
         }
-        combatState.condition_dropdown.selected[i] = false
       }
     }
     combatState.to_dropdown.selected[i] = false
@@ -832,5 +840,95 @@ resolve_conditions :: proc(combatState: ^CombatScreenState) {
 }
 
 resolve_temp_resistance_or_immunity :: proc(combatState: ^CombatScreenState) {
-  //Adds temp resistances and immunities during combat. From spell sources etc.
+  if combatState.toggle_active == 0 {
+    for &entity, i in combatState.entities {
+      if combatState.to_dropdown.selected[i] {
+        entity.temp_dmg_resistances = DamageSet{}
+        for dmg_type, j in combatState.temp_resist_immunity_dropdown.labels {
+          if combatState.temp_resist_immunity_dropdown.selected[j] {
+            log.debugf("Found one: %v, %v", dmg_type, j)
+            switch strings.to_lower(str(dmg_type)) {
+            case "slashing": entity.temp_dmg_vulnerabilities |= {.SLASHING}
+            case "piercing": entity.temp_dmg_vulnerabilities |= {.PIERCING}
+            case "bludgeoning": entity.temp_dmg_vulnerabilities |= {.BLUDGEONING}
+            case "non-magical": entity.temp_dmg_vulnerabilities |= {.NON_MAGICAL}
+            case "poison": entity.temp_dmg_vulnerabilities |= {.POISON}
+            case "acid": entity.temp_dmg_vulnerabilities |= {.ACID}
+            case "fire": entity.temp_dmg_vulnerabilities |= {.FIRE}
+            case "cold": entity.temp_dmg_vulnerabilities |= {.COLD}
+            case "radiant": entity.temp_dmg_vulnerabilities |= {.RADIANT}
+            case "necrotic": entity.temp_dmg_vulnerabilities |= {.NECROTIC}
+            case "lightning": entity.temp_dmg_vulnerabilities |= {.LIGHTNING}
+            case "thunder": entity.temp_dmg_vulnerabilities |= {.THUNDER}
+            case "force": entity.temp_dmg_vulnerabilities |= {.FORCE}
+            case "psychic": entity.temp_dmg_vulnerabilities |= {.PSYCHIC}
+            }
+            log.debugf("Removing one: %v", j)
+            combatState.temp_resist_immunity_dropdown.selected[j] = false
+          }
+        }
+      }
+      combatState.to_dropdown.selected[i] = false
+    }
+  } else if combatState.toggle_active == 1 {
+    for &entity, i in combatState.entities {
+      if combatState.to_dropdown.selected[i] {
+        entity.temp_dmg_resistances = DamageSet{}
+        for dmg_type, j in combatState.temp_resist_immunity_dropdown.labels {
+          if combatState.temp_resist_immunity_dropdown.selected[j] {
+            log.debugf("Found one: %v, %v", dmg_type, j)
+            switch strings.to_lower(str(dmg_type)) {
+            case "slashing": entity.temp_dmg_resistances |= {.SLASHING}
+            case "piercing": entity.temp_dmg_resistances |= {.PIERCING}
+            case "bludgeoning": entity.temp_dmg_resistances |= {.BLUDGEONING}
+            case "non-magical": entity.temp_dmg_resistances |= {.NON_MAGICAL}
+            case "poison": entity.temp_dmg_resistances |= {.POISON}
+            case "acid": entity.temp_dmg_resistances |= {.ACID}
+            case "fire": entity.temp_dmg_resistances |= {.FIRE}
+            case "cold": entity.temp_dmg_resistances |= {.COLD}
+            case "radiant": entity.temp_dmg_resistances |= {.RADIANT}
+            case "necrotic": entity.temp_dmg_resistances |= {.NECROTIC}
+            case "lightning": entity.temp_dmg_resistances |= {.LIGHTNING}
+            case "thunder": entity.temp_dmg_resistances |= {.THUNDER}
+            case "force": entity.temp_dmg_resistances |= {.FORCE}
+            case "psychic": entity.temp_dmg_resistances |= {.PSYCHIC}
+            }
+            log.debugf("Removing one: %v", j)
+            combatState.temp_resist_immunity_dropdown.selected[j] = false
+          }
+        }
+      }
+      combatState.to_dropdown.selected[i] = false
+    }
+  } else if combatState.toggle_active == 2 {
+    for &entity, i in combatState.entities {
+      if combatState.to_dropdown.selected[i] {
+        entity.temp_dmg_immunities = DamageSet{}
+        for dmg_type, j in combatState.temp_resist_immunity_dropdown.labels {
+          if combatState.temp_resist_immunity_dropdown.selected[j] {
+            log.debugf("Found one: %v, %v", dmg_type, j)
+            switch strings.to_lower(str(dmg_type)) {
+            case "slashing": entity.temp_dmg_immunities |= {.SLASHING}
+            case "piercing": entity.temp_dmg_immunities |= {.PIERCING}
+            case "bludgeoning": entity.temp_dmg_immunities |= {.BLUDGEONING}
+            case "non-magical": entity.temp_dmg_immunities |= {.NON_MAGICAL}
+            case "poison": entity.temp_dmg_immunities |= {.POISON}
+            case "acid": entity.temp_dmg_immunities |= {.ACID}
+            case "fire": entity.temp_dmg_immunities |= {.FIRE}
+            case "cold": entity.temp_dmg_immunities |= {.COLD}
+            case "radiant": entity.temp_dmg_immunities |= {.RADIANT}
+            case "necrotic": entity.temp_dmg_immunities |= {.NECROTIC}
+            case "lightning": entity.temp_dmg_immunities |= {.LIGHTNING}
+            case "thunder": entity.temp_dmg_immunities |= {.THUNDER}
+            case "force": entity.temp_dmg_immunities |= {.FORCE}
+            case "psychic": entity.temp_dmg_immunities |= {.PSYCHIC}
+            }
+            combatState.temp_resist_immunity_dropdown.selected[j] = false
+          }
+        }
+      }
+      combatState.to_dropdown.selected[i] = false
+      log.debugf("Entity: %v, new resistances: %v", entity.name, entity.dmg_resistances)
+    }
+  }
 }

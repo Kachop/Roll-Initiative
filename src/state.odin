@@ -109,6 +109,7 @@ CombatScreenState :: struct {
   heal_input: TextInputState,
   temp_HP_input: TextInputState,
   condition_dropdown: DropdownSelectState,
+  toggle_active: i32,
   temp_resist_immunity_dropdown: DropdownSelectState,
   panelRight: PanelState,
   json_data: string,
