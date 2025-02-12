@@ -3,6 +3,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import "core:strings"
 import "core:unicode/utf8"
 import "core:time"
@@ -40,9 +41,13 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             if (combatState.current_round > 1) {
                 combatState.current_entity_index = cast(i32)len(combatState.entities) - 1
                 combatState.current_round -= 1
+                combatState.panelLeft.scroll.y = -(combatState.panelLeft.contentRec.height - combatState.panelLeft.rec.height)
             }
         } else {
             combatState.current_entity_index -= 1
+            if combatState.panelLeft.scroll.y < 0 {
+                combatState.panelLeft.scroll.y += LINE_HEIGHT + PANEL_PADDING
+            }
         }
         combatState.current_entity = &combatState.entities[combatState.current_entity_index]
         combatState.from_dropdown.selected = combatState.current_entity_index
@@ -58,9 +63,12 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         if (combatState.current_entity_index == cast(i32)len(combatState.entities) - 1) {
             combatState.current_entity_index = 0
             combatState.current_round += 1
+            combatState.panelLeft.scroll.y = 0
         } else {
             combatState.current_entity_index += 1
-            combatState.from_dropdown.selected = combatState.current_entity_index
+            if combatState.panelLeft.scroll.y >= -(combatState.panelLeft.contentRec.height - combatState.panelLeft.rec.height) {
+                combatState.panelLeft.scroll.y -= LINE_HEIGHT + PANEL_PADDING
+            }
         }
         combatState.current_entity = &combatState.entities[combatState.current_entity_index]
         combatState.from_dropdown.selected = combatState.current_entity_index
@@ -243,15 +251,15 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_x_from_dropdown := cursor_x
     cursor_y_from_dropdown := cursor_y
 
-    defer GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
-    defer register_button(&btn_list, &combatState.from_dropdown)
+    GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
+    register_button(&btn_list, &combatState.from_dropdown)
     cursor_x += draw_width / 2
         
     cursor_x_to_dropdown := cursor_x
     cursor_y_to_dropdown := cursor_y
 
-    defer GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
-    defer register_button(&btn_list, &combatState.to_dropdown)
+    GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
+    register_button(&btn_list, &combatState.to_dropdown)
     cursor_x = current_panel_x + PANEL_PADDING
     cursor_y += line_height_mid + PANEL_PADDING
     
@@ -295,30 +303,13 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_x_dmg_type := cursor_x
         cursor_y_dmg_type := cursor_y
 
-        defer GuiDropdownControl({cursor_x_dmg_type, cursor_y_dmg_type, draw_width / 2, line_height_mid}, &combatState.dmg_type_dropdown)
-        defer register_button(&btn_list, &combatState.dmg_type_dropdown)
+        GuiDropdownControl({cursor_x_dmg_type, cursor_y_dmg_type, draw_width / 2, line_height_mid}, &combatState.dmg_type_dropdown)
+        register_button(&btn_list, &combatState.dmg_type_dropdown)
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
 
-        defer if combatState.panelMid.height_needed > draw_height {
+        if combatState.panelMid.height_needed > draw_height {
             rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
-        }
-        
-        switch combatState.dmg_type_dropdown.labels[combatState.dmg_type_dropdown.selected] {
-        case "Slashing": combatState.dmg_type_selected = .SLASHING
-        case "Piercing": combatState.dmg_type_selected = .PIERCING
-        case "Bludgeoning": combatState.dmg_type_selected = .BLUDGEONING
-        case "Non-magical": combatState.dmg_type_selected = .NON_MAGICAL
-        case "Poison": combatState.dmg_type_selected = .POISON
-        case "Acid": combatState.dmg_type_selected = .ACID
-        case "Fire": combatState.dmg_type_selected = .FIRE
-        case "Cold": combatState.dmg_type_selected = .COLD
-        case "Radiant": combatState.dmg_type_selected = .RADIANT
-        case "Necrotic": combatState.dmg_type_selected = .NECROTIC
-        case "Lightning": combatState.dmg_type_selected = .LIGHTNING
-        case "Thunder": combatState.dmg_type_selected = .THUNDER
-        case "Force": combatState.dmg_type_selected = .FORCE
-        case "Psychic": combatState.dmg_type_selected = .PSYCHIC
         }
 
         fit_text("Amount:", draw_width / 3, &TEXT_SIZE)
@@ -377,21 +368,39 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_x_conditions := cursor_x
         cursor_y_conditions := cursor_y
 
-        defer GuiDropdownSelectControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
-        defer register_button(&btn_list, &combatState.condition_dropdown)
+        GuiDropdownSelectControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
+        register_button(&btn_list, &combatState.condition_dropdown)
         cursor_x += draw_width / 2
 
-        defer if combatState.panelMid.height_needed > draw_height {
+        if combatState.panelMid.height_needed > draw_height {
             rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
         }
 
         if GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {
             resolve_conditions(combatState)
         }
+        cursor_x = current_panel_x + PANEL_PADDING
+        cursor_y += line_height_mid + PANEL_PADDING
+
+        rl.GuiLabel({cursor_x, cursor_y, draw_width, line_height_mid}, "Temp Resistances / Immunities")
+        cursor_y += line_height_mid + PANEL_PADDING
+        
+        cursor_x_temp_dmg_stuff := cursor_x
+        cursor_y_temp_dmg_stuff := cursor_y
+
+        GuiDropdownSelectControl({cursor_x_temp_dmg_stuff, cursor_y_temp_dmg_stuff, draw_width / 2, line_height_mid}, &combatState.temp_resist_immunity_dropdown)
+        register_button(&btn_list, &combatState.temp_resist_immunity_dropdown)
+        cursor_x += draw_width / 2
+
+        if combatState.panelMid.height_needed > draw_height {
+            rl.BeginScissorMode(cast(i32)combatState.panelMid.view.x, cast(i32)combatState.panelMid.view.y, cast(i32)combatState.panelMid.view.width, cast(i32)combatState.panelMid.view.height)
+        }
+
+        if GuiButton({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Apply") {
+            resolve_temp_resistance_or_immunity(combatState)
+        }
         cursor_y += line_height_mid + PANEL_PADDING
         combatState.panelMid.height_needed = cursor_y - start_y + PANEL_PADDING
-        
-        //Temp dmg resistances and immunities!
     }
   
     if (combatState.panelMid.height_needed > draw_height) {
@@ -680,13 +689,33 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
 
 resolve_damage :: proc(combatState: ^CombatScreenState) {
     dmg_amount : i32 = to_i32(combatState.dmg_input.text)
+
+    switch combatState.dmg_type_dropdown.labels[combatState.dmg_type_dropdown.selected] {
+    case "Any": combatState.dmg_type_selected = .ANY
+    case "Slashing": combatState.dmg_type_selected = .SLASHING
+    case "Piercing": combatState.dmg_type_selected = .PIERCING
+    case "Bludgeoning": combatState.dmg_type_selected = .BLUDGEONING
+    case "Non-magical": combatState.dmg_type_selected = .NON_MAGICAL
+    case "Poison": combatState.dmg_type_selected = .POISON
+    case "Acid": combatState.dmg_type_selected = .ACID
+    case "Fire": combatState.dmg_type_selected = .FIRE
+    case "Cold": combatState.dmg_type_selected = .COLD
+    case "Radiant": combatState.dmg_type_selected = .RADIANT
+    case "Necrotic": combatState.dmg_type_selected = .NECROTIC
+    case "Lightning": combatState.dmg_type_selected = .LIGHTNING
+    case "Thunder": combatState.dmg_type_selected = .THUNDER
+    case "Force": combatState.dmg_type_selected = .FORCE
+    case "Psychic": combatState.dmg_type_selected = .PSYCHIC
+    }
     
     for &entity, i in combatState.entities {
         if (combatState.to_dropdown.selected[i]) {
             if combatState.dmg_type_selected not_in entity.dmg_immunities {
-            if combatState.dmg_type_selected in entity.dmg_resistances {
-                dmg_amount /= 2
-            }
+                if combatState.dmg_type_selected in entity.dmg_resistances {
+                    dmg_amount /= 2
+                } else if combatState.dmg_type_selected in entity.dmg_vulnerabilities {
+                    dmg_amount *= 2
+                }
                 dmg_amount -= entity.temp_HP
                 if dmg_amount >= 0 {
                     entity.temp_HP = 0
@@ -800,4 +829,8 @@ resolve_conditions :: proc(combatState: ^CombatScreenState) {
     }
     combatState.to_dropdown.selected[i] = false
   }
+}
+
+resolve_temp_resistance_or_immunity :: proc(combatState: ^CombatScreenState) {
+  //Adds temp resistances and immunities during combat. From spell sources etc.
 }

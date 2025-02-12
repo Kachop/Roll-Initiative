@@ -30,6 +30,7 @@ EntitySize :: enum {
 }
 
 DamageType :: enum {
+  ANY,
   SLASHING,
   PIERCING,
   BLUDGEONING,
@@ -365,6 +366,7 @@ gen_vulnerability_resistance_or_immunity_string :: proc(values: DamageSet) -> (r
 
   for type in types {
     switch type {
+    case .ANY:
     case .SLASHING: if .SLASHING in values {append(&temp_list, "Slashing")}
     case .PIERCING: if .PIERCING in values {append(&temp_list, "Piercing")}
     case .BLUDGEONING: if .BLUDGEONING in values {append(&temp_list, "Bludgeoning")}

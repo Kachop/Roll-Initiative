@@ -241,6 +241,7 @@ InitDropdownState :: proc(state: ^DropdownState, title: cstring, labels: []cstri
   state.labels = labels
 }
 
+@(deferred_in=_draw_dropdown)
 GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
     using state.gui_properties
 
@@ -266,9 +267,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
 
     mouse_pos := rl.GetMousePosition()
 
-    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
-
-    if rl.CheckCollisionPointRec(mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height + dropdown_height}) {
+    if rl.CheckCollisionPointRec(mouse_pos, bounds) {
         dropdown_state.hovered = true
         hover_stack_add(dropdown_state)
     } else {
@@ -284,11 +283,38 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title) 
+}
+
+_draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
+    using state.gui_properties
+
+    x := bounds.x
+    y := bounds.y
+    width := bounds.width
+    height := bounds.height
+
+    cursor_x : f32 = x
+    cursor_y : f32 = y
+
+    border : i32 : 2
+    line_height : i32 : 50
+    max_items : i32 : 4
+
+    mouse_pos := rl.GetMousePosition()
+
+    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
 
     if y <= (state.window_height / 2) {
         cursor_y += cast(f32)line_height
     } else {
         cursor_y -= dropdown_height
+    }
+
+    if rl.CheckCollisionPointRec(mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, cursor_y, bounds.width, bounds.height + dropdown_height}) {
+        dropdown_state.hovered = true
+        hover_stack_add(dropdown_state)
+    } else {
+        dropdown_state.hovered = false
     }
         
     if is_current_hover(dropdown_state) {
@@ -311,7 +337,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
             }
         }
     }
-    
+ 
     if dropdown_state.active {
         rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, state.config.BUTTON_BORDER_COLOUR)
         rl.DrawRectangle(cast(i32)x + border, cast(i32)cursor_y + border, cast(i32)width - (border * 2), cast(i32)dropdown_height - (border * 2), state.config.DROPDOWN_COLOUR)
@@ -366,6 +392,7 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
     }
 }
 
+
 DropdownSelectState :: struct {
   using guiControl: GuiControl,
   title: cstring,
@@ -389,6 +416,7 @@ DeInitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState) {
   delete(dropdownState.labels)
 }
 
+@(deferred_in=_draw_dropdown_select)
 GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
     using state.gui_properties
 
@@ -412,14 +440,13 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     max_items : i32 : 4
 
     mouse_pos := rl.GetMousePosition()
-
-    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
-
-    if rl.CheckCollisionPointRec(mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height + dropdown_height}) {
-        dropdown_state.hovered = true
-        hover_stack_add(dropdown_state)
-    } else {
-        dropdown_state.hovered = false
+    if !dropdown_state.active {
+        if rl.CheckCollisionPointRec(mouse_pos, bounds) {
+            dropdown_state.hovered = true
+            hover_stack_add(dropdown_state)
+        } else {
+            dropdown_state.hovered = false
+        }
     }
 
     rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
@@ -431,6 +458,28 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
+}
+
+_draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
+    using state.gui_properties
+
+    x := bounds.x
+    y := bounds.y
+    width := bounds.width
+    height := bounds.height
+
+    cursor_x : f32 = x
+    cursor_y : f32 = y
+
+    initial_text_size := TEXT_SIZE
+
+    border : i32 : 2
+    line_height : i32 : 50
+    max_items : i32 : 4
+
+    mouse_pos := rl.GetMousePosition()
+
+    dropdown_height : f32 = cast(f32)(max_items * line_height) if (cast(i32)len(dropdown_state.labels) >= max_items) else cast(f32)(cast(i32)len(dropdown_state.labels) * line_height)
 
     if y <= (state.window_height / 2) {
         cursor_y += cast(f32)line_height
@@ -439,6 +488,13 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     }
 
     if dropdown_state.active {
+        if rl.CheckCollisionPointRec(mouse_pos, rl.Rectangle{bounds.x, cursor_y if (y > (state.window_height / 2)) else bounds.y, bounds.width, bounds.height + dropdown_height}) {
+            dropdown_state.hovered = true
+            hover_stack_add(dropdown_state)
+        } else {
+            dropdown_state.hovered = false
+        }
+
         rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, state.config.BUTTON_BORDER_COLOUR)
         rl.DrawRectangle(cast(i32)x + border, cast(i32)cursor_y + border, cast(i32)width - (border * 2), cast(i32)dropdown_height - (border * 2), state.config.DROPDOWN_COLOUR)
 

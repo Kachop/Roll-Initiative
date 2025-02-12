@@ -107,8 +107,9 @@ CombatScreenState :: struct {
   dmg_type_dropdown: DropdownState,
   dmg_input: TextInputState,
   heal_input: TextInputState,
-  condition_dropdown: DropdownSelectState,
   temp_HP_input: TextInputState,
+  condition_dropdown: DropdownSelectState,
+  temp_resist_immunity_dropdown: DropdownSelectState,
   panelRight: PanelState,
   json_data: string,
   stats_lines_needed: f32,
@@ -124,14 +125,15 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.combat_timer = time.Stopwatch{}
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
-  dmg_type_options := [dynamic]cstring{"Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
+  dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
   InitDropdownState(&screenState.dmg_type_dropdown, "Type:", dmg_type_options[:])
   InitTextInputState(&screenState.dmg_input)
   InitTextInputState(&screenState.heal_input)
+  InitTextInputState(&screenState.temp_HP_input)
 
   conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconsious", "Exhaustion"}
   InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:])
-  InitTextInputState(&screenState.temp_HP_input)
+  InitDropdownSelectState(&screenState.temp_resist_immunity_dropdown, "Type:", dmg_type_options[:])
 
   InitPanelState(&screenState.panelRight)
   screenState.json_data = "{}"

@@ -216,7 +216,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     
     entityScreenState.type_dropdown.title = entityScreenState.type_dropdown.labels[entityScreenState.type_dropdown.selected]
 
-    defer GuiDropdownControl({dropdown_cursor_x, dropdown_cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.type_dropdown)
+    GuiDropdownControl({dropdown_cursor_x, dropdown_cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.type_dropdown)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
@@ -341,11 +341,11 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
     dropdown_cursor_x_vuln := cursor_x
     dropdown_cursor_y_vuln := cursor_y
-    defer GuiDropdownSelectControl({dropdown_cursor_x_vuln, dropdown_cursor_y_vuln, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_vulnerable_input)
+    GuiDropdownSelectControl({dropdown_cursor_x_vuln, dropdown_cursor_y_vuln, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_vulnerable_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+    if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
       rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
     }
 
@@ -354,11 +354,11 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
     dropdown_cursor_x_resist := cursor_x
     dropdown_cursor_y_resist := cursor_y
-    defer GuiDropdownSelectControl({dropdown_cursor_x_resist, dropdown_cursor_y_resist, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_resist_input)
+    GuiDropdownSelectControl({dropdown_cursor_x_resist, dropdown_cursor_y_resist, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_resist_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+    if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
       rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
     }
 
@@ -367,11 +367,11 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
     dropdown_cursor_x_immune := cursor_x
     dropdown_cursor_y_immune := cursor_y
-    defer GuiDropdownSelectControl({dropdown_cursor_x_immune, dropdown_cursor_y_immune, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_immune_input)
+    GuiDropdownSelectControl({dropdown_cursor_x_immune, dropdown_cursor_y_immune, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_immune_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-    defer if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
+    if entityScreenState.panelMid.height_needed > entityScreenState.panelMid.rec.height {
       rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
     }
 
@@ -612,6 +612,7 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
  
     for vulnerability in entity.dmg_vulnerabilities {
       switch vulnerability {
+      case .ANY: 
       case .SLASHING: entityScreenState.DMG_vulnerable_input.selected[0] = true
       case .PIERCING: entityScreenState.DMG_vulnerable_input.selected[1] = true
       case .BLUDGEONING: entityScreenState.DMG_vulnerable_input.selected[2] = true
@@ -631,6 +632,7 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
 
     for resistance in entity.dmg_vulnerabilities {
       switch resistance {
+      case .ANY:
       case .SLASHING: entityScreenState.DMG_resist_input.selected[0] = true
       case .PIERCING: entityScreenState.DMG_resist_input.selected[1] = true
       case .BLUDGEONING: entityScreenState.DMG_resist_input.selected[2] = true
@@ -650,6 +652,7 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
 
     for immunity in entity.dmg_vulnerabilities {
       switch immunity {
+      case .ANY:
       case .SLASHING: entityScreenState.DMG_immune_input.selected[0] = true
       case .PIERCING: entityScreenState.DMG_immune_input.selected[1] = true
       case .BLUDGEONING: entityScreenState.DMG_immune_input.selected[2] = true
@@ -771,7 +774,7 @@ reload_borders :: proc(entityScreenState: ^EntityScreenState) {
   }
 
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "../borders", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "..", FILE_SEPERATOR, "borders", sep=FILE_SEPERATOR))
   defer os.close(dir_handle)
   file_infos, err := os.read_dir(dir_handle, 0)
 
