@@ -36,14 +36,14 @@ LoadScreenState :: struct {
 init_load_screen :: proc(screenState: ^LoadScreenState) {
   screenState.first_load = true
   screenState.dir_nav_list = [dynamic]cstring{}
-  screenState.current_dir = cstr(os.get_current_directory(context.temp_allocator))
+  screenState.current_dir = fmt.caprint(os.get_current_directory(context.temp_allocator))
   screenState.files_list = [dynamic]cstring{}
   screenState.dirs_list = [dynamic]cstring{}
   screenState.selected_file = nil
   InitPanelState(&screenState.panel)
   
   get_current_dir_files(screenState)
-  append(&screenState.dir_nav_list, cstr(state.app_dir))
+  append(&screenState.dir_nav_list, fmt.caprint(state.app_dir))
 }
 
 d_init_load_screen :: proc(screenState: ^LoadScreenState) {
@@ -56,11 +56,13 @@ SetupScreenState :: struct {
   first_load: bool,
   message_queue: GuiMessageBoxQueueState,
   entities_filtered: #soa[dynamic]Entity,
+  entities_searched: #soa[dynamic]Entity,
   entities_selected: [dynamic]Entity,
   selected_entity: ^Entity,
   selected_entity_index: int,
   filter_tab: TabControlState,
   panelLeft: PanelState,
+  entity_search_state: TextInputState,
   panelMid: PanelState,
   panelRight: PanelState,
   filename_input: TextInputState,
@@ -78,6 +80,7 @@ init_setup_screen :: proc(screenState: ^SetupScreenState) {
   options := [dynamic]cstring{"Monsters", "Characters"}
   InitTabControlState(&screenState.filter_tab, options[:])
   InitPanelState(&screenState.panelLeft)
+  InitTextInputState(&screenState.entity_search_state)
   InitPanelState(&screenState.panelMid)
   InitPanelState(&screenState.panelRight)
   InitTextInputState(&screenState.filename_input)
@@ -215,12 +218,12 @@ init_entity_screen :: proc(screenState: ^EntityScreenState) {
   InitPanelState(&screenState.panelRight)
   
   temp_path_list := [dynamic]string{}
-  dir_handle, ok := os.open(fmt.tprint(state.config.CUSTOM_ENTITY_PATH, "images", sep=FILE_SEPERATOR))
+  dir_handle, ok := os.open(fmt.aprint(state.config.CUSTOM_ENTITY_PATH, "images", sep=FILE_SEPERATOR))
   file_infos, err := os.read_dir(dir_handle, 0)
 
   reload_icons(screenState)
   reload_borders(screenState)
-  screenState.combined_image, _ = get_entity_icon_data(cstr(screenState.img_file_paths[screenState.current_icon_index]), cstr(screenState.border_file_paths[screenState.current_border_index]))
+  screenState.combined_image, _ = get_entity_icon_data(fmt.caprint(screenState.img_file_paths[screenState.current_icon_index]), fmt.caprint(screenState.border_file_paths[screenState.current_border_index]))
 
   type_options := [dynamic]cstring{"player", "NPC", "monster"}
   screenState.first_load = true

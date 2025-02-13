@@ -139,14 +139,11 @@ main :: proc() {
     case SettingsScreenState: GuiDrawSettingsScreen(&state.settings_screen_state)
     case EntityScreenState: GuiDrawEntityScreen(&state.entity_screen_state)
     }
+    free_all(context.temp_allocator)
   }
   
   d_init_state(&state)
-
-  free_all(context.temp_allocator)
-
   //reset_tracking_allocator(&tracking_allocator)
-
   thread.terminate(server_thread, 0)
   thread.destroy(server_thread)
 }

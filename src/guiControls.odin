@@ -86,13 +86,20 @@ TextInputState :: struct {
 InitTextInputState :: proc(inputState: ^TextInputState) {
   inputState.id = GUI_ID
   GUI_ID += 1
-  inputState.text = fmt.ctprint(utf8.runes_to_string(inputState.alloc[:], context.temp_allocator))
+  inputState.text = fmt.caprint(utf8.runes_to_string(inputState.alloc[:], context.allocator))
 }
 
 GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
+  if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+    inputState.hovered = true
+    hover_stack_add(inputState)
+  } else {
+    inputState.hovered = false
+  }
+  
   if (rl.GuiTextBox(bounds, inputState.text, size_of(inputState.alloc), inputState.edit_mode)) {
-    if (!state.hover_consumed) {
-        inputState.edit_mode = !inputState.edit_mode
+    if is_current_hover(inputState) {
+      inputState.edit_mode = !inputState.edit_mode
     }
   }
 }
@@ -621,6 +628,13 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tabState: ^TabControlState) -> i32 {
   rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
 
   for bounds, i in tab_bounds {
+    if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+      tabState.hovered = true
+      hover_stack_add(tabState)
+    } else {
+      tabState.hovered = false
+    }
+
     defer if cast(i32)i == tabState.selected {
       rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, state.config.BUTTON_BORDER_COLOUR)
       rl.DrawRectangle(cast(i32)bounds.x+5, cast(i32)bounds.y+5, cast(i32)bounds.width-10, cast(i32)bounds.height-10, state.config.BUTTON_COLOUR)
@@ -631,10 +645,12 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tabState: ^TabControlState) -> i32 {
       rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, state.config.BUTTON_BORDER_COLOUR)
       rl.DrawRectangle(cast(i32)bounds.x+5, cast(i32)bounds.y+5, cast(i32)bounds.width-10, cast(i32)bounds.height-10, state.config.BUTTON_COLOUR)
       rl.GuiLabel(bounds, tabState.options[i])
-
-      if rl.IsMouseButtonPressed(.LEFT) {
-        if rl.CheckCollisionPointRec(rl.GetMousePosition(), {bounds.x, bounds.y, bounds.width, bounds.height}) {
-          tabState.selected = cast(i32)i 
+      
+      if is_current_hover(tabState) {
+        if rl.IsMouseButtonPressed(.LEFT) {
+          if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+            tabState.selected = cast(i32)i 
+          }
         }
       }
     }

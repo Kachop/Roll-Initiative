@@ -588,30 +588,30 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 set_input_values :: proc(entityScreenState: ^EntityScreenState) {
   if entityScreenState.entity_edit_mode {
     entity := state.custom_entities[entityScreenState.entity_to_edit]
-    entityScreenState.name_input.text = cstr(entity.name)
-    entityScreenState.race_input.text = cstr(entity.race)
-    entityScreenState.size_input.text = cstr(entity.size)
+    entityScreenState.name_input.text = fmt.caprint(entity.name)
+    entityScreenState.race_input.text = fmt.caprint(entity.race)
+    entityScreenState.size_input.text = fmt.caprint(entity.size)
     switch entity.type {
     case .PLAYER: entityScreenState.type_dropdown.selected = 0
     case .NPC: entityScreenState.type_dropdown.selected = 1
     case .MONSTER: entityScreenState.type_dropdown.selected = 2
     }
-    entityScreenState.AC_input.text = cstr(entity.AC)
-    entityScreenState.HP_max_input.text = cstr(entity.HP_max)
-    entityScreenState.HP_input.text = cstr(entity.HP)
-    entityScreenState.temp_HP_input.text = cstr(entity.temp_HP)
-    entityScreenState.STR_input.text = cstr(entity.STR)
-    entityScreenState.STR_save_input.text = cstr(entity.STR_save)
-    entityScreenState.DEX_input.text = cstr(entity.DEX)
-    entityScreenState.DEX_save_input.text = cstr(entity.DEX_save)
-    entityScreenState.CON_input.text = cstr(entity.CON)
-    entityScreenState.CON_save_input.text = cstr(entity.CON_save)
-    entityScreenState.INT_input.text = cstr(entity.INT)
-    entityScreenState.INT_save_input.text = cstr(entity.INT_save)
-    entityScreenState.WIS_input.text = cstr(entity.WIS)
-    entityScreenState.WIS_save_input.text = cstr(entity.WIS_save)
-    entityScreenState.CHA_input.text = cstr(entity.CHA)
-    entityScreenState.CHA_save_input.text = cstr(entity.CHA_save)
+    entityScreenState.AC_input.text = fmt.caprint(entity.AC)
+    entityScreenState.HP_max_input.text = fmt.caprint(entity.HP_max)
+    entityScreenState.HP_input.text = fmt.caprint(entity.HP)
+    entityScreenState.temp_HP_input.text = fmt.caprint(entity.temp_HP)
+    entityScreenState.STR_input.text = fmt.caprint(entity.STR)
+    entityScreenState.STR_save_input.text = fmt.caprint(entity.STR_save)
+    entityScreenState.DEX_input.text = fmt.caprint(entity.DEX)
+    entityScreenState.DEX_save_input.text = fmt.caprint(entity.DEX_save)
+    entityScreenState.CON_input.text = fmt.caprint(entity.CON)
+    entityScreenState.CON_save_input.text = fmt.caprint(entity.CON_save)
+    entityScreenState.INT_input.text = fmt.caprint(entity.INT)
+    entityScreenState.INT_save_input.text = fmt.caprint(entity.INT_save)
+    entityScreenState.WIS_input.text = fmt.caprint(entity.WIS)
+    entityScreenState.WIS_save_input.text = fmt.caprint(entity.WIS_save)
+    entityScreenState.CHA_input.text = fmt.caprint(entity.CHA)
+    entityScreenState.CHA_save_input.text = fmt.caprint(entity.CHA_save)
  
     for vulnerability in entity.dmg_vulnerabilities {
       switch vulnerability {
@@ -673,7 +673,7 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
       }
     }
 
-    entityScreenState.languages_input.text = cstr(entity.languages)
+    entityScreenState.languages_input.text = fmt.caprint(entity.languages)
     for file_path, i in entityScreenState.img_file_paths {
       if cstr(file_path) == entity.img_url {
         entityScreenState.current_icon_index = cast(i32)i
@@ -687,26 +687,26 @@ set_input_values :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.combined_image, _ = get_entity_icon_data(cstr(entityScreenState.img_file_paths[entityScreenState.current_icon_index]), cstr(entityScreenState.border_file_paths[entityScreenState.current_border_index]))
   } else {
     //Set everything to default options. Will happen when some clear button is clicked.
-    entityScreenState.name_input.text = cstr("")
-    entityScreenState.race_input.text = cstr("")
-    entityScreenState.size_input.text = cstr("")
+    entityScreenState.name_input.text = fmt.caprint("")
+    entityScreenState.race_input.text = fmt.caprint("")
+    entityScreenState.size_input.text = fmt.caprint("")
     entityScreenState.type_dropdown.selected = 0
-    entityScreenState.AC_input.text = cstr("")
-    entityScreenState.HP_max_input.text = cstr("")
-    entityScreenState.HP_input.text = cstr("")
-    entityScreenState.temp_HP_input.text = cstr("")
-    entityScreenState.STR_input.text = cstr("")
-    entityScreenState.STR_save_input.text = cstr("")
-    entityScreenState.DEX_input.text = cstr("")
-    entityScreenState.DEX_save_input.text = cstr("")
-    entityScreenState.CON_input.text = cstr("")
-    entityScreenState.CON_save_input.text = cstr("")
-    entityScreenState.INT_input.text = cstr("")
-    entityScreenState.INT_save_input.text = cstr("")
-    entityScreenState.WIS_input.text = cstr("")
-    entityScreenState.WIS_save_input.text = cstr("")
-    entityScreenState.CHA_input.text = cstr("")
-    entityScreenState.CHA_save_input.text = cstr("")
+    entityScreenState.AC_input.text = fmt.caprint("")
+    entityScreenState.HP_max_input.text = fmt.caprint("")
+    entityScreenState.HP_input.text = fmt.caprint("")
+    entityScreenState.temp_HP_input.text = fmt.caprint("")
+    entityScreenState.STR_input.text = fmt.caprint("")
+    entityScreenState.STR_save_input.text = fmt.caprint("")
+    entityScreenState.DEX_input.text = fmt.caprint("")
+    entityScreenState.DEX_save_input.text = fmt.caprint("")
+    entityScreenState.CON_input.text = fmt.caprint("")
+    entityScreenState.CON_save_input.text = fmt.caprint("")
+    entityScreenState.INT_input.text = fmt.caprint("")
+    entityScreenState.INT_save_input.text = fmt.caprint("")
+    entityScreenState.WIS_input.text = fmt.caprint("")
+    entityScreenState.WIS_save_input.text = fmt.caprint("")
+    entityScreenState.CHA_input.text = fmt.caprint("")
+    entityScreenState.CHA_save_input.text = fmt.caprint("")
     
     for _, i in entityScreenState.DMG_vulnerable_input.selected {
       entityScreenState.DMG_vulnerable_input.selected[i] = false

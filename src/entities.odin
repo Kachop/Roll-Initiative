@@ -117,7 +117,7 @@ Entity :: struct {
   legendary_actions: cstring,
   img_url: cstring,
   img_border: cstring,
-  icon_data: []u8,
+  icon_data: string,
 }
 
 load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
@@ -140,17 +140,17 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
         case "monster":
           entity_type = .MONSTER
         }
-        
-        icon_data: []u8
+
+        icon_data: string
 
         if (("img_url" in entity_fields) && ("img_border" in entity_fields)) {
           _, icon_data = get_entity_icon_data(cstr(entity_fields["img_url"].(string)), cstr(entity_fields["img_border"].(string)))
         }
 
         new_entity := Entity{
-          fmt.ctprint(entity_fields["Name"].(string)),
-          fmt.ctprint(entity_fields["Race"].(string)),
-          fmt.ctprint(entity_fields["Size"].(string)),
+          fmt.caprint(entity_fields["Name"].(string)),
+          fmt.caprint(entity_fields["Race"].(string)),
+          fmt.caprint(entity_fields["Size"].(string)),
           entity_type,
           i32(0),
           cast(i32)entity_fields["Armour Class"].(f64),
@@ -160,7 +160,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           get_conditions(entity_fields["Conditions"].(json.Array)[:]) if ("Conditions" in entity_fields) else {},
           true,
           true,
-          fmt.ctprint(entity_fields["Speed"].(string)),
+          fmt.caprint(entity_fields["Speed"].(string)),
           cast(i32)entity_fields["STR"].(f64),
           cast(i32)entity_fields["STR_mod"].(f64),
           cast(i32)entity_fields["STR_save"].(f64),
@@ -179,7 +179,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           cast(i32)entity_fields["CHA"].(f64),
           cast(i32)entity_fields["CHA_mod"].(f64),
           cast(i32)entity_fields["CHA_save"].(f64),
-          fmt.ctprint(entity_fields["Skills"].(string)) if ("Skills" in entity_fields) else "",
+          fmt.caprint(entity_fields["Skills"].(string)) if ("Skills" in entity_fields) else "",
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Vulnerabilities"].(json.Array)[:]) if ("Damage Vulnerabilities" in entity_fields) else {},
           {},
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Resistances"].(json.Array)[:]) if ("Damage Resistances" in entity_fields) else {},
@@ -187,14 +187,14 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
           get_vulnerabilities_resistances_or_immunities(entity_fields["Damage Immunities"].(json.Array)[:]) if ("Damage Immunities" in entity_fields) else {},
           {},
           get_conditions(entity_fields["Condition Immunities"].(json.Array)[:]) if ("Condition Immunities" in entity_fields) else {},
-          fmt.ctprint(entity_fields["Senses"].(string)) if ("Senses" in entity_fields) else "",
-          fmt.ctprint(entity_fields["Languages"].(string)) if ("Languages" in entity_fields) else "",
-          fmt.ctprint(entity_fields["Challenge"].(string)) if ("Challenge" in entity_fields) else "",
-          fmt.ctprint(entity_fields["Traits"].(string)) if ("Traits" in entity_fields) else "",
-          fmt.ctprint(entity_fields["Actions"].(string)) if ("Actions" in entity_fields) else "",
-          fmt.ctprint(entity_fields["Legendary Actions"].(string)) if ("Legendary Actions" in entity_fields) else "",
-          fmt.ctprint(entity_fields["img_url"].(string)) if ("img_url" in entity_fields) else "",
-          cstr(entity_fields["img_border"].(string)) if ("img_border" in entity_fields) else "",
+          fmt.caprint(entity_fields["Senses"].(string)) if ("Senses" in entity_fields) else "",
+          fmt.caprint(entity_fields["Languages"].(string)) if ("Languages" in entity_fields) else "",
+          fmt.caprint(entity_fields["Challenge"].(string)) if ("Challenge" in entity_fields) else "",
+          fmt.caprint(entity_fields["Traits"].(string)) if ("Traits" in entity_fields) else "",
+          fmt.caprint(entity_fields["Actions"].(string)) if ("Actions" in entity_fields) else "",
+          fmt.caprint(entity_fields["Legendary Actions"].(string)) if ("Legendary Actions" in entity_fields) else "",
+          fmt.caprint(entity_fields["img_url"].(string)) if ("img_url" in entity_fields) else "",
+          fmt.caprint(entity_fields["img_border"].(string)) if ("img_border" in entity_fields) else "",
           icon_data,
         }
         append_soa(&entities, new_entity)

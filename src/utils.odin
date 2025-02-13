@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import "core:os"
 import "core:strings"
 import "core:unicode/utf8"
@@ -119,7 +120,7 @@ match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
 
 get_entity_icon_data :: proc{get_entity_icon_from_paths, get_entity_icon_from_entity}
 
-get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> (rl.Texture, []u8) {
+get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> (rl.Texture, string) {
   temp_icon_image := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "images", icon_path, sep=FILE_SEPERATOR))
   defer rl.UnloadImage(temp_icon_image)
   temp_border_image := rl.LoadImage(cstr(state.config.CUSTOM_ENTITY_PATH, "..", "borders", border_path, sep=FILE_SEPERATOR))
@@ -138,13 +139,13 @@ get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> 
   rl.ExportImage(temp_border_image, "temp.png")
   icon_data, _ := os.read_entire_file("temp.png")
   os.remove("temp.png")
-  return rl.LoadTextureFromImage(temp_border_image), icon_data
+  return rl.LoadTextureFromImage(temp_border_image), base64.encode(icon_data)
 }
 
-get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, []u8) {
+get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, string) {
   texture, data := get_entity_icon_from_paths(entity.img_url, entity.img_border)
   entity.icon_data = data
-  return get_entity_icon_from_paths(entity.img_url, entity.img_border)
+  return texture, data
 }
 
 combat_to_json :: proc(combatState: CombatScreenState) {
@@ -169,7 +170,7 @@ combat_to_json :: proc(combatState: CombatScreenState) {
       }*/
     
     result := ""
-    
+
     combat_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(combatState.combat_timer))
     turn_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(combatState.turn_timer))
 
@@ -178,11 +179,10 @@ combat_to_json :: proc(combatState: CombatScreenState) {
         fmt.tprint(combatState.current_round),
         ",\"current_entity_index\": ",
         fmt.tprint(combatState.current_entity_index),
-        ",\"entities\": ["}, "")
+        ",\"entities\": ["}, "", allocator=context.temp_allocator)
 
     for entity, i in combatState.entities {
         entity_string: string
-        defer delete(entity_string)
         entity_type: string
         
         switch entity.type {
@@ -193,10 +193,7 @@ combat_to_json :: proc(combatState: CombatScreenState) {
         case .NPC:
             entity_type = "NPC"
         }
-        
-        img_str := base64.encode(entity.icon_data)
-        defer delete(img_str)
-        
+    
         if (i < len(combatState.entities) - 1) {
             entity_string = strings.join([]string{
                 "{\"name\": \"",
@@ -216,14 +213,14 @@ combat_to_json :: proc(combatState: CombatScreenState) {
                 ",\"dead\": ",
                 "true" if !entity.alive else "false",
                 ",\"img_url\": \"",
-                img_str if (entity.type == .PLAYER) else string(entity.img_url),
+                fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
                 "\"",
                 "},",
-            }, "")
+            }, "", allocator=context.temp_allocator)
         } else {
             entity_string = strings.join([]string{
                 "{\"name\": \"",
-                string(entity.name),
+                fmt.tprint(entity.name),
                 "\",\"type\": \"",
                 entity_type,
                 "\",\"health\": ",
@@ -239,16 +236,17 @@ combat_to_json :: proc(combatState: CombatScreenState) {
                 ",\"dead\": ",
                 "true" if !entity.alive else "false",
                 ",\"img_url\": \"",
-                img_str if (entity.type == .PLAYER) else string(entity.img_url),
+                fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
                 "\"",
                 "}",
-            }, "")
+            }, "", allocator=context.temp_allocator)
         }
-        result = strings.join([]string{result, entity_string}, "")
+        result = strings.join([]string{result, entity_string}, "", allocator=context.temp_allocator)
     }
-    
-    result = strings.join([]string{result, "]}"}, "")
-    
-    serverState.json_data = result
+ 
+    result = strings.join([]string{result, "]}"}, "", allocator=context.temp_allocator)
+    log.debugf("JSON DATA: %v", result)
+    log.debugf("SERVER DATA SIZE: %v", size_of(result))
+    serverState.json_data = strings.clone(result)
     return
 }

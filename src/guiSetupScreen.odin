@@ -3,6 +3,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import rl "vendor:raylib"
 import "core:strings"
 import "core:unicode/utf8"
@@ -123,9 +124,9 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
 
   setupState.panelLeft.rec = {
     cursor_x,
-    cursor_y + LINE_HEIGHT,
+    cursor_y + LINE_HEIGHT * 2,
     panel_width,
-    panel_height - LINE_HEIGHT,
+    panel_height - LINE_HEIGHT * 2,
   }
 
   {
@@ -133,9 +134,18 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     case 0: setupState.entities_filtered = state.srd_entities
     case 1: setupState.entities_filtered = state.custom_entities
     }
-    cursor_y += LINE_HEIGHT + setupState.panelLeft.scroll.y
+    cursor_y += LINE_HEIGHT
 
-    setupState.panelLeft.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_filtered)) + PANEL_PADDING
+    rl.GuiLabel({cursor_x, cursor_y, panel_width * 0.2, LINE_HEIGHT}, rl.GuiIconText(.ICON_LENS, ""))
+    cursor_x += panel_width * 0.2
+
+    GuiTextInput({cursor_x, cursor_y, panel_width * 0.8, LINE_HEIGHT}, &setupState.entity_search_state)
+    cursor_x = current_panel_x
+    cursor_y += LINE_HEIGHT + setupState.panelLeft.scroll.y
+    
+    filterEntities(setupState)
+
+    setupState.panelLeft.height_needed = ((LINE_HEIGHT + PANEL_PADDING) * cast(f32)len(setupState.entities_searched)) + PANEL_PADDING
 
     if (setupState.panelLeft.height_needed > setupState.panelLeft.rec.height) {
       setupState.panelLeft.contentRec.width = panel_width - 14
@@ -152,10 +162,10 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
       cursor_x += PANEL_PADDING
       cursor_y += PANEL_PADDING
 
-      for entity in setupState.entities_filtered {
+      for entity in setupState.entities_searched {
         //Check text width needed and reduce size if needed.
         fit_text(entity.name, setupState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
-        if rl.GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
+        if GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
           append(&setupState.entities_selected, entity)
         }
         cursor_y += LINE_HEIGHT + PANEL_PADDING
@@ -490,11 +500,27 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   }
 }
 
-//Filter entities list for display list. Should reconstruct the full list based on the option selected in the dropdown button.
 filterEntities :: proc(setupState: ^SetupScreenState) {
-  //switch setupState.dropdown_active {
-  //case 0: setupState.entities_filtered = setupState.entities_all
-  //case 1: setupState.entities_filtered = state.srd_entities
-  //case 2: setupState.entities_filtered = state.custom_entities
-  //}
+  setupState.entities_searched = #soa[dynamic]Entity{}
+
+  if len(fmt.tprint(setupState.entity_search_state.text)) > 0 {
+    search_str := strings.to_lower(str(setupState.entity_search_state.text))
+    for entity, i in setupState.entities_filtered {
+      names_split := strings.split(strings.to_lower(str(entity.name)), " ")
+      for name, j in names_split {
+        name_to_test := name
+        for k in j+1..<len(names_split) {
+          name_to_test = strings.join([]string{name_to_test, names_split[k]}, " ")
+        }
+        if len(search_str) <= len(name_to_test) {
+          if name_to_test[:len(search_str)] == search_str {
+            append(&setupState.entities_searched, entity)
+          }
+        }
+      }
+    }
+  }
+  else {
+    setupState.entities_searched = setupState.entities_filtered
+  }
 }

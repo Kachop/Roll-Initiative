@@ -114,6 +114,8 @@ index :: proc(req: ^http.Request, res: ^http.Response) {
 
 event :: proc(req: ^http.Request, res: ^http.Response) {
     //Crab the current combat state and convert it to JSON and send to the site.
+    http.response_init(res, context.temp_allocator)
+    
     data := fmt.tprintf("data:%v\n\n", serverState.json_data)
 
     respond_sse(res, data)
