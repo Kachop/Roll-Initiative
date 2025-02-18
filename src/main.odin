@@ -68,20 +68,18 @@ init :: proc() {
   //rl.SetWindowState({.WINDOW_RESIZABLE})
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 60)
   
-  ip_string: string
-  when ODIN_OS == .Windows {
-    ip_string, _ = get_ip_windows()
-  } else when ODIN_OS == .Linux {
-    ip_string, _ = get_ip_linux()
-  }
-  //LOAD_CONFIG(&CONFIG)
-
   init_state(&state)
+
+  when ODIN_OS == .Windows {
+    state.ip_str, _ = get_ip_windows()
+  } else when ODIN_OS == .Linux {
+    state.ip_str, _ = get_ip_linux()
+  }
 
   server_thread = thread.create_and_start(run_combat_server)
   
-  log.debugf("Started webserver @: http://%v:%v", ip_string, state.config.PORT)
-  web_addr := fmt.tprintf("http://%v:%v", ip_string, state.config.PORT)
+  log.infof("Started webserver @: http://%v:%v", state.ip_str, state.config.PORT)
+  web_addr := fmt.tprintf("http://%v:%v", state.ip_str, state.config.PORT)
   p, err := os2.process_start({
       command = {BROWSER_COMMAND, web_addr},
     })

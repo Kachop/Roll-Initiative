@@ -94,6 +94,7 @@ d_init_setup_screen :: proc(screenState: ^SetupScreenState) {
 
 CombatScreenState :: struct {
   first_load: bool,
+  message_queue: GuiMessageBoxQueueState,
   entities: [dynamic]Entity,
   entity_names: [dynamic]cstring,
   current_entity_index: i32,
@@ -288,6 +289,7 @@ State :: struct {
   hover_consumed: bool,
   config: Config,
   app_dir: string,
+  ip_str: string,
 }
 
 init_state :: proc(state: ^State) {
@@ -305,7 +307,6 @@ init_state :: proc(state: ^State) {
   init_settings_screen(&state.settings_screen_state)
   init_entity_screen(&state.entity_screen_state)
   state.current_screen_state = state.title_screen_state
-
 }
 
 d_init_state :: proc(state: ^State) {

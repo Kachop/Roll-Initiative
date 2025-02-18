@@ -501,7 +501,10 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
 }
 
 filterEntities :: proc(setupState: ^SetupScreenState) {
-  setupState.entities_searched = #soa[dynamic]Entity{}
+  initial_allocator := context.allocator
+  context.allocator = context.temp_allocator
+  clear_soa(&setupState.entities_searched)
+  setupState.entities_searched = make_soa_dynamic_array(#soa[dynamic]Entity)
 
   if len(fmt.tprint(setupState.entity_search_state.text)) > 0 {
     search_str := strings.to_lower(str(setupState.entity_search_state.text))
@@ -514,13 +517,13 @@ filterEntities :: proc(setupState: ^SetupScreenState) {
         }
         if len(search_str) <= len(name_to_test) {
           if name_to_test[:len(search_str)] == search_str {
-            append(&setupState.entities_searched, entity)
+            append_soa(&setupState.entities_searched, entity)
           }
         }
       }
     }
-  }
-  else {
+  } else {
     setupState.entities_searched = setupState.entities_filtered
   }
+  context.allocator = initial_allocator
 }

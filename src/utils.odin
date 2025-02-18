@@ -149,26 +149,8 @@ get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, string) {
 }
 
 combat_to_json :: proc(combatState: CombatScreenState) {
-    //Convert current combat state to json string.
-    /*{
-        "combat_timer": 154,
-        "turn_timer": 154,
-        "round": 2,
-        entities: [
-          "entity_name": {
-            "health": 0,
-            "max_health": 0,
-            "conditions": [],
-            "visible": true,
-            "dead": false,
-          },
-          "entity_name": {
-            "health": 0,
-            ...
-          },
-        ],
-      }*/
-    
+    initial_allocator := context.allocator
+    context.allocator = context.temp_allocator
     result := ""
 
     combat_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(combatState.combat_timer))
@@ -245,8 +227,8 @@ combat_to_json :: proc(combatState: CombatScreenState) {
     }
  
     result = strings.join([]string{result, "]}"}, "", allocator=context.temp_allocator)
-    log.debugf("JSON DATA: %v", result)
-    log.debugf("SERVER DATA SIZE: %v", size_of(result))
-    serverState.json_data = strings.clone(result)
+    delete(serverState.json_data)
+    serverState.json_data = strings.clone(result, allocator=initial_allocator)
+    context.allocator = initial_allocator
     return
 }

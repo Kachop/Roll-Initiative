@@ -16,6 +16,8 @@ btn_list: map[i32]^bool
 GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     using state.gui_properties
 
+    defer GuiMessageBoxQueue(&combatState.message_queue)
+
     cursor_x : f32 = PADDING_LEFT
     cursor_y : f32 = PADDING_TOP
 
@@ -109,9 +111,46 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_STOP, ""))) {
         //End the combat, do statistics, output files etc.
         //Display key details to the web client.
+      initial_allocator := context.allocator
+      context.allocator = context.temp_allocator
+
+      temp_entities_list := load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+      defer delete_soa(temp_entities_list)
+      
+      player_count := 0
+      for entity, i in combatState.entities {
+          if entity.type == .PLAYER {
+              for temp_entity, j in temp_entities_list {
+                  if entity.name == temp_entity.name {
+                      temp_entities_list[j] = entity
+                  }
+              }
+              player_count += 1
+          }
+      }
+
+      for entity, i in temp_entities_list {
+        if entity.type == .PLAYER {
+          if i == 0 {
+            add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe=true)
+          } else {
+            add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)
+          }
+        }
+      }
+      context.allocator = initial_allocator
+      new_message := GuiMessageBoxState{}
+      init_message_box(&new_message, "Notification!", fmt.caprintf("%v entities saved", player_count))
+      addMessage(&combatState.message_queue, new_message)
+      reload_entities()
     }
-    cursor_x = PADDING_LEFT
+    cursor_x -= (MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING)
     cursor_y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
+
+    rl.GuiLabel({cursor_x, cursor_y, (MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING, LINE_HEIGHT}, cstr("IP:", state.ip_str))
+
+    cursor_x = PADDING_LEFT
+    cursor_y += LINE_HEIGHT + PANEL_PADDING
     current_panel_x := cursor_x
     panel_y := cursor_y
     //Layout 3 panels to fill with the different bits of info needed.
