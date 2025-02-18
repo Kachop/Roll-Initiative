@@ -31,4 +31,7 @@ A knowns issues is that the browser will not automatically open on Windows syste
 
 ## Screenshots
 ![Example of the icons customising tool.](/Screenshots/working_borders.png)
-![Example of the player view listing some PC's with their icons.](/Screenshots/Web view.png)
+
+</br>
+
+![Example of the player view listing some PC's with their icons.](/Screenshots/Web_view.png)
