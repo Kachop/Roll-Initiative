@@ -144,8 +144,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       addMessage(&combatState.message_queue, new_message)
       reload_entities()
     }
-    cursor_x -= (MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING)
     cursor_y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
+    cursor_x = PADDING_LEFT
+    
+    if GuiButton({cursor_x, cursor_y, state.window_width / 3.5, LINE_HEIGHT}, "Add Combatant" if (!combatState.add_entity_mode) else "Cancel") {
+      combatState.add_entity_mode = !combatState.add_entity_mode
+    }
+
+    cursor_x = (state.window_width - PADDING_RIGHT) - (MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING)
 
     rl.GuiLabel({cursor_x, cursor_y, (MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING, LINE_HEIGHT}, cstr("IP:", state.ip_str))
 
@@ -208,57 +214,110 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         panel_width,
         panel_height - entity_select_button_height,
     }
+
+    if !combatState.add_entity_mode {
     //Text header
-    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)entity_select_button_height, state.config.HEADER_COLOUR)
-    //Text
-    turn_text := fmt.ctprintf("Round %v:", combatState.current_round)
-    fit_text(turn_text, panel_width / 2, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, entity_select_button_height}, cstr(turn_text))
-    cursor_x += panel_width * 0.5
+        rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)entity_select_button_height, state.config.HEADER_COLOUR)
+        //Text
+        turn_text := fmt.ctprintf("Round %v:", combatState.current_round)
+        fit_text(turn_text, panel_width / 2, &TEXT_SIZE)
+        rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, entity_select_button_height}, cstr(turn_text))
+        cursor_x += panel_width * 0.5
 
-    TEXT_SIZE = initial_text_size
-    //Turn timer
-    turn_time := fmt.ctprint(time.clock_from_stopwatch(combatState.turn_timer), sep=":")
-    fit_text(turn_time, panel_width / 2, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, entity_select_button_height}, turn_time)
-    cursor_x = current_panel_x
-    cursor_y += entity_select_button_height + combatState.panelLeft.scroll.y
-    TEXT_SIZE = initial_text_size
+        TEXT_SIZE = initial_text_size
+        //Turn timer
+        turn_time := fmt.ctprint(time.clock_from_stopwatch(combatState.turn_timer), sep=":")
+        fit_text(turn_time, panel_width / 2, &TEXT_SIZE)
+        rl.GuiLabel({cursor_x, cursor_y, panel_width, entity_select_button_height}, turn_time)
+        cursor_x = current_panel_x
+        cursor_y += entity_select_button_height + combatState.panelLeft.scroll.y
+        TEXT_SIZE = initial_text_size
 
-    combatState.panelLeft.height_needed = cast(f32)len(combatState.entities) * (LINE_HEIGHT + PANEL_PADDING) + PANEL_PADDING
+        combatState.panelLeft.height_needed = cast(f32)len(combatState.entities) * (LINE_HEIGHT + PANEL_PADDING) + PANEL_PADDING
 
-    if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
-        combatState.panelLeft.contentRec.width = panel_width - 14
-        combatState.panelLeft.contentRec.height = combatState.panelLeft.height_needed
-        draw_width = panel_width - (PANEL_PADDING * 2) -14
-        rl.GuiScrollPanel(combatState.panelLeft.rec, nil, combatState.panelLeft.contentRec, &combatState.panelLeft.scroll, &combatState.panelLeft.view)
+        if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
+            combatState.panelLeft.contentRec.width = panel_width - 14
+            combatState.panelLeft.contentRec.height = combatState.panelLeft.height_needed
+            draw_width = panel_width - (PANEL_PADDING * 2) -14
+            rl.GuiScrollPanel(combatState.panelLeft.rec, nil, combatState.panelLeft.contentRec, &combatState.panelLeft.scroll, &combatState.panelLeft.view)
   
-        rl.BeginScissorMode(cast(i32)combatState.panelLeft.view.x, cast(i32)combatState.panelLeft.view.y, cast(i32)combatState.panelLeft.view.width, cast(i32)combatState.panelLeft.view.height)
-        //rl.ClearBackground(rl.SKYBLUE)
-    } else {
-        combatState.panelLeft.contentRec.width = panel_width
-        draw_width = panel_width - (PANEL_PADDING * 2)
-    }
+            rl.BeginScissorMode(cast(i32)combatState.panelLeft.view.x, cast(i32)combatState.panelLeft.view.y, cast(i32)combatState.panelLeft.view.width, cast(i32)combatState.panelLeft.view.height)
+            //rl.ClearBackground(rl.SKYBLUE)
+        } else {
+            combatState.panelLeft.contentRec.width = panel_width
+            draw_width = panel_width - (PANEL_PADDING * 2)
+        }
     
-    {
-      cursor_x += PANEL_PADDING
-      cursor_y += PANEL_PADDING
+        {
+            cursor_x += PANEL_PADDING
+            cursor_y += PANEL_PADDING
 
-      for _, i in combatState.entities {
-          GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entities, cast(i32)i)
-          if (cast(i32)i == combatState.current_entity_index) {
-              rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
-          }
-          cursor_y += entity_select_button_height + PANEL_PADDING
-          TEXT_SIZE = 30
-          rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-      }
-    }
+            for _, i in combatState.entities {
+                GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entities, cast(i32)i)
+                if (cast(i32)i == combatState.current_entity_index) {
+                    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
+                }
+                cursor_y += entity_select_button_height + PANEL_PADDING
+                TEXT_SIZE = 30
+                rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+            }
+        }
 
-    if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
-        rl.EndScissorMode()
+        if combatState.panelLeft.height_needed > combatState.panelLeft.rec.height {
+            rl.EndScissorMode()
+        } else {
+            combatState.panelLeft.scroll.y = 0
+        }
     } else {
-        combatState.panelLeft.scroll.y = 0
+        switch GuiTabControl({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, &state.setup_screen_state.filter_tab) {
+        case 0: state.setup_screen_state.entities_filtered = state.srd_entities
+        case 1: state.setup_screen_state.entities_filtered = state.custom_entities
+        }
+        cursor_y += LINE_HEIGHT
+
+        rl.GuiLabel({cursor_x, cursor_y, panel_width * 0.2, LINE_HEIGHT}, rl.GuiIconText(.ICON_LENS, ""))
+        cursor_x += panel_width * 0.2
+
+        GuiTextInput({cursor_x, cursor_y, panel_width * 0.8, LINE_HEIGHT}, &state.setup_screen_state.entity_search_state)
+        cursor_x = current_panel_x
+        cursor_y += LINE_HEIGHT + combatState.panelLeft.scroll.y
+    
+        filterEntities(&state.setup_screen_state)
+        
+        combatState.panelLeft.height_needed = cast(f32)len(state.setup_screen_state.entities_searched) * (LINE_HEIGHT + PANEL_PADDING) + PANEL_PADDING
+
+        if (combatState.panelLeft.height_needed > combatState.panelLeft.rec.height) {
+            combatState.panelLeft.contentRec.width = panel_width - 14
+            combatState.panelLeft.contentRec.height = combatState.panelLeft.height_needed
+            draw_width = panel_width - (PANEL_PADDING * 2) - 14
+            rl.GuiScrollPanel(combatState.panelLeft.rec, nil, combatState.panelLeft.contentRec, &combatState.panelLeft.scroll, &combatState.panelLeft.view)
+            rl.BeginScissorMode(cast(i32)combatState.panelLeft.view.x, cast(i32)combatState.panelLeft.view.y, cast(i32)combatState.panelLeft.view.width, cast(i32)combatState.panelLeft.view.height)
+        } else {
+            combatState.panelLeft.contentRec.width = panel_width
+            draw_width = panel_width - (PANEL_PADDING * 2)
+        }
+
+        {
+            cursor_x += PANEL_PADDING
+            cursor_y += PANEL_PADDING
+
+            for entity in state.setup_screen_state.entities_searched {
+                //Check text width needed and reduce size if needed.
+                fit_text(entity.name, combatState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
+                if GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
+                    append(&combatState.entities, entity)
+                }
+                cursor_y += LINE_HEIGHT + PANEL_PADDING
+                TEXT_SIZE = initial_text_size
+                rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+            }
+        }
+
+        if (combatState.panelLeft.height_needed > combatState.panelLeft.rec.height) {
+            rl.EndScissorMode()
+        } else {
+            combatState.panelLeft.scroll.y = 0
+        }
     }
     
     current_panel_x += panel_width + dynamic_x_padding

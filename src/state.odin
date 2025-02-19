@@ -102,6 +102,7 @@ CombatScreenState :: struct {
   current_round: i32,
   turn_timer: time.Stopwatch,
   combat_timer: time.Stopwatch,
+  add_entity_mode: bool,
   panelLeft: PanelState,
   panelMid: PanelState,
   scroll_lock_mid: bool,
@@ -128,6 +129,7 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.current_round = 1
   screenState.turn_timer = time.Stopwatch{}
   screenState.combat_timer = time.Stopwatch{}
+  screenState.add_entity_mode = false
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
   dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
