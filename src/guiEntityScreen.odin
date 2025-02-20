@@ -63,6 +63,13 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     }
   }
 
+  scroll_locked := false
+  for _, btn in entityScreenState.btn_list {
+    if btn^ {
+      scroll_locked = true
+    }
+  }
+
   draw_width := panel_width - (PANEL_PADDING * 2)
 
   rl.GuiPanel(
@@ -173,7 +180,9 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.panelMid.contentRec.width = panel_width - 14
     entityScreenState.panelMid.contentRec.height = entityScreenState.panelMid.height_needed
     draw_width = panel_width - (PANEL_PADDING * 2) - 14
-    rl.GuiScrollPanel(entityScreenState.panelMid.rec, nil, entityScreenState.panelMid.contentRec, &entityScreenState.panelMid.scroll, &entityScreenState.panelMid.view)
+    if !scroll_locked {
+      rl.GuiScrollPanel(entityScreenState.panelMid.rec, nil, entityScreenState.panelMid.contentRec, &entityScreenState.panelMid.scroll, &entityScreenState.panelMid.view)
+    }
 
     rl.BeginScissorMode(cast(i32)entityScreenState.panelMid.view.x, cast(i32)entityScreenState.panelMid.view.y, cast(i32)entityScreenState.panelMid.view.width, cast(i32)entityScreenState.panelMid.view.height)
   } else {
@@ -217,6 +226,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     entityScreenState.type_dropdown.title = entityScreenState.type_dropdown.labels[entityScreenState.type_dropdown.selected]
 
     GuiDropdownControl({dropdown_cursor_x, dropdown_cursor_y, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.type_dropdown)
+    register_button(&entityScreenState.btn_list, &entityScreenState.type_dropdown)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
@@ -342,6 +352,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     dropdown_cursor_x_vuln := cursor_x
     dropdown_cursor_y_vuln := cursor_y
     GuiDropdownSelectControl({dropdown_cursor_x_vuln, dropdown_cursor_y_vuln, draw_width / 2, TEXT_INPUT_HEIGHT}, &entityScreenState.DMG_vulnerable_input)
+    register_button(&entityScreenState.btn_list, &entityScreenState.DMG_vulnerable_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
@@ -355,6 +366,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     dropdown_cursor_x_resist := cursor_x
     dropdown_cursor_y_resist := cursor_y
     GuiDropdownSelectControl({dropdown_cursor_x_resist, dropdown_cursor_y_resist, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_resist_input)
+    register_button(&entityScreenState.btn_list, &entityScreenState.DMG_resist_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
@@ -368,6 +380,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
     dropdown_cursor_x_immune := cursor_x
     dropdown_cursor_y_immune := cursor_y
     GuiDropdownSelectControl({dropdown_cursor_x_immune, dropdown_cursor_y_immune, draw_width / 2, LINE_HEIGHT}, &entityScreenState.DMG_immune_input)
+    register_button(&entityScreenState.btn_list, &entityScreenState.DMG_immune_input)
     cursor_x = start_x
     cursor_y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 

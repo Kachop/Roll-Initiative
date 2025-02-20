@@ -13,8 +13,6 @@ import "core:net"
 
 /*
 Features TODO:
-- Add temp resistances / immunities.
-- Make icons and borders relative paths.
 - Make some sort of system for viewing stats and abilities outside of current entity turn!!
 - Logging of combat go by go, with dmg, healing etc.
 - Some sort of built-in media controls and playlist builder / spotify API control.
@@ -55,6 +53,8 @@ server_thread: ^thread.Thread
 @(init)
 init :: proc() {
   rl.SetTraceLogLevel(.NONE)
+
+  rl.GuiSetIconScale(2)
 
   when ODIN_DEBUG {
     context.logger = log.create_console_logger()

@@ -232,3 +232,17 @@ combat_to_json :: proc(combatState: CombatScreenState) {
     context.allocator = initial_allocator
     return
 }
+
+register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
+  registered := false
+
+  for test_button, _ in button_list {
+    if (test_button == button.id) {
+      registered = true
+    }
+  }
+
+  if !registered {
+    button_list[button.id] = &button.active
+  }
+}

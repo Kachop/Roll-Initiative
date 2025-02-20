@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
 
@@ -98,85 +99,91 @@ GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
   }
   
   if (rl.GuiTextBox(bounds, inputState.text, size_of(inputState.alloc), inputState.edit_mode)) {
-    if is_current_hover(inputState) {
-      inputState.edit_mode = !inputState.edit_mode
+      if is_current_hover(inputState) && !inputState.edit_mode {
+        inputState.edit_mode = true
+      } else if inputState.edit_mode {
+        inputState.edit_mode = false
+      }
     }
   }
-}
 
-GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) -> (clicked: bool) {
-    using state.gui_properties
+  GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) -> (clicked: bool) {
+      using state.gui_properties
+      rl.GuiSetIconScale(1)
+      defer rl.GuiSetIconScale(2)
 
-    x := rec.x
-    y := rec.y
-    width := rec.width
-    height := rec.height
+      x := rec.x
+      y := rec.y
+      width := rec.width
+      height := rec.height
 
-    mouse_pos := rl.GetMousePosition()
-    //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
+      mouse_pos := rl.GetMousePosition()
+      //Draw border
+      rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
+      rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
 
-    if rl.CheckCollisionPointRec(mouse_pos, rec) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
-        
-        if rl.IsMouseButtonDown(.LEFT) {
-            clicked = true
-            return
-        }
-    }
-    
-    initial_text_size := TEXT_SIZE_DEFAULT
-    
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
+      if rl.CheckCollisionPointRec(mouse_pos, rec) {
+          rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
+          
+          if rl.IsMouseButtonDown(.LEFT) {
+              clicked = true
+              return
+          }
+      }
+      
+      initial_text_size := TEXT_SIZE_DEFAULT
+      
+      defer {
+          TEXT_SIZE = initial_text_size
+          rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+      }
 
-    available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
-    fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
+      available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
+      fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
 
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
-    
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
+      rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
+      
+      TEXT_SIZE = initial_text_size
+      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
 
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (index > 0) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index-1, temp_entity)
-        }
-    }
-    
-    if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (index < cast(i32)len(entity_list^)-1) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index+1, temp_entity)
-        }
-    }
-    //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
-    //Health label
-    health_label_text: cstring
-    if entity_list[index].temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
-    } else {
-        health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
-    }
+      if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
+          if (index > 0) {
+              temp_entity := entity_list[index]
+              ordered_remove(entity_list, index)
+              inject_at(entity_list, index-1, temp_entity)
+          }
+      }
+      
+      if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
+          if (index < cast(i32)len(entity_list^)-1) {
+              temp_entity := entity_list[index]
+              ordered_remove(entity_list, index)
+              inject_at(entity_list, index+1, temp_entity)
+          }
+      }
+      //Initiative label
+      rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
+      //Health label
+      health_label_text: cstring
+      if entity_list[index].temp_HP > 0 {
+          health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
+      } else {
+          health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
+      }
 
-    fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
-    rl.GuiLabel({x + (width * 0.8), y + (height * 0.05), (width * 0.18), (height * 0.85)}, cstr(health_label_text))
-    //Visibility option 
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
-    rl.GuiSetStyle(.CHECKBOX, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_RIGHT)
-    rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
-    return
-}
+      fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
+      rl.GuiLabel({x + (width * 0.8), y + (height * 0.05), (width * 0.18), (height * 0.85)}, cstr(health_label_text))
+      //Visibility option 
+      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
+      rl.GuiSetStyle(.CHECKBOX, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_RIGHT)
+      rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
+      return
+  }
 
 GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) {
     using state.gui_properties
+    rl.GuiSetIconScale(1)
+    defer rl.GuiSetIconScale(2)
 
     x := rec.x
     y := rec.y
@@ -239,13 +246,15 @@ DropdownState :: struct {
   labels: []cstring,
   selected: i32,
   active: bool,
+  btn_list: ^map[i32]^bool,
 }
 
-InitDropdownState :: proc(state: ^DropdownState, title: cstring, labels: []cstring) {
+InitDropdownState :: proc(state: ^DropdownState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
   state.id = GUI_ID
   GUI_ID += 1
   state.title = title
   state.labels = labels
+  state.btn_list = btn_list
 }
 
 @(deferred_in=_draw_dropdown)
@@ -323,12 +332,12 @@ _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
     } else {
         dropdown_state.hovered = false
     }
-        
+ 
     if is_current_hover(dropdown_state) {
         if rl.CheckCollisionPointRec(mouse_pos, bounds) {
             if rl.IsMouseButtonReleased(.LEFT) {
                 if !dropdown_state.active {
-                    for _, dropdown_active in btn_list {
+                    for _, dropdown_active in dropdown_state.btn_list {
                         dropdown_active^ = false
                     }
                     dropdown_state.active = true
@@ -406,9 +415,10 @@ DropdownSelectState :: struct {
   labels: []cstring,
   selected: [dynamic]bool,
   active: bool,
+  btn_list: ^map[i32]^bool,
 }
 
-InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstring, labels: []cstring) {
+InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
   dropdownState.id = GUI_ID
   GUI_ID += 1
   dropdownState.title = title
@@ -417,6 +427,7 @@ InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstr
   for _ in dropdownState.labels {
     append(&dropdownState.selected, false)
   }
+  dropdownState.btn_list = btn_list
 }
 
 DeInitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState) {
@@ -504,6 +515,8 @@ _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSel
 
         rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, state.config.BUTTON_BORDER_COLOUR)
         rl.DrawRectangle(cast(i32)x + border, cast(i32)cursor_y + border, cast(i32)width - (border * 2), cast(i32)dropdown_height - (border * 2), state.config.DROPDOWN_COLOUR)
+        dropdownRec = {x, cursor_y, width, dropdown_height}
+        
 
         cursor_y += dropdownScroll.y
 
@@ -540,7 +553,7 @@ _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSel
         if rl.CheckCollisionPointRec(mouse_pos, bounds) {
             if rl.IsMouseButtonReleased(.LEFT) {
                 if !dropdown_state.active {
-                    for _, dropdown_active in btn_list {
+                    for _, dropdown_active in dropdown_state.btn_list {
                         dropdown_active^ = false
                     }
                     dropdown_state.active = true
@@ -549,7 +562,6 @@ _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSel
                     return
                 }
                 if (dropdown_state.active) {
-                    dropdownRec = {x, cursor_y, width, cast(f32)line_height * cast(f32)max_items}
                     dropdownContentRec = {x, cursor_y, width, 0}
                     dropdownView = {0, 0, 0, 0}
                     dropdownScroll = {0, 0}

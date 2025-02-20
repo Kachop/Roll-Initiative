@@ -103,6 +103,7 @@ CombatScreenState :: struct {
   turn_timer: time.Stopwatch,
   combat_timer: time.Stopwatch,
   add_entity_mode: bool,
+  btn_list: map[i32]^bool,
   panelLeft: PanelState,
   panelMid: PanelState,
   scroll_lock_mid: bool,
@@ -133,14 +134,14 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
   dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
-  InitDropdownState(&screenState.dmg_type_dropdown, "Type:", dmg_type_options[:])
+  InitDropdownState(&screenState.dmg_type_dropdown, "Type:", dmg_type_options[:], &screenState.btn_list)
   InitTextInputState(&screenState.dmg_input)
   InitTextInputState(&screenState.heal_input)
   InitTextInputState(&screenState.temp_HP_input)
 
   conditions := [dynamic]cstring{"Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconsious", "Exhaustion"}
-  InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:])
-  InitDropdownSelectState(&screenState.temp_resist_immunity_dropdown, "Type:", dmg_type_options[:])
+  InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:], &screenState.btn_list)
+  InitDropdownSelectState(&screenState.temp_resist_immunity_dropdown, "Type:", dmg_type_options[:], &screenState.btn_list)
 
   InitPanelState(&screenState.panelRight)
   screenState.json_data = "{}"
@@ -177,7 +178,7 @@ EntityScreenState :: struct {
   first_load: bool,
   entity_edit_mode: bool,
   entity_to_edit: i32,
-  height_needed: f32,
+  btn_list: map[i32]^bool,
   panelLeft: PanelState,
   panelMid: PanelState,
   panelRight: PanelState,
@@ -233,7 +234,7 @@ init_entity_screen :: proc(screenState: ^EntityScreenState) {
   InitTextInputState(&screenState.name_input)
   InitTextInputState(&screenState.race_input)
   InitTextInputState(&screenState.size_input)
-  InitDropdownState(&screenState.type_dropdown, "", type_options[:])
+  InitDropdownState(&screenState.type_dropdown, "", type_options[:], &screenState.btn_list)
   InitTextInputState(&screenState.AC_input)
   InitTextInputState(&screenState.HP_input)
   InitTextInputState(&screenState.HP_max_input)
@@ -252,9 +253,9 @@ init_entity_screen :: proc(screenState: ^EntityScreenState) {
   InitTextInputState(&screenState.WIS_save_input)
   InitTextInputState(&screenState.CHA_save_input)
   dmg_type_options := [dynamic]cstring{"Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
-  InitDropdownSelectState(&screenState.DMG_vulnerable_input, "Type:", dmg_type_options[:])
-  InitDropdownSelectState(&screenState.DMG_resist_input, "Type:", dmg_type_options[:])
-  InitDropdownSelectState(&screenState.DMG_immune_input, "Type:", dmg_type_options[:])
+  InitDropdownSelectState(&screenState.DMG_vulnerable_input, "Type:", dmg_type_options[:], &screenState.btn_list)
+  InitDropdownSelectState(&screenState.DMG_resist_input, "Type:", dmg_type_options[:], &screenState.btn_list)
+  InitDropdownSelectState(&screenState.DMG_immune_input, "Type:", dmg_type_options[:], &screenState.btn_list)
   InitTextInputState(&screenState.languages_input)
 }
 

@@ -11,8 +11,6 @@ import rl "vendor:raylib"
 
 frame := 0
 
-btn_list: map[i32]^bool
-
 GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     using state.gui_properties
 
@@ -151,9 +149,12 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       combatState.add_entity_mode = !combatState.add_entity_mode
     }
 
-    cursor_x = (state.window_width - PADDING_RIGHT) - (MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING)
-
-    rl.GuiLabel({cursor_x, cursor_y, (MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING, LINE_HEIGHT}, cstr("IP:", state.ip_str))
+    cursor_x = (state.window_width - PADDING_RIGHT) - ((MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING)
+    
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 20)
+    rl.GuiLabel({cursor_x, cursor_y, (MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING, LINE_HEIGHT}, cstr("IP:", state.ip_str, ":", state.config.PORT, sep=""))
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 30)
+    
 
     cursor_x = PADDING_LEFT
     cursor_y += LINE_HEIGHT + PANEL_PADDING
@@ -196,8 +197,8 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             0,
         } 
         
-        InitDropdownState(&combatState.from_dropdown, "From:", combatState.entity_names[:])
-        InitDropdownSelectState(&combatState.to_dropdown, "To:", combatState.entity_names[:])
+        InitDropdownState(&combatState.from_dropdown, "From:", combatState.entity_names[:], &combatState.btn_list)
+        InitDropdownSelectState(&combatState.to_dropdown, "To:", combatState.entity_names[:], &combatState.btn_list)
     }
 
     rl.GuiPanel(
@@ -210,7 +211,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
  
     combatState.panelLeft.rec = {
         cursor_x,
-        cursor_y + entity_select_button_height,
+        cursor_y + entity_select_button_height if (!combatState.add_entity_mode) else cursor_y + (LINE_HEIGHT * 2),
         panel_width,
         panel_height - entity_select_button_height,
     }
@@ -365,7 +366,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
 
     scroll_locked := false
-    for _, btn in btn_list {
+    for _, btn in combatState.btn_list {
         if btn^ {
             scroll_locked = true
         }
@@ -398,7 +399,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y_dmg_type := cursor_y
 
         GuiDropdownControl({cursor_x_dmg_type, cursor_y_dmg_type, draw_width / 2, line_height_mid}, &combatState.dmg_type_dropdown)
-        register_button(&btn_list, &combatState.dmg_type_dropdown)
+        register_button(&combatState.btn_list, &combatState.dmg_type_dropdown)
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
 
@@ -463,7 +464,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y_conditions := cursor_y
 
         GuiDropdownSelectControl({cursor_x_conditions, cursor_y_conditions, draw_width / 2, line_height_mid}, &combatState.condition_dropdown)
-        register_button(&btn_list, &combatState.condition_dropdown)
+        register_button(&combatState.btn_list, &combatState.condition_dropdown)
         cursor_x += draw_width / 2
 
         if combatState.panelMid.height_needed > draw_height {
@@ -484,7 +485,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         cursor_y += line_height_mid + PANEL_PADDING
 
         GuiDropdownSelectControl({cursor_x, cursor_y, draw_width / 2, line_height_mid}, &combatState.temp_resist_immunity_dropdown)
-        register_button(&btn_list, &combatState.temp_resist_immunity_dropdown)
+        register_button(&combatState.btn_list, &combatState.temp_resist_immunity_dropdown)
         cursor_x += draw_width / 2
 
         if combatState.panelMid.height_needed > draw_height {
@@ -505,10 +506,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
 
     GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
-    register_button(&btn_list, &combatState.from_dropdown)
+    register_button(&combatState.btn_list, &combatState.from_dropdown)
 
     GuiDropdownSelectControl({cursor_x_to_dropdown, cursor_y_to_dropdown, draw_width / 2, line_height_mid}, &combatState.to_dropdown)
-    register_button(&btn_list, &combatState.to_dropdown)
+    register_button(&combatState.btn_list, &combatState.to_dropdown)
     //Stats and info for the currently selected entity.
     current_panel_x += panel_width + dynamic_x_padding
     cursor_x = current_panel_x
@@ -560,20 +561,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       } else {
         combatState.panelRight.scroll.y = 0
       }
-}
-
-register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
-  registered := false
-
-  for test_button, _ in button_list {
-    if (test_button == button.id) {
-      registered = true
-    }
-  }
-
-  if !registered {
-    button_list[button.id] = &button.active
-  }
 }
 
 dropdownRec: rl.Rectangle
