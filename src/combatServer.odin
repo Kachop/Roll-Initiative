@@ -32,15 +32,13 @@ get_ip_windows :: proc() -> (ip_string: string, err: os2.Error) {
   log.infof("Interfaces: %v", interfaces)
 
   for interface in interfaces {
-    if interface.friendly_name == "WiFi" {
-      for item in interface.unicast {
-        switch t in item.address {
-        case net.IP4_Address:
-          if item.address.(net.IP4_Address)[0] == 192 {
-            state.config.IP_ADDRESS = item.address.(net.IP4_Address)
-          }
-        case net.IP6_Address:
+    for item in interface.unicast {
+      switch t in item.address {
+      case net.IP4_Address:
+        if item.address.(net.IP4_Address)[0] == 192 {
+          state.config.IP_ADDRESS = item.address.(net.IP4_Address)
         }
+      case net.IP6_Address:
       }
     }
   }
