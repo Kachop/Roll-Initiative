@@ -208,7 +208,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             panel_width,
             panel_height,
         }, "Turn Order")
- 
+
     combatState.panelLeft.rec = {
         cursor_x,
         cursor_y + entity_select_button_height if (!combatState.add_entity_mode) else cursor_y + (LINE_HEIGHT * 2),

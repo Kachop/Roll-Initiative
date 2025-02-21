@@ -216,6 +216,7 @@ drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
     //combat := read_combat_file(string(fileDialogState.selected_file), state.setup_screen_state)
     //state.setup_screen_state.entities_selected = combat.entities
     //setupState.initiatives = combat.initiatives
+    load_combat_file(str(fileDialogState.selected_file))
     state.current_screen_state = state.setup_screen_state
   }
 }

@@ -3,5 +3,5 @@
 	"custom_entities_path": "Custom entities/",
 	"custom_entity_file_path": "my_entities.json",
 	"webpage_file_path": "index.html",
-	"combat_files_path": "/ combats/",
+	"combat_files_path": "combats",
 }

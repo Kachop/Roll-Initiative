@@ -45,7 +45,7 @@ LOAD_CONFIG :: proc(config: ^Config) {
       config.CUSTOM_ENTITY_FILE = config_fields["custom_entity_file_path"].(string) if ("custom_entity_file_path" in config_fields) else ""
       config.CUSTOM_ENTITY_FILE_PATH = fmt.aprint(config.CUSTOM_ENTITY_PATH, config.CUSTOM_ENTITY_FILE, sep=FILE_SEPERATOR)
       config.WEBPAGE_FILE_PATH = fmt.aprint(state.app_dir, FILE_SEPERATOR, config_fields["webpage_file_path"].(string), sep="") if ("webpage_file_path" in config_fields) else ""
-      config.COMBAT_FILES_PATH = fmt.aprint(state.app_dir, FILE_SEPERATOR, config_fields["combat_files_path"].(string)) if ("combat_files_path" in config_fields) else ""
+      config.COMBAT_FILES_PATH = fmt.aprint(state.app_dir, FILE_SEPERATOR, config_fields["combat_files_path"].(string), sep="") if ("combat_files_path" in config_fields) else ""
     } else {
       log.debugf("ERROR PARSING JSON FILE: %v", err)
     }

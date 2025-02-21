@@ -5,6 +5,7 @@ import "core:log"
 import "core:os"
 import "core:strings"
 import "core:unicode/utf8"
+import "core:encoding/json"
 import "core:math"
 import "core:time"
 import rl "vendor:raylib"
@@ -107,15 +108,18 @@ order_by_initiative :: proc(entities: ^[dynamic]Entity) {
     entities^ = entities_sorted
 }
 
-match_entity :: proc(entity_name: string) -> (result: i32, found: bool) {
-    for entity, i in state.srd_entities {
-        if string(entity.name) == entity_name {
-            result = cast(i32)i
-            found = true
-            return
-        }
+match_entity :: proc(entity_name: string) -> (result: Entity, ok: bool) {
+  for entity in state.srd_entities {
+    if str(entity.name) == entity_name {
+      return entity, true
     }
-    return
+  }
+  for entity in state.custom_entities {
+    if str(entity.name) == entity_name {
+      return entity, true
+    }
+  }
+  return Entity{}, false
 }
 
 get_entity_icon_data :: proc{get_entity_icon_from_paths, get_entity_icon_from_entity}
@@ -163,7 +167,7 @@ combat_to_json :: proc(combatState: CombatScreenState) {
         fmt.tprint(combatState.current_entity_index),
         ",\"entities\": ["}, "", allocator=context.temp_allocator)
 
-    for entity, i in combatState.entities {
+ for entity, i in combatState.entities {
         entity_string: string
         entity_type: string
         
@@ -245,4 +249,46 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
   if !registered {
     button_list[button.id] = &button.active
   }
+}
+
+load_combat_file :: proc(filename: string) {
+  log.infof("LOADING COMBAT FILE @: %v", filename)
+  //clear setup state entities.
+  state.setup_screen_state.entities_selected = [dynamic]Entity{}
+  entities: [dynamic]Entity
+
+  file_data, ok := os.read_entire_file(filename)
+
+  if ok {
+    json_data, err := json.parse(file_data)
+
+    if err == .None {
+      log.debugf("Entities: %v", json_data)
+      for entity, val in json_data.(json.Object) {
+        log.debugf("Entity: %v", entity)
+        saved_entity, ok := match_entity(entity)
+        saved_entity.initiative = cast(i32)val.(json.Object)["initiative"].(json.Float)
+        saved_entity.visible = cast(bool)val.(json.Object)["visible"].(json.Boolean)
+        append(&state.setup_screen_state.entities_selected, saved_entity)
+      }
+    } else {
+      log.errorf("%v", err)
+    }
+  }
+}
+
+write_combat_file :: proc(filename: string) -> bool {
+  file := init_file(filename)
+  
+  entity_data := Object{}
+
+  for entity, i in state.setup_screen_state.entities_selected {
+    entity_map := Object{}
+    entity_map["initiative"] = cast(Integer)entity.initiative
+    entity_map["visible"] = cast(Boolean)entity.visible
+    entity_data[str(entity.name)] = entity_map
+  }
+
+  add_object("", entity_data, &file)
+  return write(filename, file)
 }

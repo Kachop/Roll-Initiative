@@ -46,10 +46,15 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 
   if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_FILE_SAVE, ""))) {
-    filename_parts := []cstring{setupState.filename_input.text, ".combat"}
-    filename := rl.TextJoin(raw_data(filename_parts), 2, "")
-    combat := CombatFile{setupState.filename_input.text, setupState.entities_selected}
-    writeCombatFile(string(filename), combat)
+    new_message := GuiMessageBoxState{}
+    if write_combat_file(str(state.config.COMBAT_FILES_PATH, FILE_SEPERATOR, setupState.filename_input.text, ".combat", sep="")) {
+      init_message_box(&new_message, "Notification!", fmt.caprint(setupState.filename_input.text, ".combat saved!", sep=""))
+      addMessage(&setupState.message_queue, new_message)
+    } else {
+      log.debugf("File path: %v", str(state.config.COMBAT_FILES_PATH, FILE_SEPERATOR, setupState.filename_input.text, ".combat", sep=""))
+      init_message_box(&new_message, "Error!", "Failed to save file.")
+      addMessage(&setupState.message_queue, new_message)
+    }
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
