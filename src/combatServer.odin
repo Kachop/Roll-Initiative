@@ -29,6 +29,8 @@ get_ip_windows :: proc() -> (ip_string: string, err: os2.Error) {
 
   interfaces, _ := net.enumerate_interfaces()
 
+  log.infof("Interfaces: %v", interfaces)
+
   for interface in interfaces {
     if interface.friendly_name == "WiFi" {
       for item in interface.unicast {
@@ -42,7 +44,7 @@ get_ip_windows :: proc() -> (ip_string: string, err: os2.Error) {
       }
     }
   }
-  ip_string = fmt.tprintf("%v.%v.%v.%v", state.config.IP_ADDRESS[0], state.config.IP_ADDRESS[1], state.config.IP_ADDRESS[2], state.config.IP_ADDRESS[3])
+  ip_string = fmt.aprintf("%v.%v.%v.%v", state.config.IP_ADDRESS[0], state.config.IP_ADDRESS[1], state.config.IP_ADDRESS[2], state.config.IP_ADDRESS[3])
   return 
 }
 
