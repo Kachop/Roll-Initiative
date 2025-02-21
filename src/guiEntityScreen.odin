@@ -443,6 +443,7 @@ GuiDrawEntityScreen :: proc(entityScreenState: ^EntityScreenState) {
 
       new_entitiy := Entity{
           entityScreenState.name_input.text,
+          entityScreenState.name_input.text,
           entityScreenState.race_input.text,
           entityScreenState.size_input.text,
           entity_type,

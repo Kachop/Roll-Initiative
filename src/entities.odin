@@ -71,6 +71,7 @@ ConditionSet :: bit_set[Condition]
 
 Entity :: struct {
   name: cstring,
+  alias: cstring,
   race: cstring,
   size: cstring,
   type: EntityType,
@@ -148,6 +149,7 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
         }
 
         new_entity := Entity{
+          fmt.caprint(entity_fields["Name"].(string)),
           fmt.caprint(entity_fields["Name"].(string)),
           fmt.caprint(entity_fields["Race"].(string)),
           fmt.caprint(entity_fields["Size"].(string)),

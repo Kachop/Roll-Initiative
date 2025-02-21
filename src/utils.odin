@@ -184,6 +184,8 @@ combat_to_json :: proc(combatState: CombatScreenState) {
             entity_string = strings.join([]string{
                 "{\"name\": \"",
                 fmt.tprint(entity.name),
+                "\",\"alias\": \"",
+                fmt.tprint(entity.alias),
                 "\",\"type\": \"",
                 entity_type,
                 "\",\"health\": ",
@@ -207,6 +209,8 @@ combat_to_json :: proc(combatState: CombatScreenState) {
             entity_string = strings.join([]string{
                 "{\"name\": \"",
                 fmt.tprint(entity.name),
+                "\",\"alias\": \"",
+                fmt.tprint(entity.alias),
                 "\",\"type\": \"",
                 entity_type,
                 "\",\"health\": ",
@@ -263,12 +267,11 @@ load_combat_file :: proc(filename: string) {
     json_data, err := json.parse(file_data)
 
     if err == .None {
-      log.debugf("Entities: %v", json_data)
-      for entity, val in json_data.(json.Object) {
-        log.debugf("Entity: %v", entity)
-        saved_entity, ok := match_entity(entity)
-        saved_entity.initiative = cast(i32)val.(json.Object)["initiative"].(json.Float)
-        saved_entity.visible = cast(bool)val.(json.Object)["visible"].(json.Boolean)
+      for alias, fields in json_data.(json.Object) {
+        saved_entity, ok := match_entity(fields.(json.Object)["name"].(string))
+        saved_entity.alias = strings.clone_to_cstring(alias)
+        saved_entity.initiative = cast(i32)fields.(json.Object)["initiative"].(json.Float)
+        saved_entity.visible = cast(bool)fields.(json.Object)["visible"].(json.Boolean)
         append(&state.setup_screen_state.entities_selected, saved_entity)
       }
     } else {
@@ -284,9 +287,10 @@ write_combat_file :: proc(filename: string) -> bool {
 
   for entity, i in state.setup_screen_state.entities_selected {
     entity_map := Object{}
+    entity_map["name"] = cast(String)entity.name
     entity_map["initiative"] = cast(Integer)entity.initiative
     entity_map["visible"] = cast(Boolean)entity.visible
-    entity_data[str(entity.name)] = entity_map
+    entity_data[str(entity.alias)] = entity_map
   }
 
   add_object("", entity_data, &file)

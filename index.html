@@ -125,12 +125,15 @@
 		events.onmessage = function(e) {
 			var test = JSON.parse(e.data);
 			round.innerHTML = test.round;
+			var display_text = document.getElementById("content");
 
 			if (test.round == undefined) {
-				var display_text = document.getElementById("content");
 				display_text.removeChild(display_text.lastChild);
 				display_text.appendChild(document.createTextNode("Waiting for combat to start"));
 			} else {
+				if ((display_text.childNodes.length) > 2) {
+					display_text.removeChild(display_text.lastChild);
+				}
 
 				while (entities.firstChild) {
 					entities.removeChild(entities.lastChild);
@@ -156,13 +159,12 @@
 							img.width = 64;
 							img.height = 64;
 						} else {
-							console.log("Setting monster image");
 							img.src = entity.img_url;
 							img.width = 64;
 							img.height = 64;
 						}
 
-						character_label.appendChild(document.createTextNode("\t" + entity.name + "\t"));
+						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
 						character_label.classList.add("fantasy-font");
 
 						if (i == test.current_entity_index) {

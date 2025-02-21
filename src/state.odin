@@ -57,6 +57,7 @@ SetupScreenState :: struct {
   message_queue: GuiMessageBoxQueueState,
   entities_filtered: #soa[dynamic]Entity,
   entities_searched: #soa[dynamic]Entity,
+  entity_button_states: [dynamic]EntityButtonState,
   entities_selected: [dynamic]Entity,
   selected_entity: ^Entity,
   selected_entity_index: int,
@@ -103,8 +104,12 @@ CombatScreenState :: struct {
   turn_timer: time.Stopwatch,
   combat_timer: time.Stopwatch,
   add_entity_mode: bool,
+  remove_entity_mode: bool,
+  add_entity_button: GuiButtonState,
+  remove_entity_button: GuiButtonState,
   btn_list: map[i32]^bool,
   panelLeft: PanelState,
+  entity_button_states: [dynamic]EntityButtonState,
   panelMid: PanelState,
   scroll_lock_mid: bool,
   from_dropdown: DropdownState,
@@ -131,6 +136,9 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.turn_timer = time.Stopwatch{}
   screenState.combat_timer = time.Stopwatch{}
   screenState.add_entity_mode = false
+  screenState.remove_entity_mode = false
+  InitGuiButtonState(&screenState.add_entity_button, "Add" if (!screenState.add_entity_mode) else "Cancel")
+  InitGuiButtonState(&screenState.remove_entity_button, "Remove" if (!screenState.remove_entity_mode) else "Cancel")
   InitPanelState(&screenState.panelLeft)
   InitPanelState(&screenState.panelMid)
   dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}

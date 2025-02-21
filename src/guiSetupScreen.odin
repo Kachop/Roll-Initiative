@@ -69,6 +69,13 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
       order_by_initiative(&combatState.entities)
       combatState.current_entity_index = 0
       combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+      
+      for entity, i in setupState.entity_button_states {
+        entity_button_state := EntityButtonState{}
+        InitEntityButtonState(&entity_button_state, &combatState.entities, cast(i32)i)
+        append(&combatState.entity_button_states, entity_button_state)
+      }
+
       state.current_screen_state = state.combat_screen_state
     } else {
       new_message := GuiMessageBoxState{}
@@ -167,11 +174,23 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
       cursor_x += PANEL_PADDING
       cursor_y += PANEL_PADDING
 
-      for entity in setupState.entities_searched {
+      for &entity in setupState.entities_searched {
         //Check text width needed and reduce size if needed.
         fit_text(entity.name, setupState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
         if GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
+          match_count := 0
+          for selected_entity in setupState.entities_selected {
+            if selected_entity.name == entity.name {
+              match_count += 1
+            }
+          }
+          if match_count > 0 {
+            entity.alias = fmt.caprint(entity.name, match_count + 1)
+          }
           append(&setupState.entities_selected, entity)
+          entity_button_state := EntityButtonState{}
+          InitEntityButtonState(&entity_button_state, &setupState.entities_selected, cast(i32)len(setupState.entities_selected)-1)
+          append(&setupState.entity_button_states, entity_button_state)
         }
         cursor_y += LINE_HEIGHT + PANEL_PADDING
         TEXT_SIZE = initial_text_size
@@ -230,7 +249,8 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     start_y := cursor_y
 
     for _, i in setupState.entities_selected {
-      if GuiEntityButtonClickable({cursor_x, cursor_y, draw_width - LINE_HEIGHT, LINE_HEIGHT}, &setupState.entities_selected, cast(i32)i) {
+      setupState.entity_button_states[i].index = cast(i32)i
+      if GuiEntityButtonClickable({cursor_x, cursor_y, draw_width - LINE_HEIGHT, LINE_HEIGHT}, &setupState.entity_button_states[i]) {
             setupState.selected_entity = &setupState.entities_selected[i]
             setupState.selected_entity_index = i
             setupState.initiative_input.text = cstr(setupState.entities_selected[i].initiative)

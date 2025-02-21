@@ -55,7 +55,50 @@ clean_hover_stack :: proc() {
   state.hover_stack.count = 0
 }
 
-GuiButton :: proc(bounds: rl.Rectangle, text: cstring) -> bool {
+GuiButtonState :: struct {
+  using guiControl: GuiControl,
+  text: cstring,
+}
+
+InitGuiButtonState :: proc(button_state: ^GuiButtonState, text: cstring) {
+  button_state.id = GUI_ID
+  GUI_ID += 1
+  button_state.text = text
+}
+
+GuiButton :: proc{
+  GuiButtonWithState,
+  GuiButtonStateless,
+}
+
+GuiButtonWithState :: proc(bounds: rl.Rectangle, button_state: ^GuiButtonState) -> bool {
+  initial_alignment := rl.GuiGetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
+
+  border :: 2
+
+  rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, state.config.BUTTON_BORDER_COLOUR)
+  rl.DrawRectangle(cast(i32)bounds.x + border, cast(i32)bounds.y + border, cast(i32)bounds.width - (border * 2), cast(i32)bounds.height - (border * 2), state.config.BUTTON_COLOUR)
+  rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+  defer rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)initial_alignment)
+  rl.GuiLabel(bounds, button_state.text)
+
+  if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+    button_state.hovered = true
+    hover_stack_add(button_state)
+  } else {
+    button_state.hovered = false
+  }
+  
+  if is_current_hover(button_state) {
+    rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
+    if rl.IsMouseButtonReleased(.LEFT) {
+      return true
+    }
+  }
+  return false
+}
+
+GuiButtonStateless :: proc(bounds: rl.Rectangle, text: cstring) -> bool {
   initial_alignment := rl.GuiGetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
 
   border :: 2
@@ -107,7 +150,20 @@ GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
     }
   }
 
-  GuiEntityButtonClickable :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) -> (clicked: bool) {
+EntityButtonState :: struct {
+  using guiControl: GuiControl,
+  entity_list: ^[dynamic]Entity,
+  index: i32
+}
+
+InitEntityButtonState :: proc(button_state: ^EntityButtonState, entity_list: ^[dynamic]Entity, index: i32) {
+  button_state.id = GUI_ID
+  GUI_ID += 1
+  button_state.entity_list = entity_list
+  button_state.index = index
+}
+
+GuiEntityButtonClickable :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) -> (clicked: bool) {
       using state.gui_properties
       rl.GuiSetIconScale(1)
       defer rl.GuiSetIconScale(2)
@@ -121,8 +177,8 @@ GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
       //Draw border
       rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, state.config.BUTTON_BORDER_COLOUR)
       rl.DrawRectangle(cast(i32)x+2, cast(i32)y+2, cast(i32)width-4, cast(i32)height-4, state.config.BUTTON_COLOUR)
-
-      if rl.CheckCollisionPointRec(mouse_pos, rec) {
+      
+      if is_current_hover(button_state) {
           rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(state.config.BUTTON_HOVER_COLOUR, 0.2))
           
           if rl.IsMouseButtonDown(.LEFT) {
@@ -139,36 +195,47 @@ GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
       }
 
       available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
-      fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
+      fit_text(button_state.entity_list[button_state.index].alias, available_width, &TEXT_SIZE)
 
-      rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
+      rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, button_state.entity_list[button_state.index].alias)
       
       TEXT_SIZE = initial_text_size
-      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
+      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+
+      if rl.CheckCollisionPointRec(mouse_pos, rec) {
+        button_state.hovered = true
+        hover_stack_add(button_state)
+      } else {
+        button_state.hovered = false
+      }
 
       if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-          if (index > 0) {
-              temp_entity := entity_list[index]
-              ordered_remove(entity_list, index)
-              inject_at(entity_list, index-1, temp_entity)
+        if is_current_hover(button_state) {
+          if (button_state.index > 0) {
+              temp_entity := button_state.entity_list[button_state.index]
+              ordered_remove(button_state.entity_list, button_state.index)
+              inject_at(button_state.entity_list, button_state.index-1, temp_entity)
           }
+        }
       }
       
       if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-          if (index < cast(i32)len(entity_list^)-1) {
-              temp_entity := entity_list[index]
-              ordered_remove(entity_list, index)
-              inject_at(entity_list, index+1, temp_entity)
+        if is_current_hover(button_state) {
+          if (button_state.index < cast(i32)len(button_state.entity_list^)-1) {
+              temp_entity := button_state.entity_list[button_state.index]
+              ordered_remove(button_state.entity_list, button_state.index)
+              inject_at(button_state.entity_list, button_state.index+1, temp_entity)
           }
+        }
       }
       //Initiative label
-      rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
+      rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(button_state.entity_list[button_state.index].initiative))
       //Health label
       health_label_text: cstring
-      if entity_list[index].temp_HP > 0 {
-          health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
+      if button_state.entity_list[button_state.index].temp_HP > 0 {
+          health_label_text = fmt.ctprintf("%v/%v+%v", button_state.entity_list[button_state.index].HP, button_state.entity_list[button_state.index].HP_max, button_state.entity_list[button_state.index].temp_HP)
       } else {
-          health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
+          health_label_text = fmt.ctprintf("%v/%v", button_state.entity_list[button_state.index].HP, button_state.entity_list[button_state.index].HP_max)
       }
 
       fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
@@ -176,11 +243,11 @@ GuiTextInput :: proc(bounds: rl.Rectangle, inputState: ^TextInputState) {
       //Visibility option 
       rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
       rl.GuiSetStyle(.CHECKBOX, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_RIGHT)
-      rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
+      rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &button_state.entity_list[button_state.index].visible)
       return
   }
 
-GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index: i32) {
+GuiEntityButton :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) {
     using state.gui_properties
     rl.GuiSetIconScale(1)
     defer rl.GuiSetIconScale(2)
@@ -201,43 +268,54 @@ GuiEntityButton :: proc(rec: rl.Rectangle, entity_list: ^[dynamic]Entity, index:
     }
 
     available_width := (width * 0.7) - ((width * 0.05) + (height * 0.4) + (width * 0.1))
-    fit_text(entity_list[index].name, available_width, &TEXT_SIZE)
+    fit_text(button_state.entity_list[button_state.index].alias, available_width, &TEXT_SIZE)
 
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, entity_list[index].name)
+    rl.GuiLabel({x + (width * 0.05) + (height * 0.4) + (width * 0.1), y + (height * 0.1), available_width, (height * 0.8)}, button_state.entity_list[button_state.index].alias)
     
     TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size) 
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+    
+    if rl.CheckCollisionPointRec(rl.GetMousePosition(), rec) {
+      button_state.hovered = true
+      hover_stack_add(button_state)
+    } else {
+      button_state.hovered = false
+    }
 
     if rl.GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (index > 0) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index-1, temp_entity)
+      if is_current_hover(button_state) {
+        if (button_state.index > 0) {
+            temp_entity := button_state.entity_list[button_state.index]
+            ordered_remove(button_state.entity_list, button_state.index)
+            inject_at(button_state.entity_list, button_state.index-1, temp_entity)
         }
+      }
     }
     
     if rl.GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (index < cast(i32)len(entity_list^)-1) {
-            temp_entity := entity_list[index]
-            ordered_remove(entity_list, index)
-            inject_at(entity_list, index+1, temp_entity)
+      if is_current_hover(button_state) {
+        if (button_state.index < cast(i32)len(button_state.entity_list^)-1) {
+            temp_entity := button_state.entity_list[button_state.index]
+            ordered_remove(button_state.entity_list, button_state.index)
+            inject_at(button_state.entity_list, button_state.index+1, temp_entity)
         }
+      }
     }
     //Initiative label
-    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(entity_list[index].initiative))
+    rl.GuiLabel({x + (width * 0.05) + (height * 0.4), y + (height * 0.1), (width * 0.1), (height * 0.8)}, cstr(button_state.entity_list[button_state.index].initiative))
     //Health label
     health_label_text: cstring
-    if entity_list[index].temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", entity_list[index].HP, entity_list[index].HP_max, entity_list[index].temp_HP)
+    if button_state.entity_list[button_state.index].temp_HP > 0 {
+        health_label_text = fmt.ctprintf("%v/%v+%v", button_state.entity_list[button_state.index].HP, button_state.entity_list[button_state.index].HP_max, button_state.entity_list[button_state.index].temp_HP)
     } else {
-        health_label_text = fmt.ctprintf("%v/%v", entity_list[index].HP, entity_list[index].HP_max)
+        health_label_text = fmt.ctprintf("%v/%v", button_state.entity_list[button_state.index].HP, button_state.entity_list[button_state.index].HP_max)
     }
 
     fit_text(health_label_text, (width * 0.18), &TEXT_SIZE)
     rl.GuiLabel({x + (width * 0.8), y + (height * 0.05), (width * 0.18), (height * 0.85)}, cstr(health_label_text))
     //Visibility option 
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, cast(i32)(height * 0.2))
-    rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &entity_list[index].visible)
+    rl.GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &button_state.entity_list[button_state.index].visible)
 }
 
 DropdownState :: struct {

@@ -145,8 +145,32 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
     cursor_x = PADDING_LEFT
     
-    if GuiButton({cursor_x, cursor_y, state.window_width / 3.5, LINE_HEIGHT}, "Add Combatant" if (!combatState.add_entity_mode) else "Cancel") {
+    add_button_x := cursor_x
+    add_button_y := cursor_y
+
+    defer if GuiButton({add_button_x, add_button_y, (state.window_width / 3.5) / 2, LINE_HEIGHT}, &combatState.add_entity_button) {
+      combatState.remove_entity_mode = false
+      combatState.remove_entity_button.text = "Remove"
       combatState.add_entity_mode = !combatState.add_entity_mode
+      if combatState.add_entity_mode {
+        combatState.add_entity_button.text = "Cancel"
+      } else {
+        combatState.add_entity_button.text = "Add"
+      }
+    }
+    cursor_x += (state.window_width / 3.5) / 2
+    
+    remove_button_x := cursor_x
+    remove_button_y := cursor_y
+    defer if GuiButton({remove_button_x, remove_button_y, (state.window_width / 3.5) / 2, LINE_HEIGHT}, &combatState.remove_entity_button) {
+      combatState.add_entity_mode = false
+      combatState.add_entity_button.text = "Add"
+      combatState.remove_entity_mode = !combatState.remove_entity_mode
+      if combatState.remove_entity_mode {
+        combatState.remove_entity_button.text = "Cancel"
+      } else {
+        combatState.remove_entity_button.text = "Remove"
+      }
     }
 
     cursor_x = (state.window_width - PADDING_RIGHT) - ((MENU_BUTTON_WIDTH * 2) + MENU_BUTTON_PADDING)
@@ -160,7 +184,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     cursor_y += LINE_HEIGHT + PANEL_PADDING
     current_panel_x := cursor_x
     panel_y := cursor_y
-    //Layout 3 panels to fill with the different bits of info needed.
+ 
     draw_width : f32 = state.window_width - PADDING_LEFT - PADDING_RIGHT
     draw_height : f32 = state.window_height - cursor_y - PADDING_BOTTOM
   
@@ -173,7 +197,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     clear(&combatState.entity_names)
 
     for entity in combatState.entities {
-        append(&combatState.entity_names, entity.name)
+        append(&combatState.entity_names, entity.alias)
     }
     
     if combatState.first_load {
@@ -217,16 +241,14 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
 
     if !combatState.add_entity_mode {
-    //Text header
         rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)entity_select_button_height, state.config.HEADER_COLOUR)
-        //Text
         turn_text := fmt.ctprintf("Round %v:", combatState.current_round)
         fit_text(turn_text, panel_width / 2, &TEXT_SIZE)
         rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, entity_select_button_height}, cstr(turn_text))
         cursor_x += panel_width * 0.5
 
         TEXT_SIZE = initial_text_size
-        //Turn timer
+ 
         turn_time := fmt.ctprint(time.clock_from_stopwatch(combatState.turn_timer), sep=":")
         fit_text(turn_time, panel_width / 2, &TEXT_SIZE)
         rl.GuiLabel({cursor_x, cursor_y, panel_width, entity_select_button_height}, turn_time)
@@ -243,7 +265,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             rl.GuiScrollPanel(combatState.panelLeft.rec, nil, combatState.panelLeft.contentRec, &combatState.panelLeft.scroll, &combatState.panelLeft.view)
   
             rl.BeginScissorMode(cast(i32)combatState.panelLeft.view.x, cast(i32)combatState.panelLeft.view.y, cast(i32)combatState.panelLeft.view.width, cast(i32)combatState.panelLeft.view.height)
-            //rl.ClearBackground(rl.SKYBLUE)
         } else {
             combatState.panelLeft.contentRec.width = panel_width
             draw_width = panel_width - (PANEL_PADDING * 2)
@@ -254,9 +275,35 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             cursor_y += PANEL_PADDING
 
             for _, i in combatState.entities {
-                GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entities, cast(i32)i)
-                if (cast(i32)i == combatState.current_entity_index) {
-                    rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
+                if !combatState.remove_entity_mode {
+                    combatState.entity_button_states[i].index = cast(i32)i
+                    GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entity_button_states[i])
+                    if (cast(i32)i == combatState.current_entity_index) {
+                        rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
+                    }
+                } else {
+                    default_highlight := state.config.BUTTON_HOVER_COLOUR
+                    state.config.BUTTON_HOVER_COLOUR = rl.RED
+                    defer state.config.BUTTON_HOVER_COLOUR = default_highlight
+                    combatState.entity_button_states[i].index = cast(i32)i
+                    if GuiEntityButtonClickable({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entity_button_states[i]) {
+                        ordered_remove(&combatState.entities, i)
+                        if combatState.current_entity_index > cast(i32)i {
+                            combatState.current_entity_index -= 1
+                        }
+                        ordered_remove(&combatState.entity_button_states, i)
+                        combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+                        clear(&combatState.entity_names)
+                        for entity in combatState.entities {
+                            append(&combatState.entity_names, entity.alias)
+                        }
+
+                        InitDropdownState(&combatState.from_dropdown, "From:", combatState.entity_names[:], &combatState.btn_list)
+                        InitDropdownSelectState(&combatState.to_dropdown, "To:", combatState.entity_names[:], &combatState.btn_list)
+                        
+                        combatState.remove_entity_mode = false
+                        combatState.remove_entity_button.text = "Remove"
+                    }
                 }
                 cursor_y += entity_select_button_height + PANEL_PADDING
                 TEXT_SIZE = 30
@@ -301,24 +348,46 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         {
             cursor_x += PANEL_PADDING
             cursor_y += PANEL_PADDING
-
-            for entity in state.setup_screen_state.entities_searched {
-                //Check text width needed and reduce size if needed.
+            for &entity in state.setup_screen_state.entities_searched {
                 fit_text(entity.name, combatState.panelLeft.contentRec.width, &state.gui_properties.TEXT_SIZE)
                 if GuiButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, entity.name) {
+                    match_count := 0
+                    for selected_entity in combatState.entities {
+                        if selected_entity.name == entity.name {
+                            match_count += 1
+                        }
+                    }
+                    if match_count > 0 {
+                        entity.alias = fmt.caprint(entity.name, match_count + 1)
+                    }
                     append(&combatState.entities, entity)
+                    entity_button_state := EntityButtonState{}
+                    InitEntityButtonState(&entity_button_state, &combatState.entities, cast(i32)len(&combatState.entities)-1)
+                    append(&combatState.entity_button_states, entity_button_state)
+                    combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+                    clear(&combatState.entity_names)
+                    for entity in combatState.entities {
+                        append(&combatState.entity_names, entity.alias)
+                    }
+
+                    InitDropdownState(&combatState.from_dropdown, "From:", combatState.entity_names[:], &combatState.btn_list)
+                    InitDropdownSelectState(&combatState.to_dropdown, "To:", combatState.entity_names[:], &combatState.btn_list)
+
+                    combatState.add_entity_mode = false
+                    combatState.add_entity_button.text = "Add"
                 }
                 cursor_y += LINE_HEIGHT + PANEL_PADDING
                 TEXT_SIZE = initial_text_size
                 rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
             }
         }
-
+        
         if (combatState.panelLeft.height_needed > combatState.panelLeft.rec.height) {
             rl.EndScissorMode()
         } else {
             combatState.panelLeft.scroll.y = 0
         }
+        log.debugf("Sorted scissoring")
     }
     
     current_panel_x += panel_width + dynamic_x_padding
@@ -335,7 +404,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             panel_height,
         },
         "Combat Controls")
-
     rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, cast(i32)50, state.config.HEADER_COLOUR)
     rl.GuiLabel({cursor_x, cursor_y, panel_width, 50}, "Combat Controls")
     cursor_y += 50
@@ -346,7 +414,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     draw_width = panel_width - (PANEL_PADDING * 2)
     draw_height = panel_height - line_height_mid - PANEL_PADDING - 50
         
-    //Damage control
     cursor_x_from_dropdown := cursor_x
     cursor_y_from_dropdown := cursor_y
 
@@ -422,7 +489,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
         }
         cursor_x = current_panel_x + PANEL_PADDING
         cursor_y += line_height_mid + PANEL_PADDING
-        //Healing control
+
         rl.GuiLabel({cursor_x, cursor_y, draw_width / 2, line_height_mid}, "Healing")
         cursor_y += line_height_mid + PANEL_PADDING
         
@@ -514,7 +581,7 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     current_panel_x += panel_width + dynamic_x_padding
     cursor_x = current_panel_x
     cursor_y = panel_y
-        
+
     rl.GuiPanel(
         {
             cursor_x,
@@ -538,24 +605,22 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
 
     line_height : f32 = 50
-
+    
     if (combatState.stats_lines_needed * line_height > combatState.panelRight.rec.height - y_offset) {
         combatState.panelRight.contentRec.width = panel_width - 14
         combatState.panelRight.contentRec.height = combatState.stats_lines_needed * line_height
         rl.GuiScrollPanel(combatState.panelRight.rec, nil, combatState.panelRight.contentRec, &combatState.panelRight.scroll, &combatState.panelRight.view)
     
         rl.BeginScissorMode(cast(i32)combatState.panelRight.view.x, cast(i32)combatState.panelRight.view.y, cast(i32)combatState.panelRight.view.width, cast(i32)combatState.panelRight.view.height)
-        //rl.ClearBackground(CONFIG.PANEL_BACKGROUND_COLOUR)
     } else {
         combatState.panelRight.contentRec.width = panel_width
     }
-
+    
     {
         if (combatState.current_entity != nil) {
             GuiEntityStats({cursor_x, cursor_y, panel_width, line_height}, combatState.current_entity^, combatState)
         }
     }
-
     if (combatState.stats_lines_needed * line_height > combatState.panelRight.rec.height - y_offset) {
         rl.EndScissorMode()
       } else {
@@ -580,7 +645,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^Comba
     cursor_y := panel_y
     
     cursor_y += combatState.panelRight.scroll.y
-    //Display info for selected entity.
+ 
     combatState.stats_lines_needed = 0
     rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, entity.name)
     cursor_y += LINE_HEIGHT
@@ -825,7 +890,6 @@ resolve_damage :: proc(combatState: ^CombatScreenState) {
 }
 
 resolve_healing :: proc(combatState: ^CombatScreenState) {
-    //Same as dmg function but for healing
     heal_amount : i32 = to_i32(combatState.heal_input.text)
     
     for &entity, i in combatState.entities {
