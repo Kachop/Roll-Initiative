@@ -284,6 +284,9 @@ State :: struct {
   window_width, window_height: f32,
 
   hover_stack: HoverStack,
+
+  cursor_x: f32,
+  cursor_y: f32,
   
   title_screen_state: TitleScreenState,
   load_screen_state: LoadScreenState,

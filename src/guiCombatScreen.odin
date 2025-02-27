@@ -590,38 +590,40 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
             panel_height,
         },
         "Entity Info")
+    
+    y_offset : f32 = 50
+    
+    combatState.panelRight.rec = {
+      cursor_x,
+      cursor_y + y_offset,
+      panel_width,
+      panel_height - y_offset,
+    }
 
     rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)panel_width, 50, state.config.HEADER_COLOUR)
     rl.GuiLabel({cursor_x, cursor_y, panel_width, 50}, "Entity Info")
-    cursor_y += 50 
-  
-    y_offset : f32 = 50
-  
-    combatState.panelRight.rec = {
-        cursor_x,
-        cursor_y,
-        panel_width,
-        panel_height - y_offset,
-    }
+    cursor_y += LINE_HEIGHT + combatState.panelRight.scroll.y
 
-    line_height : f32 = 50
+    state.cursor_y = cursor_y
     
-    if (combatState.stats_lines_needed * line_height > combatState.panelRight.rec.height - y_offset) {
+    if (combatState.panelRight.height_needed > combatState.panelRight.rec.height - y_offset) {
         combatState.panelRight.contentRec.width = panel_width - 14
-        combatState.panelRight.contentRec.height = combatState.stats_lines_needed * line_height
+        combatState.panelRight.contentRec.height = combatState.panelRight.height_needed
         rl.GuiScrollPanel(combatState.panelRight.rec, nil, combatState.panelRight.contentRec, &combatState.panelRight.scroll, &combatState.panelRight.view)
-    
+
         rl.BeginScissorMode(cast(i32)combatState.panelRight.view.x, cast(i32)combatState.panelRight.view.y, cast(i32)combatState.panelRight.view.width, cast(i32)combatState.panelRight.view.height)
     } else {
         combatState.panelRight.contentRec.width = panel_width
     }
     
     {
-        if (combatState.current_entity != nil) {
-            GuiEntityStats({cursor_x, cursor_y, panel_width, line_height}, combatState.current_entity^, combatState)
-        }
+      cursor_x += PANEL_PADDING
+      start_y := state.cursor_y
+      GuiEntityStats({cursor_x, cursor_y, combatState.panelRight.contentRec.width - (PANEL_PADDING * 2), 0}, combatState.current_entity)
+      combatState.panelRight.height_needed = state.cursor_y - start_y
     }
-    if (combatState.stats_lines_needed * line_height > combatState.panelRight.rec.height - y_offset) {
+
+    if (combatState.panelRight.height_needed > combatState.panelRight.rec.height - y_offset) {
         rl.EndScissorMode()
       } else {
         combatState.panelRight.scroll.y = 0
@@ -632,219 +634,6 @@ dropdownRec: rl.Rectangle
 dropdownContentRec: rl.Rectangle
 dropdownView: rl.Rectangle
 dropdownScroll: rl.Vector2
-
-GuiEntityStats :: proc(bounds: rl.Rectangle, entity: Entity, combatState: ^CombatScreenState) {
-    using state.gui_properties
-
-    current_panel_x := bounds.x
-    panel_y := bounds.y
-    panel_width := bounds.width
-    line_height := bounds.height
-
-    cursor_x := current_panel_x
-    cursor_y := panel_y
-    
-    cursor_y += combatState.panelRight.scroll.y
- 
-    combatState.stats_lines_needed = 0
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, entity.name)
-    cursor_y += LINE_HEIGHT
-
-    combatState.stats_lines_needed += 1
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, LINE_HEIGHT}, entity.size)
-    cursor_x += panel_width / 2
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, LINE_HEIGHT}, entity.race)
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)))
-    cursor_x += panel_width / 2
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_HEART, cstr(entity.HP)))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Conditions:")
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-    
-    for condition in gen_condition_string(entity.conditions) {
-      rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, cstr(condition))
-      cursor_y += LINE_HEIGHT
-      combatState.stats_lines_needed += 1
-    } 
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, entity.speed)
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-    
-    fit_text("Stat", panel_width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "Stat")
-    cursor_x += panel_width / 4
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    fit_text("Score", panel_width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "Score")
-    cursor_x += panel_width / 4
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    fit_text("Modifier", panel_width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "Modifier")
-    cursor_x += panel_width / 4
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    fit_text("Save", panel_width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "Save")
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "STR: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.STR))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.STR_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.STR_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "DEX: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.DEX))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.DEX_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.DEX_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "CON: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CON))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CON_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CON_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "INT: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.INT))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.INT_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.INT_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "WIS: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.WIS))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.WIS_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.WIS_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, "CHA: ")
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CHA))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CHA_mod))
-    cursor_x += panel_width / 4
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 4, LINE_HEIGHT}, cstr(entity.CHA_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-
-    fit_text("Vulnerabilities:", panel_width / 3, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, LINE_HEIGHT}, "Vulnerabilities:")
-    cursor_x += panel_width / 3
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    fit_text("Resistances:", panel_width / 3, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, line_height}, "Resistances:")
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    fit_text("Immunities:", panel_width / 3, &TEXT_SIZE)
-    cursor_x += panel_width / 3
-    rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, line_height}, "Immunities:")
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    
-    vulnerabilities: [dynamic]string
-    append(&vulnerabilities, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities))
-    append(&vulnerabilities, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_vulnerabilities)[:])
-    resistances : [dynamic]string
-    append(&resistances, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances))
-    append(&resistances, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_resistances))
-    immunities : [dynamic]string
-    append(&immunities, ..gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities))
-    append(&immunities, ..gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_immunities))
-
-    vulnerability_y, resistance_y, immunity_y: f32
-    prev_y := cursor_y
-
-    for vulnerability in vulnerabilities {
-      rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, LINE_HEIGHT}, cstr(vulnerability))
-      cursor_y += LINE_HEIGHT
-    }
-    vulnerability_y = cursor_y
-    cursor_x += panel_width / 3
-    cursor_y = prev_y
-    
-    for resistance in resistances {
-      rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, LINE_HEIGHT}, cstr(resistance))
-      cursor_y += LINE_HEIGHT
-    }
-    resistance_y = cursor_y
-    cursor_x += panel_width / 3
-    cursor_y = prev_y
-
-    for immunity in immunities {
-      rl.GuiLabel({cursor_x, cursor_y, panel_width / 3, LINE_HEIGHT}, cstr(immunity))
-      cursor_y += LINE_HEIGHT
-    }
-    immunity_y = cursor_y
-    cursor_x = current_panel_x
-
-    if ((len(resistances) >= len(immunities)) && (len(resistances) >= len(vulnerabilities))) {
-      cursor_y = resistance_y
-    } else if ((len(immunities) >= len(resistances)) && (len(immunities) >= len(vulnerabilities))) {
-      cursor_y = immunity_y
-    } else {
-      cursor_y = vulnerability_y
-    }
-
-    combatState.stats_lines_needed += cast(f32)i32((cursor_y - prev_y) / LINE_HEIGHT)
-
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Skills:")
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-    skills := strings.split(cast(string)entity.skills, ", ")
-
-    for skill in skills {
-        rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, cstr(skill))
-        cursor_y += LINE_HEIGHT
-        combatState.stats_lines_needed += 1
-    }
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, entity.CR)
-    cursor_y += LINE_HEIGHT
-    combatState.stats_lines_needed += 1
-}
 
 resolve_damage :: proc(combatState: ^CombatScreenState) {
     dmg_amount : i32 = to_i32(combatState.dmg_input.text)

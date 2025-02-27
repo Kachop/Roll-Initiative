@@ -313,11 +313,11 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   rl.GuiLabel({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, "Entity Info")
   cursor_y += LINE_HEIGHT + setupState.panelRight.scroll.y
 
-  line_height : f32 = 50
+  state.cursor_y = cursor_y
 
-  if (setupState.stats_lines_needed * line_height > setupState.panelRight.rec.height) {
+  if (setupState.panelRight.height_needed > setupState.panelRight.rec.height) {
     setupState.panelRight.contentRec.width = panel_width - 14
-    setupState.panelRight.contentRec.height = setupState.stats_lines_needed * line_height
+    setupState.panelRight.contentRec.height = setupState.panelRight.height_needed
     rl.GuiScrollPanel(setupState.panelRight.rec, nil, setupState.panelRight.contentRec, &setupState.panelRight.scroll, &setupState.panelRight.view)
     
     rl.BeginScissorMode(cast(i32)setupState.panelRight.view.x, cast(i32)setupState.panelRight.view.y, cast(i32)setupState.panelRight.view.width, cast(i32)setupState.panelRight.view.height)
@@ -325,200 +325,14 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
     setupState.panelRight.contentRec.width = panel_width
   }
 
-  if (setupState.selected_entity != nil) {
-    //Display info for selected entity.
-    setupState.stats_lines_needed = 0
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width, line_height}, setupState.selected_entity.name)
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, "Initiative: ")
-    cursor_x += setupState.panelRight.contentRec.width / 2
-    GuiTextInput({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, &setupState.initiative_input)
-    setupState.selected_entity.initiative = to_i32(setupState.initiative_input.text)
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, setupState.selected_entity.size)
-    cursor_x += setupState.panelRight.contentRec.height / 2
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, setupState.selected_entity.race)
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_SHIELD, cstr(setupState.selected_entity.AC)))
-    cursor_x += setupState.panelRight.contentRec.width / 2
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 2, line_height}, rl.GuiIconText(.ICON_HEART, cstr(setupState.selected_entity.HP)))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width, line_height}, setupState.selected_entity.speed)
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-    
-    fit_text("Stat", setupState.panelRight.contentRec.width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "Stat")
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    fit_text("Score", setupState.panelRight.contentRec.width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "Score")
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    fit_text("Modifier", setupState.panelRight.contentRec.width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "Modifier")
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    fit_text("Save", setupState.panelRight.contentRec.width / 4, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "Save")
-    TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "STR: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.STR))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.STR_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.STR_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "DEX: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.DEX))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.DEX_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.DEX_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "CON: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.CON))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.CON_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.CON_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "INT: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.INT))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.INT_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.INT_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "WIS: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.WIS))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.WIS_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.WIS_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, "CHA: ")
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.CHA))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.CHA_mod))
-    cursor_x += setupState.panelRight.contentRec.width / 4
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 4, line_height}, cstr(setupState.selected_entity.STR_save))
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-    
-    fit_text("Vulnerabilities:", setupState.panelRight.contentRec.width / 3, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, LINE_HEIGHT}, "Vulnerabilities:")
-    cursor_x += setupState.panelRight.contentRec.width / 3
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    fit_text("Resistances:", setupState.panelRight.contentRec.width / 3, &TEXT_SIZE)
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, line_height}, "Resistances:")
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    fit_text("Immunities:", setupState.panelRight.contentRec.width / 3, &TEXT_SIZE)
-    cursor_x += setupState.panelRight.contentRec.width / 3
-    rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, line_height}, "Immunities:")
-    cursor_x = current_panel_x
-    cursor_y += LINE_HEIGHT
-
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    
-    vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(setupState.selected_entity.dmg_vulnerabilities)
-    resistances : []string = gen_vulnerability_resistance_or_immunity_string(setupState.selected_entity.dmg_resistances)
-    immunities : []string = gen_vulnerability_resistance_or_immunity_string(setupState.selected_entity.dmg_immunities)
-
-    vulnerability_y, resistance_y, immunity_y: f32
-    prev_y := cursor_y
-
-    for vulnerability in vulnerabilities {
-      rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, LINE_HEIGHT}, cstr(vulnerability))
-      cursor_y += LINE_HEIGHT
-    }
-    vulnerability_y = cursor_y
-    cursor_x += setupState.panelRight.contentRec.width / 3
-    cursor_y = prev_y
-    
-    for resistance in resistances {
-      rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, LINE_HEIGHT}, cstr(resistance))
-      cursor_y += LINE_HEIGHT
-    }
-    resistance_y = cursor_y
-    cursor_x += setupState.panelRight.contentRec.width / 3
-    cursor_y = prev_y
-
-    for immunity in immunities {
-      rl.GuiLabel({cursor_x, cursor_y, setupState.panelRight.contentRec.width / 3, LINE_HEIGHT}, cstr(immunity))
-      cursor_y += LINE_HEIGHT
-    }
-    immunity_y = cursor_y
-    cursor_x = current_panel_x
-    
-    if ((len(resistances) >= len(immunities)) && (len(resistances) >= len(vulnerabilities))) {
-      cursor_y = resistance_y
-    } else if ((len(immunities) >= len(resistances)) && (len(immunities) >= len(vulnerabilities))) {
-      cursor_y = immunity_y
-    } else {
-      cursor_y = vulnerability_y
-    }
-
-    setupState.stats_lines_needed += cast(f32)i32((cursor_y - prev_y) / LINE_HEIGHT)
-
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, "Skills:")
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
-    skills := strings.split(cast(string)setupState.selected_entity.skills, ", ")
-    for skill in skills {
-      rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, cstr(skill))
-      cursor_y += LINE_HEIGHT
-      setupState.stats_lines_needed += 1
-    }
-    rl.GuiLabel({cursor_x, cursor_y, panel_width, line_height}, setupState.selected_entity.CR)
-    cursor_y += LINE_HEIGHT
-    setupState.stats_lines_needed += 1
+  {
+    cursor_x += PANEL_PADDING
+    start_y := state.cursor_y
+    GuiEntityStats({cursor_x, cursor_y, setupState.panelRight.contentRec.width - (PANEL_PADDING * 2), 0}, setupState.selected_entity, &setupState.initiative_input)
+    setupState.panelRight.height_needed = state.cursor_y - start_y
   }
 
-  if (setupState.stats_lines_needed * line_height > setupState.panelRight.rec.height) {
+  if (setupState.panelRight.height_needed > setupState.panelRight.rec.height) {
     rl.EndScissorMode()
   } else {
     setupState.panelRight.scroll.y = 0

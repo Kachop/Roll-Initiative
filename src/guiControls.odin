@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:log"
+import "core:strings"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
 
@@ -818,5 +819,246 @@ GuiMessageBoxQueue :: proc(message_queue_state: ^GuiMessageBoxQueueState) {
     if i >= 4 {
       break message_loop
     }
+  }
+}
+
+GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextInputState=nil) {
+  using state.gui_properties
+
+  if entity != nil {
+    cursor_x := bounds.x
+    cursor_y := bounds.y
+
+    start_x := bounds.x
+
+    defer state.cursor_x = cursor_x
+    defer state.cursor_y = cursor_y
+
+    width := bounds.width
+    height := bounds.height
+
+    initial_text_size := TEXT_SIZE
+
+    //Display info for selected entity.
+    rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.name)
+    cursor_y += LINE_HEIGHT
+
+    if initiative != nil {
+      rl.GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative: ")
+      cursor_x += width / 2
+
+      GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
+      entity.initiative = to_i32(initiative.text)
+      cursor_x = start_x
+      cursor_y += LINE_HEIGHT
+    }
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
+    cursor_x += width / 2
+    rl.GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)))
+    cursor_x += width / 2
+    rl.GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_HEART, cstr(entity.HP)))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.speed)
+    cursor_y += LINE_HEIGHT
+    
+    fit_text("Stat", width / 4, &TEXT_SIZE)
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Stat")
+    TEXT_SIZE = initial_text_size
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    cursor_x += width / 4
+    fit_text("Score", width / 4, &TEXT_SIZE)
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Score")
+    TEXT_SIZE = initial_text_size
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    cursor_x += width / 4
+    fit_text("Modifier", width / 4, &TEXT_SIZE)
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Modifier")
+    TEXT_SIZE = initial_text_size
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    cursor_x += width / 4
+    fit_text("Save", width / 4, &TEXT_SIZE)
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Save")
+    TEXT_SIZE = initial_text_size
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "STR: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "DEX: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CON: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "INT: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "WIS: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CHA: ")
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CHA))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CHA_mod))
+    cursor_x += width / 4
+    rl.GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR_save))
+    cursor_x = start_x
+    cursor_y += LINE_HEIGHT
+
+    vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities)
+    resistances : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances)
+    immunities : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities)
+    
+    if len(vulnerabilities) > 0 {
+      fit_text("Vulnerabilities:", width / 3, &TEXT_SIZE)
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
+      cursor_x += width / 3
+      TEXT_SIZE = TEXT_SIZE_DEFAULT
+    }
+    if len(resistances) > 0 {
+      fit_text("Resistances:", width / 3, &TEXT_SIZE)
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
+      cursor_x += width / 3
+      TEXT_SIZE = TEXT_SIZE_DEFAULT
+    }
+    if len(immunities) > 0 {
+      fit_text("Immunities:", width / 3, &TEXT_SIZE)
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
+      cursor_x = start_x
+      cursor_y += LINE_HEIGHT
+    }
+
+    TEXT_SIZE = TEXT_SIZE_DEFAULT
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+
+    vulnerability_y, resistance_y, immunity_y: f32
+    prev_y := cursor_y
+
+    for vulnerability in vulnerabilities {
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
+      cursor_y += LINE_HEIGHT
+    }
+    vulnerability_y = cursor_y
+    if len(vulnerabilities) > 0 {
+      cursor_x += width / 3
+      cursor_y = prev_y
+    }
+    
+    for resistance in resistances {
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
+      cursor_y += LINE_HEIGHT
+    }
+    resistance_y = cursor_y
+    if len(resistances) > 0 {
+      cursor_x += width / 3
+      cursor_y = prev_y
+    }
+
+    for immunity in immunities {
+      rl.GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
+      cursor_y += LINE_HEIGHT
+    }
+    immunity_y = cursor_y
+    if len(immunities) > 0 {
+      cursor_x = start_x
+    }
+    
+    if ((len(resistances) >= len(immunities)) && (len(resistances) >= len(vulnerabilities))) {
+      cursor_y = resistance_y
+    } else if ((len(immunities) >= len(resistances)) && (len(immunities) >= len(vulnerabilities))) {
+      cursor_y = immunity_y
+    } else {
+      cursor_y = vulnerability_y
+    }
+
+    if entity.skills != "" {
+      rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Skills:")
+      cursor_y += LINE_HEIGHT
+      skills := strings.split(cast(string)entity.skills, ", ")
+      for skill in skills {
+        rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(skill))
+        cursor_y += LINE_HEIGHT
+      }
+    }
+    rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.CR)
+    cursor_y += LINE_HEIGHT
+
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 30)
+
+    if entity.traits != "" {
+      rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Traits:")
+      cursor_y += LINE_HEIGHT
+
+      //rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiTextBoxProperty.TEXT_READONLY, 1)
+      rl.GuiTextBox({cursor_x, cursor_y, width, 15 * LINE_HEIGHT}, entity.traits, 100, false)
+      cursor_y += 15 * LINE_HEIGHT
+    }
+
+    if entity.actions != "" {
+      rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Actions:")
+      cursor_y += LINE_HEIGHT
+
+      rl.GuiTextBox({cursor_x, cursor_y, width, 15 * LINE_HEIGHT}, entity.actions, 100, false)
+      cursor_y += 15 * LINE_HEIGHT
+    }
+
+    if entity.legendary_actions != "" {
+      rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Legendary Actions:")
+      cursor_y += LINE_HEIGHT
+
+      rl.GuiTextBox({cursor_x, cursor_y, width, 15 * LINE_HEIGHT}, entity.legendary_actions, 100, false)
+      cursor_y += 15 * LINE_HEIGHT
+    }
+
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
   }
 }

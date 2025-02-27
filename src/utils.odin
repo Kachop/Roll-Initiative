@@ -258,7 +258,9 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 load_combat_file :: proc(filename: string) {
   log.infof("LOADING COMBAT FILE @: %v", filename)
   //clear setup state entities.
+  clear(&state.setup_screen_state.entities_selected)
   state.setup_screen_state.entities_selected = [dynamic]Entity{}
+  clear(&state.setup_screen_state.entity_button_states)
   entities: [dynamic]Entity
 
   file_data, ok := os.read_entire_file(filename)
@@ -273,6 +275,9 @@ load_combat_file :: proc(filename: string) {
         saved_entity.initiative = cast(i32)fields.(json.Object)["initiative"].(json.Float)
         saved_entity.visible = cast(bool)fields.(json.Object)["visible"].(json.Boolean)
         append(&state.setup_screen_state.entities_selected, saved_entity)
+        entity_button_state := EntityButtonState{}
+        InitEntityButtonState(&entity_button_state, &state.setup_screen_state.entities_selected, cast(i32)len(state.setup_screen_state.entities_selected)-1)
+        append(&state.setup_screen_state.entity_button_states, entity_button_state)
       }
     } else {
       log.errorf("%v", err)
