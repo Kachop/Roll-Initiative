@@ -1032,12 +1032,18 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 30)
+    //Some sort of tab control for displaying stuff
+    switch GuiTabControl({cursor_x, cursor_y, width, LINE_HEIGHT}, &state.entity_stats_tab_state) {
+    case 0: //Traits
+    case 1: //Actions
+    case 2: //Legendary actions
+    }
+    cursor_y += LINE_HEIGHT
 
     if entity.traits != "" {
       rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Traits:")
       cursor_y += LINE_HEIGHT
 
-      //rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiTextBoxProperty.TEXT_READONLY, 1)
       rl.GuiTextBox({cursor_x, cursor_y, width, 15 * LINE_HEIGHT}, entity.traits, 100, false)
       cursor_y += 15 * LINE_HEIGHT
     }

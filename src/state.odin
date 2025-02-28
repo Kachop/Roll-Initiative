@@ -304,6 +304,7 @@ State :: struct {
   config: Config,
   app_dir: string,
   ip_str: string,
+  entity_stats_tab_state: TabControlState,
 }
 
 init_state :: proc(state: ^State) {
@@ -316,6 +317,8 @@ init_state :: proc(state: ^State) {
   state.gui_properties = getDefaultProperties()
   init_title_screen(&state.title_screen_state)
   init_load_screen(&state.load_screen_state)
+  stats_tab_options := [dynamic]cstring{"Traits", "Actions", "Legendary Actions"}
+  InitTabControlState(&state.entity_stats_tab_state, stats_tab_options[:])
   init_setup_screen(&state.setup_screen_state)
   init_combat_screen(&state.combat_screen_state)
   init_settings_screen(&state.settings_screen_state)
