@@ -21,6 +21,20 @@ getTextHeight :: proc(text: cstring, text_size: i32) -> i32 {
     spacing := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING)
     return cast(i32)rl.MeasureTextEx(state.gui_properties.FONT, text, cast(f32)text_size, cast(f32)(spacing))[1]
 }
+
+getTextLinesNeeded :: proc(text: cstring, width: f32, font_size: i32) -> i32 {
+  lines_needed: i32
+  lines := strings.split_lines(cast(string)text)
+
+  for line in lines {
+    lines_needed += 1
+    text_width := rl.MeasureText(strings.clone_to_cstring(line), font_size)
+    if cast(f32)text_width > width {
+      lines_needed += cast(i32)(text_width / cast(i32)width)
+    }
+  }
+  return lines_needed
+}
  
 fit_text :: proc(text: cstring, width: f32, text_size: ^i32) -> (result: bool){
     if getTextWidth(text, text_size^) > cast(i32)width {
@@ -300,4 +314,40 @@ write_combat_file :: proc(filename: string) -> bool {
 
   add_object("", entity_data, &file)
   return write(filename, file)
+}
+
+gen_texture_from_text :: proc(text: cstring, width: f32, font_size: i32) -> rl.Texture {
+  newline :: proc(cursor_x: ^f32, cursor_y: ^f32, x_reset: f32, y_increment: f32) {
+    cursor_x^ = x_reset
+    cursor_y^ += y_increment
+  }
+
+  space_width: f32 = 5
+  line_height := state.gui_properties.LINE_HEIGHT
+  line_padding := line_height
+
+  cursor_x: f32 = 0
+  cursor_y: f32 = 0
+  start_x := cursor_x
+
+  for word in strings.split(cast(string)text, " ") {
+    word_width: f32 = 0
+    for char in word {
+      rune_slice := []rune{char}
+      word_width += cast(f32)rl.MeasureText(strings.clone_to_cstring(utf8.runes_to_string(rune_slice)), font_size)
+    }
+    if cursor_x + cast(f32)word_width > width {
+      newline(&cursor_x, &cursor_y, start_x, line_padding)
+    }
+    cursor_x += word_width
+
+    if cursor_x + space_width < width {
+      cursor_x += space_width
+    } else {
+      newline(&cursor_x, &cursor_y, start_x, line_padding)
+    }
+  }
+  canvas := rl.GenImageColor(cast(i32)width, cast(i32)cursor_y, rl.WHITE)
+  rl.ImageDrawText(&canvas, text, 0, 0, font_size, rl.BLACK)
+  return rl.LoadTextureFromImage(canvas)
 }

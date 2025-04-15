@@ -69,6 +69,8 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
       order_by_initiative(&combatState.entities)
       combatState.current_entity_index = 0
       combatState.current_entity = &combatState.entities[combatState.current_entity_index]
+      combatState.view_entity_index = 0
+      combatState.view_entity = &combatState.entities[combatState.view_entity_index]
       
       for entity, i in setupState.entity_button_states {
         entity_button_state := EntityButtonState{}

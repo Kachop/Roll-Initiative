@@ -65,7 +65,7 @@ renderHTML :: proc(text: string) -> (result: cstring) {
     for cursor < cast(i32)len(text) {
         char = text[cursor]
         if char == '<' {
-            tag_pos = cursor - 1
+            tag_pos = cursor
             tag, ok = read_tag(text, &cursor)
             if ok {
                 if tag.open {
@@ -94,6 +94,14 @@ renderHTML :: proc(text: string) -> (result: cstring) {
             }
             cursor += 1
         }
+    }
+    
+    sresult := string(result)
+    if len(sresult) > 0 {
+        if sresult[len(sresult)-1] == '\n' {
+            sresult = sresult[:len(sresult)-2]
+        }
+        result = strings.clone_to_cstring(sresult)
     }
     return result
 }

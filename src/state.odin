@@ -100,6 +100,8 @@ CombatScreenState :: struct {
   entity_names: [dynamic]cstring,
   current_entity_index: i32,
   current_entity: ^Entity,
+  view_entity_index: i32,
+  view_entity: ^Entity,
   current_round: i32,
   turn_timer: time.Stopwatch,
   combat_timer: time.Stopwatch,
@@ -108,7 +110,9 @@ CombatScreenState :: struct {
   add_entity_button: GuiButtonState,
   remove_entity_button: GuiButtonState,
   btn_list: map[i32]^bool,
-  panelLeft: PanelState,
+  panel_left_top: PanelState,
+  panel_left_bottom: PanelState,
+  panel_left_bottom_text: cstring,
   entity_button_states: [dynamic]EntityButtonState,
   panelMid: PanelState,
   scroll_lock_mid: bool,
@@ -122,7 +126,10 @@ CombatScreenState :: struct {
   condition_dropdown: DropdownSelectState,
   toggle_active: i32,
   temp_resist_immunity_dropdown: DropdownSelectState,
-  panelRight: PanelState,
+  panel_right_top: PanelState,
+  panel_right_bottom: PanelState,
+  panel_right_bottom_text: cstring,
+  view_entity_tab_state: TabControlState,
   json_data: string,
   stats_lines_needed: f32,
 }
@@ -132,6 +139,8 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.entities = [dynamic]Entity{}
   screenState.current_entity_index = 0
   screenState.current_entity = nil
+  screenState.view_entity_index = 0
+  screenState.view_entity = nil
   screenState.current_round = 1
   screenState.turn_timer = time.Stopwatch{}
   screenState.combat_timer = time.Stopwatch{}
@@ -139,7 +148,8 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.remove_entity_mode = false
   InitGuiButtonState(&screenState.add_entity_button, "Add" if (!screenState.add_entity_mode) else "Cancel")
   InitGuiButtonState(&screenState.remove_entity_button, "Remove" if (!screenState.remove_entity_mode) else "Cancel")
-  InitPanelState(&screenState.panelLeft)
+  InitPanelState(&screenState.panel_left_top)
+  InitPanelState(&screenState.panel_left_bottom)
   InitPanelState(&screenState.panelMid)
   dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
   InitDropdownState(&screenState.dmg_type_dropdown, "Type:", dmg_type_options[:], &screenState.btn_list)
@@ -151,9 +161,14 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   InitDropdownSelectState(&screenState.condition_dropdown, "Condition:", conditions[:], &screenState.btn_list)
   InitDropdownSelectState(&screenState.temp_resist_immunity_dropdown, "Type:", dmg_type_options[:], &screenState.btn_list)
 
-  InitPanelState(&screenState.panelRight)
+  InitPanelState(&screenState.panel_right_top)
+  InitPanelState(&screenState.panel_right_bottom)
   screenState.json_data = "{}"
   screenState.stats_lines_needed = 0
+
+  stats_tab_options := [dynamic]cstring{"Traits", "Actions", "LA"}
+  InitTabControlState(&screenState.view_entity_tab_state, stats_tab_options[:])
+
 }
 
 d_init_combat_screen :: proc(screenState: ^CombatScreenState) {
@@ -317,7 +332,7 @@ init_state :: proc(state: ^State) {
   state.gui_properties = getDefaultProperties()
   init_title_screen(&state.title_screen_state)
   init_load_screen(&state.load_screen_state)
-  stats_tab_options := [dynamic]cstring{"Traits", "Actions", "Legendary Actions"}
+  stats_tab_options := [dynamic]cstring{"Traits", "Actions", "LA"}
   InitTabControlState(&state.entity_stats_tab_state, stats_tab_options[:])
   init_setup_screen(&state.setup_screen_state)
   init_combat_screen(&state.combat_screen_state)
