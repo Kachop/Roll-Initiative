@@ -329,11 +329,14 @@ DropdownState :: struct {
 }
 
 InitDropdownState :: proc(state: ^DropdownState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
+  initial_allocator := context.allocator
+  context.allocator = static_alloc
   state.id = GUI_ID
   GUI_ID += 1
   state.title = title
   state.labels = labels
   state.btn_list = btn_list
+  context.allocator = initial_allocator
 }
 
 @(deferred_in=_draw_dropdown)
@@ -498,6 +501,8 @@ DropdownSelectState :: struct {
 }
 
 InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
+  initial_allocator := context.allocator
+  context.allocator = static_alloc
   dropdownState.id = GUI_ID
   GUI_ID += 1
   dropdownState.title = title
@@ -507,6 +512,7 @@ InitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState, title: cstr
     append(&dropdownState.selected, false)
   }
   dropdownState.btn_list = btn_list
+  context.allocator = initial_allocator
 }
 
 DeInitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState) {
@@ -516,6 +522,8 @@ DeInitDropdownSelectState :: proc(dropdownState: ^DropdownSelectState) {
 @(deferred_in=_draw_dropdown_select)
 GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
     using state.gui_properties
+    initial_allocator := context.allocator
+    context.allocator = static_alloc
 
     x := bounds.x
     y := bounds.y
@@ -555,11 +563,13 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
     title_width := getTextWidth(dropdown_state.title, TEXT_SIZE)
     fit_text(dropdown_state.title, width, &TEXT_SIZE)
     rl.GuiLabel({x + (width / 2) - (cast(f32)title_width / 2), y + cast(f32)border, cast(f32)title_width, height - (cast(f32)border * 2)}, dropdown_state.title)
+  context.allocator = initial_allocator
 }
 
 _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
     using state.gui_properties
-
+    initial_allocator := context.allocator
+    context.allocator = static_alloc
     x := bounds.x
     y := bounds.y
     width := bounds.width
@@ -649,6 +659,7 @@ _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSel
             }
         }
     }
+  context.allocator = initial_allocator
 }
 
 PanelState :: struct {
@@ -836,7 +847,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
     initial_text_size := TEXT_SIZE
 
     //Display info for selected entity.
-    rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.name)
+    rl.GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.alias)
     cursor_y += LINE_HEIGHT
 
     if initiative != nil {

@@ -14,7 +14,6 @@ popup := false
 
 GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   using state.gui_properties
-
   defer GuiMessageBoxQueue(&combatState.message_queue)
 
   cursor_x : f32 = PADDING_LEFT
@@ -35,7 +34,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     return
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
-
   if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_ARROW_LEFT, ""))) {
     //Go back to previous turn
     if (combatState.current_entity_index == 0) {
@@ -79,7 +77,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     }
   }
   cursor_x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
-
   TEXT_SIZE = TEXT_SIZE_TITLE
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)  
 
@@ -106,7 +103,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   combat_time := fmt.ctprint(time.clock_from_stopwatch(combatState.combat_timer), sep=":")
   fit_text(combat_time, (state.window_height / 8), &TEXT_SIZE)
   rl.GuiLabel({(state.window_width * 0.975) - ((state.window_height / 8) * 2) -20, (state.window_height / 8) + 10, (state.window_height / 8), 40}, combat_time)
-    
   if (GuiButton({cursor_x, cursor_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_STOP, ""))) {
     //End the combat, do statistics, output files etc.
     //Display key details to the web client.
@@ -195,7 +191,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   entity_select_button_height : f32 = 50
 
   clear(&combatState.entity_names)
-
   for entity in combatState.entities {
     append(&combatState.entity_names, entity.alias)
   }
@@ -289,7 +284,10 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       for _, i in combatState.entities {
         if !combatState.remove_entity_mode {
           combatState.entity_button_states[i].index = cast(i32)i
-          GuiEntityButton({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entity_button_states[i])
+          if GuiEntityButtonClickable({cursor_x, cursor_y, draw_width, LINE_HEIGHT}, &combatState.entity_button_states[i]) {
+            combatState.view_entity_index = cast(i32)i
+            combatState.view_entity = &combatState.entities[combatState.view_entity_index]
+          }
           if (cast(i32)i == combatState.current_entity_index) {
             rl.DrawRectangle(cast(i32)cursor_x, cast(i32)cursor_y, cast(i32)draw_width, cast(i32)LINE_HEIGHT, rl.ColorAlpha(rl.BLUE, 0.2))
           }
@@ -401,7 +399,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
       }
     log.debugf("Sorted scissoring")
   }
-
   cursor_x = current_panel_x
   cursor_y = panel_y + (panel_height / 2)
 
@@ -427,17 +424,18 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   padding := rl.GuiGetStyle(.TEXTBOX, cast(i32)rl.GuiControlProperty.TEXT_PADDING)
 
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 25)
-
   switch GuiTabControl({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, &combatState.view_entity_tab_state) {
   case 0:
-    combatState.panel_left_bottom_text = combatState.view_entity.traits
+    combatState.panel_left_bottom_text = "stats"
   case 1:
-    combatState.panel_left_bottom_text = combatState.view_entity.actions
+    combatState.panel_left_bottom_text = combatState.view_entity.traits
   case 2:
+    combatState.panel_left_bottom_text = combatState.view_entity.actions
+  case 3:
     combatState.panel_left_bottom_text = combatState.view_entity.legendary_actions
+
   }
   cursor_y += LINE_HEIGHT + combatState.panel_left_bottom.scroll.y
-
   if (combatState.panel_left_bottom.height_needed > combatState.panel_left_bottom.rec.height - y_offset) {
     combatState.panel_left_bottom.contentRec.width = panel_width - 14
     combatState.panel_left_bottom.contentRec.height = combatState.panel_left_bottom.height_needed
@@ -449,23 +447,26 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     combatState.panel_left_bottom.contentRec.width = panel_width
     draw_width = panel_width - (PANEL_PADDING * 2)
   }
-
   {
+    state.cursor_y = cursor_y
     start_y := cursor_y
     
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
-
-    if combatState.panel_left_bottom_text != "" {
+    if combatState.panel_left_bottom_text == "stats" {
+      cursor_x += PANEL_PADDING
+      start_y := cursor_y
+      GuiEntityStats({cursor_x, cursor_y, combatState.panel_left_bottom.contentRec.width - (PANEL_PADDING * 2), 0}, combatState.view_entity)
+      combatState.panel_left_bottom.height_needed = state.cursor_y - start_y
+    } else if combatState.panel_left_bottom_text != "" {
       lines_needed := getTextLinesNeeded(combatState.panel_left_bottom_text, combatState.panel_left_bottom.contentRec.width - (cast(f32)padding * 2), font_size)
       rl.GuiTextBox({cursor_x, cursor_y, combatState.panel_left_bottom.contentRec.width, cast(f32)lines_needed * 28}, combatState.panel_left_bottom_text, font_size, false)
       cursor_y += cast(f32)lines_needed * 28
+      combatState.panel_left_bottom.height_needed = (cursor_y - start_y)
     }
-    combatState.panel_left_bottom.height_needed = (cursor_y - start_y)
   }
-  
-  if (combatState.panel_right_bottom.height_needed > combatState.panel_left_bottom.rec.height - y_offset) {
+  if (combatState.panel_left_bottom.height_needed > combatState.panel_left_bottom.rec.height - y_offset) {
     rl.EndScissorMode()
   } else {
     combatState.panel_left_bottom.scroll.y = 0
@@ -480,7 +481,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   cursor_y = panel_y
 
   line_height_mid : f32 = 50
-
   rl.GuiPanel(
     {
       cursor_x,
@@ -516,14 +516,12 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     panel_width,
     draw_height - PANEL_PADDING,
   }
-
   scroll_locked := false
   for _, btn in combatState.btn_list {
     if btn^ {
       scroll_locked = true
     }
   }
- 
   if (combatState.panelMid.height_needed > draw_height) {
     combatState.panelMid.contentRec.width = panel_width - 14
     combatState.panelMid.contentRec.height = combatState.panelMid.height_needed
@@ -656,7 +654,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   } else {
     combatState.panelMid.scroll.y = 0
   }
-
   GuiDropdownControl({cursor_x_from_dropdown, cursor_y_from_dropdown, draw_width / 2, line_height_mid}, &combatState.from_dropdown)
   register_button(&combatState.btn_list, &combatState.from_dropdown)
 
@@ -729,7 +726,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
     panel_width,
     (panel_height / 2) - y_offset,
   }
-
   switch GuiTabControl({cursor_x, cursor_y, panel_width, LINE_HEIGHT}, &state.entity_stats_tab_state) {
   case 0:
     combatState.panel_right_bottom_text = combatState.current_entity.traits
@@ -771,7 +767,6 @@ GuiDrawCombatScreen :: proc(combatState: ^CombatScreenState) {
   } else {
     combatState.panel_right_bottom.scroll.y = 0
   }
-  
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
 }

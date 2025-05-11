@@ -5,6 +5,7 @@ package main
 import "core:fmt"
 import "core:log"
 import "core:mem"
+import vmem "core:mem/virtual"
 import "core:strings"
 import rl "vendor:raylib"
 import "core:thread"
@@ -35,6 +36,14 @@ when ODIN_OS == .Windows {
 }
 
 app_title :: "/Roll Initiative"
+version: cstring : "v0.9"
+
+static_arena: vmem.Arena
+frame_arena: vmem.Arena
+
+static_alloc: mem.Allocator
+frame_alloc: mem.Allocator
+
 
 //CONFIG: Config
 
@@ -53,6 +62,14 @@ server_thread: ^thread.Thread
 @(init)
 init :: proc() {
   rl.SetTraceLogLevel(.NONE)
+
+  //Initialise memory arenas
+  arena_err := vmem.arena_init_static(&static_arena, 1*mem.Gigabyte)
+  static_alloc = vmem.arena_allocator(&static_arena)
+  frame_alloc = vmem.arena_allocator(&frame_arena)
+
+  context.allocator = static_alloc
+  context.temp_allocator = frame_alloc
 
   rl.GuiSetIconScale(2)
 
@@ -92,6 +109,9 @@ main :: proc() {
   when ODIN_DEBUG {
     context.logger = log.create_console_logger()
   }
+
+  context.allocator = frame_alloc
+  /*
   default_allocator := context.allocator
   tracking_allocator: mem.Tracking_Allocator
   mem.tracking_allocator_init(&tracking_allocator, default_allocator)
@@ -108,7 +128,7 @@ main :: proc() {
     mem.tracking_allocator_reset(a)
     return err
   }
-
+  */
   log.debugf("Starting main loop.")
 
   defer rl.CloseWindow()
@@ -116,6 +136,14 @@ main :: proc() {
   for (!rl.WindowShouldClose()) {
     state.window_width = cast(f32)rl.GetRenderWidth()
     state.window_height = cast(f32)rl.GetRenderHeight()
+
+    if state.settings_screen_state.fullscreen && !state.fullscreen {
+      state.fullscreen = true
+      rl.ToggleFullscreen()
+    } else if !state.settings_screen_state.fullscreen && state.fullscreen {
+      state.fullscreen = false
+      rl.ToggleFullscreen()
+    }
 
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 60)
     //Draw
@@ -137,20 +165,23 @@ main :: proc() {
     case SettingsScreenState: GuiDrawSettingsScreen(&state.settings_screen_state)
     case EntityScreenState: GuiDrawEntityScreen(&state.entity_screen_state)
     }
-    free_all(context.temp_allocator)
+    vmem.arena_free_all(&frame_arena)
+    //free_all(context.temp_allocator)
   }
   
   d_init_state(&state)
   //reset_tracking_allocator(&tracking_allocator)
   thread.terminate(server_thread, 0)
   thread.destroy(server_thread)
+  vmem.arena_destroy(&frame_arena)
+  vmem.arena_destroy(&static_arena)
 }
 
 drawTitleScreen :: proc() {
   using state.gui_properties
   
-  cursor_x : f32 = PADDING_LEFT
-  cursor_y : f32 = PADDING_TOP
+  cursor_x: f32 = PADDING_LEFT
+  cursor_y: f32 = PADDING_TOP
 
   TITLE_BUTTON_WIDTH = state.window_width / 2
 
@@ -160,7 +191,7 @@ drawTitleScreen :: proc() {
   }
 
   title_width := getTextWidth("Roll Initiative", TEXT_SIZE_TITLE)
-  title_x : f32 = (state.window_width / 2) - cast(f32)(title_width / 2)
+  title_x: f32 = (state.window_width / 2) - cast(f32)(title_width / 2)
   rl.GuiLabel({title_x, cursor_y, state.window_width / 2, TITLE_BUTTON_HEIGHT}, app_title)
   cursor_x = state.window_width / 4
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
@@ -182,13 +213,22 @@ drawTitleScreen :: proc() {
     return
   }
   cursor_y += TITLE_BUTTON_HEIGHT + TITLE_BUTTON_PADDING
+  if rl.GuiButton({cursor_x, cursor_y, TITLE_BUTTON_WIDTH, TITLE_BUTTON_HEIGHT}, "Generate Combat") {
+    return
+  }
+
+  cursor_x = state.window_width * 0.01
+  cursor_y = state.window_height * 0.95
+  rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 20)
+
+  rl.GuiLabel({cursor_x, cursor_y, 100, 50}, version)
 }
 
 drawLoadScreen :: proc(fileDialogState: ^LoadScreenState) {
   using state.gui_properties
 
-  cursor_x : f32 = PADDING_LEFT
-  cursor_y : f32 = PADDING_TOP
+  cursor_x: f32 = PADDING_LEFT
+  cursor_y: f32 = PADDING_TOP
 
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE_DEFAULT)
 

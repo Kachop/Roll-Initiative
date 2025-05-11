@@ -250,12 +250,14 @@ combat_to_json :: proc(combatState: CombatScreenState) {
  
     result = strings.join([]string{result, "]}"}, "", allocator=context.temp_allocator)
     delete(serverState.json_data)
-    serverState.json_data = strings.clone(result, allocator=initial_allocator)
+    serverState.json_data = strings.clone(result, allocator=static_alloc)
     context.allocator = initial_allocator
     return
 }
 
 register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
+  initial_allocator := context.allocator
+  context.allocator = static_alloc
   registered := false
 
   for test_button, _ in button_list {
@@ -267,9 +269,13 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
   if !registered {
     button_list[button.id] = &button.active
   }
+  context.allocator = initial_allocator
 }
 
 load_combat_file :: proc(filename: string) {
+  initial_allocator := context.allocator
+  context.allocator = static_alloc
+  defer context.allocator = initial_allocator
   log.infof("LOADING COMBAT FILE @: %v", filename)
   //clear setup state entities.
   clear(&state.setup_screen_state.entities_selected)

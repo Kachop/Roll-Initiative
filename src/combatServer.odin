@@ -103,8 +103,9 @@ run_combat_server :: proc() {
   routed := http.router_handler(&router)
 
 	log.info("Listening on ", state.config.IP_ADDRESS, ":", state.config.PORT)
-
-	err := http.listen_and_serve(&s, routed, net.Endpoint{address = state.config.IP_ADDRESS, port = state.config.PORT})
+  opts := http.Default_Server_Opts
+  opts.thread_count = 1
+	err := http.listen_and_serve(&s, routed, net.Endpoint{address = state.config.IP_ADDRESS, port = state.config.PORT}, opts)
 	fmt.assertf(err == nil, "server stopped with error: %v", err)
 }
 
@@ -113,17 +114,23 @@ index :: proc(req: ^http.Request, res: ^http.Response) {
 }
 
 event :: proc(req: ^http.Request, res: ^http.Response) {
-    //Crab the current combat state and convert it to JSON and send to the site.
-    data := fmt.tprintf("data:%v\n\n", serverState.json_data)
+  initial_allocator := context.allocator
+  context.allocator = frame_alloc
+  //Crab the current combat state and convert it to JSON and send to the site.
+  data := fmt.tprintf("data:%v\n\n", serverState.json_data)
 
-    respond_sse(res, data)
+  respond_sse(res, data)
+  context.allocator = initial_allocator
 }
 
 respond_sse :: proc(r: ^http.Response, text: string, status: http.Status = .OK, loc := #caller_location) {
-    r.status = status
-    http.headers_set_content_type(&r.headers, "text/event-stream")
-    //http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
-    //http.headers_set_unsafe(&r.headers, "Keep-Alive", "timeout=1")
-    http.body_set(r, text, loc)
-    http.respond(r, loc)
+  initial_allocator := context.allocator
+  context.allocator = frame_alloc
+  r.status = status
+  http.headers_set_content_type(&r.headers, "text/event-stream")
+  //http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
+  //http.headers_set_unsafe(&r.headers, "Keep-Alive", "timeout=1")
+  http.body_set(r, text, loc)
+  http.respond(r, loc)
+  context.allocator = initial_allocator
 }

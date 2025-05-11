@@ -1,0 +1,27 @@
+{
+		"Varik": {
+				"name": "Varik",
+				"initiative": 1,
+				"visible": true,
+	},
+		"Sora": {
+				"initiative": 4,
+				"visible": true,
+				"name": "Sora",
+	},
+		"Darty": {
+				"name": "Darty",
+				"initiative": 2,
+				"visible": true,
+	},
+		"Sera": {
+				"name": "Sera",
+				"initiative": 3,
+				"visible": true,
+	},
+		"Belasar": {
+				"initiative": 5,
+				"visible": true,
+				"name": "Belasar",
+	},
+},

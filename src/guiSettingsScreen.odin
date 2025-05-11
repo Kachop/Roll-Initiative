@@ -9,12 +9,17 @@ import "core:os"
 GuiDrawSettingsScreen :: proc(settingsState: ^SettingsScreenState) {
   using state.gui_properties
 
+  current_dir := os.get_current_directory()
+
   if (settingsState.first_load) {
-    settingsState.entities_file_input.text = cstr(state.config.ENTITY_FILE_PATH[len(os.get_current_directory())+3:])
-    settingsState.entities_dir.text = cstr(state.config.CUSTOM_ENTITY_PATH[len(os.get_current_directory())+3:])
-    settingsState.custom_entities_input.text = cstr(state.config.CUSTOM_ENTITY_FILE)
-    settingsState.webpage_file_inpit.text = cstr(state.config.WEBPAGE_FILE_PATH[len(os.get_current_directory())+3:])
-    settingsState.combats_dir_input.text = cstr(state.config.COMBAT_FILES_PATH[len(os.get_current_directory())+3:])
+    initial_allocator := context.allocator
+    context.allocator = static_alloc
+    defer context.allocator = initial_allocator
+    settingsState.entities_file_input.text = fmt.caprint(state.config.ENTITY_FILE_PATH[len(current_dir):])
+    settingsState.entities_dir.text = fmt.caprint(state.config.CUSTOM_ENTITY_PATH[len(current_dir):])
+    settingsState.custom_entities_input.text = fmt.caprint(state.config.CUSTOM_ENTITY_FILE)
+    settingsState.webpage_file_inpit.text = fmt.caprint(state.config.WEBPAGE_FILE_PATH[len(current_dir):])
+    settingsState.combats_dir_input.text = fmt.caprint(state.config.COMBAT_FILES_PATH[len(current_dir):])
     settingsState.first_load = false
   }
 
@@ -82,4 +87,6 @@ GuiDrawSettingsScreen :: proc(settingsState: ^SettingsScreenState) {
     LOAD_CONFIG(&state.config)
   }
   cursor_y += LINE_HEIGHT + PANEL_PADDING
+
+  rl.GuiToggle({cursor_x, cursor_y, 200, 50}, "Fullscreen", &settingsState.fullscreen)
 }

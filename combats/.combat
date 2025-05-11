@@ -1,51 +1,21 @@
 {
-		"Aboleth 2": {
-				"name": "Aboleth",
+		"Adult Bronze Dragon": {
+				"name": "Adult Bronze Dragon",
 				"initiative": 0,
 				"visible": true,
 	},
-		"Aboleth 4": {
-				"name": "Aboleth",
+		"Adult Brass Dragon": {
+				"name": "Adult Brass Dragon",
 				"initiative": 0,
 				"visible": true,
 	},
-		"Aboleth 3": {
-				"name": "Aboleth",
+		"Adult Black Dragon": {
+				"name": "Adult Black Dragon",
 				"initiative": 0,
 				"visible": true,
-	},
-		"Varik": {
-				"name": "Varik",
-				"initiative": 0,
-				"visible": true,
-	},
-		"Aboleth 5": {
-				"initiative": 0,
-				"visible": true,
-				"name": "Aboleth",
 	},
 		"Aboleth": {
 				"name": "Aboleth",
-				"initiative": 0,
-				"visible": true,
-	},
-		"Sera": {
-				"name": "Sera",
-				"initiative": 0,
-				"visible": true,
-	},
-		"Sora": {
-				"initiative": 0,
-				"visible": true,
-				"name": "Sora",
-	},
-		"Belasar": {
-				"name": "Belasar",
-				"initiative": 0,
-				"visible": true,
-	},
-		"Darty": {
-				"name": "Darty",
 				"initiative": 0,
 				"visible": true,
 	},

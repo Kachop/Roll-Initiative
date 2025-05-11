@@ -166,9 +166,8 @@ init_combat_screen :: proc(screenState: ^CombatScreenState) {
   screenState.json_data = "{}"
   screenState.stats_lines_needed = 0
 
-  stats_tab_options := [dynamic]cstring{"Traits", "Actions", "LA"}
+  stats_tab_options := [dynamic]cstring{"Stats", "Traits", "Actions", "LA"}
   InitTabControlState(&screenState.view_entity_tab_state, stats_tab_options[:])
-
 }
 
 d_init_combat_screen :: proc(screenState: ^CombatScreenState) {
@@ -182,6 +181,7 @@ SettingsScreenState :: struct {
   custom_entities_input: TextInputState,
   webpage_file_inpit: TextInputState,
   combats_dir_input: TextInputState,
+  fullscreen: bool,
 }
 
 init_settings_screen :: proc(screenState: ^SettingsScreenState) {
@@ -297,6 +297,7 @@ WindowState :: union {
 
 State :: struct {
   window_width, window_height: f32,
+  fullscreen: bool,
 
   hover_stack: HoverStack,
 

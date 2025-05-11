@@ -12,12 +12,14 @@ import "core:strconv"
 GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatScreenState) {
   using state.gui_properties
 
+  context.allocator = static_alloc
+
   defer GuiMessageBoxQueue(&setupState.message_queue)
   
-  cursor_x : f32 = PADDING_LEFT
-  cursor_y : f32 = PADDING_TOP
+  cursor_x: f32 = PADDING_LEFT
+  cursor_y: f32 = PADDING_TOP
 
-  start_x : f32 = cursor_x
+  start_x: f32 = cursor_x
 
   initial_text_size := TEXT_SIZE_DEFAULT
   rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
@@ -92,6 +94,7 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   rl.GuiLabel({cursor_x, cursor_y, text_width, LINE_HEIGHT}, "Combat name: ")
   cursor_x += text_width + PANEL_PADDING
   GuiTextInput({cursor_x, cursor_y, 400, LINE_HEIGHT}, &setupState.filename_input)
+
   cursor_x = start_x
   cursor_y += LINE_HEIGHT + MENU_BUTTON_PADDING
   current_panel_x := cursor_x
@@ -339,11 +342,12 @@ GuiDrawSetupScreen :: proc(setupState: ^SetupScreenState, combatState: ^CombatSc
   } else {
     setupState.panelRight.scroll.y = 0
   }
+  context.allocator = frame_alloc
 }
 
 filterEntities :: proc(setupState: ^SetupScreenState) {
   initial_allocator := context.allocator
-  context.allocator = context.temp_allocator
+  context.allocator = frame_alloc
   clear_soa(&setupState.entities_searched)
   setupState.entities_searched = make_soa_dynamic_array(#soa[dynamic]Entity)
 
