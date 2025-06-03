@@ -242,6 +242,9 @@ draw_setup_screen :: proc() {
                 state.cursor.x += draw_width - LINE_HEIGHT
 
                 if GuiButton({state.cursor.x, state.cursor.y, LINE_HEIGHT, LINE_HEIGHT}, rl.GuiIconText(.ICON_CROSS, "")) {
+                    ordered_remove(&state.setup_screen_state.entity_button_states, i)
+                    state.setup_screen_state.num_entities -= 1
+
                     if (&state.setup_screen_state.entities_selected[i] == state.setup_screen_state.selected_entity) {
                         state.setup_screen_state.selected_entity     = nil
                         state.setup_screen_state.selected_entity_idx = 0
@@ -253,12 +256,10 @@ draw_setup_screen :: proc() {
                     for j in i ..< state.setup_screen_state.num_entities {
                         if j < state.setup_screen_state.num_entities {
                             state.setup_screen_state.entities_selected[j] = state.setup_screen_state.entities_selected[j+1]
-                        } else {
-                            state.setup_screen_state.entities_selected[j] = Entity{}
+                            state.setup_screen_state.entity_button_states[j].entity = &state.setup_screen_state.entities_selected[j]
                         }
+                        state.setup_screen_state.entity_button_states[j].index -= 1
                     }
-                    ordered_remove(&state.setup_screen_state.entity_button_states, i)
-                    state.setup_screen_state.num_entities -= 1
                 }
             }
             state.cursor.x = start_x

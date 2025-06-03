@@ -273,22 +273,21 @@ draw_combat_screen :: proc() {
 
                     state.combat_screen_state.entity_button_states[i].index = i
                     if GuiEntityButtonClickable({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, &state.combat_screen_state.entity_button_states[i]) {
-                        for j in i ..< state.combat_screen_state.num_entities {
-                            if j < state.combat_screen_state.num_entities - 1 {
-                                state.combat_screen_state.entities[j] = state.combat_screen_state.entities[j+1]
-                            } else {
-                                state.combat_screen_state.entities[j] = Entity{}
-                            }
-                        }
+                        ordered_remove(&state.combat_screen_state.entity_button_states, i)
                         state.combat_screen_state.num_entities -= 1
+                        for j in i ..< state.combat_screen_state.num_entities {
+                            if j < state.combat_screen_state.num_entities {
+                                state.combat_screen_state.entities[j] = state.combat_screen_state.entities[j+1]
+                                state.combat_screen_state.entity_button_states[j].entity = &state.combat_screen_state.entities[j]
+                            }
+                            state.combat_screen_state.entity_button_states[j].index -= 1
+                        }
                         if state.combat_screen_state.current_entity_idx > cast(i32)i {
                             state.combat_screen_state.current_entity_idx -= 1
                         }
-                        ordered_remove(&state.combat_screen_state.entity_button_states, i)
                         state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
 
                         clear(&state.combat_screen_state.entity_names)
-                        //state.combat_screen_state.entity_names = make([dynamic]cstring)
                         for i in 0 ..< state.combat_screen_state.num_entities {
                             append(&state.combat_screen_state.entity_names, state.combat_screen_state.entities[i].alias)
                         }
@@ -690,7 +689,7 @@ resolve_damage :: proc() {
     }
     
     for i in 0 ..< state.combat_screen_state.num_entities {
-        entity := state.combat_screen_state.entities[i]
+        entity := &state.combat_screen_state.entities[i]
         if (state.combat_screen_state.to_dropdown.selected[i]) {
             if state.combat_screen_state.dmg_type_selected not_in entity.dmg_immunities && state.combat_screen_state.dmg_type_selected not_in entity.temp_dmg_immunities {
                 if state.combat_screen_state.dmg_type_selected in entity.dmg_resistances {
@@ -702,7 +701,7 @@ resolve_damage :: proc() {
                 if dmg_amount >= 0 {
                     entity.temp_HP = 0
                     entity.HP -= dmg_amount
-                    is_entity_dead(&entity)
+                    is_entity_dead(entity)
                 } else {
                     entity.temp_HP = -dmg_amount
                 }
@@ -716,10 +715,10 @@ resolve_healing :: proc() {
     heal_amount : i32 = to_i32(state.combat_screen_state.heal_input.text)
     
     for i in 0 ..< state.combat_screen_state.num_entities {
-        entity := state.combat_screen_state.entities[i]
+        entity := &state.combat_screen_state.entities[i]
         if (state.combat_screen_state.to_dropdown.selected[i]) {
             entity.HP += heal_amount
-            is_entity_over_max(&entity)
+            is_entity_over_max(entity)
         }
         state.combat_screen_state.to_dropdown.selected[i] = false
     }
@@ -729,7 +728,7 @@ resolve_temp_HP :: proc() {
     HP_amount : i32 = to_i32(state.combat_screen_state.temp_HP_input.text)
 
     for i in 0 ..< state.combat_screen_state.num_entities {
-        entity := state.combat_screen_state.entities[i]
+        entity := &state.combat_screen_state.entities[i]
         if (state.combat_screen_state.to_dropdown.selected[i]) {
             entity.temp_HP = HP_amount if (HP_amount > entity.temp_HP) else entity.temp_HP
         }
@@ -739,70 +738,70 @@ resolve_temp_HP :: proc() {
 
 resolve_conditions :: proc() {
     for i in 0 ..< state.combat_screen_state.num_entities {
-        entity := state.combat_screen_state.entities[i]
+        entity := &state.combat_screen_state.entities[i]
         if state.combat_screen_state.to_dropdown.selected[i] {
             entity.conditions = ConditionSet{}
             for check_box, j in state.combat_screen_state.condition_dropdown.check_box_states {
                 condition := check_box.text
                 if state.combat_screen_state.condition_dropdown.selected[j] {
-                    switch strings.to_lower(str(condition), allocator=frame_alloc) {
-                    case "blinded":
+                    switch condition {
+                    case "Blinded":
                         if .BLINDED not_in entity.condition_immunities {
                             entity.conditions |= {.BLINDED}
                         }
-                    case "charmed":
+                    case "Charmed":
                         if .CHARMED not_in entity.condition_immunities {
                             entity.conditions |= {.CHARMED}
                         }
-                    case "deafened": 
+                    case "Deafened": 
                         if .DEAFENED not_in entity.condition_immunities {
                             entity.conditions |= {.DEAFENED}
                         }
-                    case "frightened":
+                    case "Frightened":
                         if .FRIGHTENED not_in entity.condition_immunities {
                             entity.conditions |= {.FRIGHTENED}
                         }
-                    case "grappled":
+                    case "Grappled":
                         if .GRAPPLED not_in entity.condition_immunities{
                             entity.conditions |= {.GRAPPLED}
                         }
-                    case "incapacitated": 
+                    case "Incapacitated": 
                         if .INCAPACITATED not_in entity.condition_immunities {
                             entity.conditions |= {.INCAPACITATED}
                         }
-                    case "invisible":
+                    case "Invisible":
                         if .INVISIBLE not_in entity.condition_immunities {
                             entity.conditions |= {.INVISIBLE}
                         }
-                    case "paralyzed":
+                    case "Paralyzed":
                         if  .PARALYZED not_in entity.condition_immunities {
                             entity.conditions |= {.PARALYZED}
                         }
-                    case "petrified":
+                    case "Petrified":
                         if .PETRIFIED not_in entity.condition_immunities {
                             entity.conditions |= {.PETRIFIED}
                         }
-                    case "poisoned":
+                    case "Poisoned":
                         if .POISONED not_in entity.condition_immunities {
                             entity.conditions |= {.POISONED}
                         }
-                    case "prone":
+                    case "Prone":
                         if .PRONE not_in entity.condition_immunities {
                             entity.conditions |= {.PRONE}
                         }
-                    case "restrained":
+                    case "Restrained":
                         if .RESTRAINED not_in entity.condition_immunities {
                             entity.conditions |= {.RESTRAINED}
                         }
-                    case "stunned":
+                    case "Stunned":
                         if .STUNNED not_in entity.condition_immunities {
                             entity.conditions |= {.STUNNED}
                         }
-                    case "unconscious":
+                    case "Unconscious":
                         if .UNCONSCIOUS not_in entity.condition_immunities {
                             entity.conditions |= {.UNCONSCIOUS}
                         }
-                    case "exhaustion":
+                    case "Exhaustion":
                         if .EXHAUSTION not_in entity.condition_immunities {
                             entity.conditions |= {.EXHAUSTION}
                         }
@@ -818,30 +817,28 @@ resolve_conditions :: proc() {
 resolve_temp_resistance_or_immunity :: proc() {
     if state.combat_screen_state.toggle_active == 0 {
         for i in 0 ..< state.combat_screen_state.num_entities {
-            entity := state.combat_screen_state.entities[i]
+            entity := &state.combat_screen_state.entities[i]
             if state.combat_screen_state.to_dropdown.selected[i] {
                 entity.temp_dmg_resistances = DamageSet{}
                 for check_box, j in state.combat_screen_state.temp_resist_immunity_dropdown.check_box_states {
                     dmg_type := check_box.text
                     if state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] {
-                        log.debugf("Found one: %v, %v", dmg_type, j)
-                        switch strings.to_lower(str(dmg_type), allocator=frame_alloc) {
-                        case "slashing"   : entity.temp_dmg_vulnerabilities |= {.SLASHING}
-                        case "piercing"   : entity.temp_dmg_vulnerabilities |= {.PIERCING}
-                        case "bludgeoning": entity.temp_dmg_vulnerabilities |= {.BLUDGEONING}
-                        case "non-magical": entity.temp_dmg_vulnerabilities |= {.NON_MAGICAL}
-                        case "poison"     : entity.temp_dmg_vulnerabilities |= {.POISON}
-                        case "acid"       : entity.temp_dmg_vulnerabilities |= {.ACID}
-                        case "fire"       : entity.temp_dmg_vulnerabilities |= {.FIRE}
-                        case "cold"       : entity.temp_dmg_vulnerabilities |= {.COLD}
-                        case "radiant"    : entity.temp_dmg_vulnerabilities |= {.RADIANT}
-                        case "necrotic"   : entity.temp_dmg_vulnerabilities |= {.NECROTIC}
-                        case "lightning"  : entity.temp_dmg_vulnerabilities |= {.LIGHTNING}
-                        case "thunder"    : entity.temp_dmg_vulnerabilities |= {.THUNDER}
-                        case "force"      : entity.temp_dmg_vulnerabilities |= {.FORCE}
-                        case "psychic"    : entity.temp_dmg_vulnerabilities |= {.PSYCHIC}
+                        switch dmg_type {
+                        case "Slashing"   : entity.temp_dmg_vulnerabilities |= {.SLASHING}
+                        case "Piercing"   : entity.temp_dmg_vulnerabilities |= {.PIERCING}
+                        case "Bludgeoning": entity.temp_dmg_vulnerabilities |= {.BLUDGEONING}
+                        case "Non-magical": entity.temp_dmg_vulnerabilities |= {.NON_MAGICAL}
+                        case "Poison"     : entity.temp_dmg_vulnerabilities |= {.POISON}
+                        case "Acid"       : entity.temp_dmg_vulnerabilities |= {.ACID}
+                        case "Fire"       : entity.temp_dmg_vulnerabilities |= {.FIRE}
+                        case "Cold"       : entity.temp_dmg_vulnerabilities |= {.COLD}
+                        case "Radiant"    : entity.temp_dmg_vulnerabilities |= {.RADIANT}
+                        case "Necrotic"   : entity.temp_dmg_vulnerabilities |= {.NECROTIC}
+                        case "Lightning"  : entity.temp_dmg_vulnerabilities |= {.LIGHTNING}
+                        case "Thunder"    : entity.temp_dmg_vulnerabilities |= {.THUNDER}
+                        case "Force"      : entity.temp_dmg_vulnerabilities |= {.FORCE}
+                        case "Psychic"    : entity.temp_dmg_vulnerabilities |= {.PSYCHIC}
                         }
-                        log.debugf("Removing one: %v", j)
                         state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] = false
                     }
                 }
@@ -850,30 +847,28 @@ resolve_temp_resistance_or_immunity :: proc() {
         }
     } else if state.combat_screen_state.toggle_active == 1 {
         for i in 0 ..< state.combat_screen_state.num_entities {
-            entity := state.combat_screen_state.entities[i]
+            entity := &state.combat_screen_state.entities[i]
             if state.combat_screen_state.to_dropdown.selected[i] {
                 entity.temp_dmg_resistances = DamageSet{}
                 for check_box, j in state.combat_screen_state.temp_resist_immunity_dropdown.check_box_states {
                     dmg_type := check_box.text
                     if state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] {
-                        log.debugf("Found one: %v, %v", dmg_type, j)
-                        switch strings.to_lower(str(dmg_type), allocator=frame_alloc) {
-                        case "slashing": entity.temp_dmg_resistances |= {.SLASHING}
-                        case "piercing": entity.temp_dmg_resistances |= {.PIERCING}
-                        case "bludgeoning": entity.temp_dmg_resistances |= {.BLUDGEONING}
-                        case "non-magical": entity.temp_dmg_resistances |= {.NON_MAGICAL}
-                        case "poison": entity.temp_dmg_resistances |= {.POISON}
-                        case "acid": entity.temp_dmg_resistances |= {.ACID}
-                        case "fire": entity.temp_dmg_resistances |= {.FIRE}
-                        case "cold": entity.temp_dmg_resistances |= {.COLD}
-                        case "radiant": entity.temp_dmg_resistances |= {.RADIANT}
-                        case "necrotic": entity.temp_dmg_resistances |= {.NECROTIC}
-                        case "lightning": entity.temp_dmg_resistances |= {.LIGHTNING}
-                        case "thunder": entity.temp_dmg_resistances |= {.THUNDER}
-                        case "force": entity.temp_dmg_resistances |= {.FORCE}
-                        case "psychic": entity.temp_dmg_resistances |= {.PSYCHIC}
+                        switch dmg_type {
+                        case "Slashing": entity.temp_dmg_resistances |= {.SLASHING}
+                        case "Piercing": entity.temp_dmg_resistances |= {.PIERCING}
+                        case "Bludgeoning": entity.temp_dmg_resistances |= {.BLUDGEONING}
+                        case "Non-magical": entity.temp_dmg_resistances |= {.NON_MAGICAL}
+                        case "Poison": entity.temp_dmg_resistances |= {.POISON}
+                        case "Acid": entity.temp_dmg_resistances |= {.ACID}
+                        case "Fire": entity.temp_dmg_resistances |= {.FIRE}
+                        case "Cold": entity.temp_dmg_resistances |= {.COLD}
+                        case "Radiant": entity.temp_dmg_resistances |= {.RADIANT}
+                        case "Necrotic": entity.temp_dmg_resistances |= {.NECROTIC}
+                        case "Lightning": entity.temp_dmg_resistances |= {.LIGHTNING}
+                        case "Thunder": entity.temp_dmg_resistances |= {.THUNDER}
+                        case "Force": entity.temp_dmg_resistances |= {.FORCE}
+                        case "Psychic": entity.temp_dmg_resistances |= {.PSYCHIC}
                         }
-                        log.debugf("Removing one: %v", j)
                         state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] = false
                     }
                 }
@@ -882,35 +877,33 @@ resolve_temp_resistance_or_immunity :: proc() {
         }
     } else if state.combat_screen_state.toggle_active == 2 {
         for i in 0 ..< state.combat_screen_state.num_entities {
-            entity := state.combat_screen_state.entities[i]
+            entity := &state.combat_screen_state.entities[i]
             if state.combat_screen_state.to_dropdown.selected[i] {
                 entity.temp_dmg_immunities = DamageSet{}
                 for check_box, j in state.combat_screen_state.temp_resist_immunity_dropdown.check_box_states {
                     dmg_type := check_box.text
                     if state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] {
-                        log.debugf("Found one: %v, %v", dmg_type, j)
-                        switch strings.to_lower(str(dmg_type), allocator=frame_alloc) {
-                        case "slashing": entity.temp_dmg_immunities |= {.SLASHING}
-                        case "piercing": entity.temp_dmg_immunities |= {.PIERCING}
-                        case "bludgeoning": entity.temp_dmg_immunities |= {.BLUDGEONING}
-                        case "non-magical": entity.temp_dmg_immunities |= {.NON_MAGICAL}
-                        case "poison": entity.temp_dmg_immunities |= {.POISON}
-                        case "acid": entity.temp_dmg_immunities |= {.ACID}
-                        case "fire": entity.temp_dmg_immunities |= {.FIRE}
-                        case "cold": entity.temp_dmg_immunities |= {.COLD}
-                        case "radiant": entity.temp_dmg_immunities |= {.RADIANT}
-                        case "necrotic": entity.temp_dmg_immunities |= {.NECROTIC}
-                        case "lightning": entity.temp_dmg_immunities |= {.LIGHTNING}
-                        case "thunder": entity.temp_dmg_immunities |= {.THUNDER}
-                        case "force": entity.temp_dmg_immunities |= {.FORCE}
-                        case "psychic": entity.temp_dmg_immunities |= {.PSYCHIC}
+                        switch dmg_type {
+                        case "Slashing": entity.temp_dmg_immunities |= {.SLASHING}
+                        case "Piercing": entity.temp_dmg_immunities |= {.PIERCING}
+                        case "Bludgeoning": entity.temp_dmg_immunities |= {.BLUDGEONING}
+                        case "Non-magical": entity.temp_dmg_immunities |= {.NON_MAGICAL}
+                        case "Poison": entity.temp_dmg_immunities |= {.POISON}
+                        case "Acid": entity.temp_dmg_immunities |= {.ACID}
+                        case "Fire": entity.temp_dmg_immunities |= {.FIRE}
+                        case "Cold": entity.temp_dmg_immunities |= {.COLD}
+                        case "Radiant": entity.temp_dmg_immunities |= {.RADIANT}
+                        case "Necrotic": entity.temp_dmg_immunities |= {.NECROTIC}
+                        case "Lightning": entity.temp_dmg_immunities |= {.LIGHTNING}
+                        case "Thunder": entity.temp_dmg_immunities |= {.THUNDER}
+                        case "Force": entity.temp_dmg_immunities |= {.FORCE}
+                        case "Psychic": entity.temp_dmg_immunities |= {.PSYCHIC}
                         }
                         state.combat_screen_state.temp_resist_immunity_dropdown.selected[j] = false
                     }
                 }
             }
             state.combat_screen_state.to_dropdown.selected[i] = false
-            log.debugf("Entity: %v, new resistances: %v", entity.name, entity.dmg_resistances)
         }
     }
 }

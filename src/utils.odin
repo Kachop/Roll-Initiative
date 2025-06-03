@@ -93,8 +93,6 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 
 reload_entities :: proc() {
     vmem.arena_free_all(&entities_arena)
-    //state.srd_entities    = make(#soa[dynamic]Entity, entities_alloc)
-    //state.custom_entities = make(#soa[dynamic]Entity, entities_alloc)
     load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
     load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
 }

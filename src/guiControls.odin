@@ -1380,6 +1380,16 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
 
         rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
+        if (entity.conditions != ConditionSet{}) {
+            GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Conditions:")
+            cursor_y += LINE_HEIGHT
+
+            for condition in gen_condition_string(entity.conditions) {
+                GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(condition))
+                cursor_y += LINE_HEIGHT
+            }
+        }
+
         vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities)
         resistances     : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances)
         immunities      : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities)
@@ -1437,6 +1447,70 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         } else {
             cursor_y = vulnerability_y
         }
+        cursor_x = start_x
+
+        temp_vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_vulnerabilities)
+        temp_resistances     : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_resistances)
+        temp_immunities      : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_immunities)
+    
+        if len(temp_vulnerabilities) > 0 {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
+            cursor_x += width / 3
+        }
+        if len(temp_resistances) > 0 {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
+            cursor_x += width / 3
+        }
+        if len(temp_immunities) > 0 {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
+            cursor_x = start_x
+        }
+
+        if (len(temp_vulnerabilities) > 0 || len(temp_resistances) > 0 || len(temp_immunities) > 0) {
+            cursor_x = start_x
+            cursor_y += LINE_HEIGHT
+        }
+
+        temp_vulnerability_y, temp_resistance_y, temp_immunity_y: f32
+        temp_prev_y := cursor_y
+
+        for vulnerability in temp_vulnerabilities {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
+            cursor_y += LINE_HEIGHT
+        }
+        temp_vulnerability_y = cursor_y
+        if len(temp_vulnerabilities) > 0 {
+            cursor_x += width / 3
+            cursor_y = temp_prev_y
+        }
+    
+        for resistance in temp_resistances {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
+            cursor_y += LINE_HEIGHT
+        }
+        temp_resistance_y = cursor_y
+        if len(temp_resistances) > 0 {
+            cursor_x += width / 3
+            cursor_y = temp_prev_y
+        }
+
+        for immunity in temp_immunities {
+            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
+            cursor_y += LINE_HEIGHT
+        }
+        temp_immunity_y = cursor_y
+        if len(temp_immunities) > 0 {
+            cursor_x = start_x
+        }
+    
+        if ((len(temp_resistances) >= len(temp_immunities)) && (len(temp_resistances) >= len(temp_vulnerabilities))) {
+            cursor_y = temp_resistance_y
+        } else if ((len(temp_immunities) >= len(temp_resistances)) && (len(temp_immunities) >= len(temp_vulnerabilities))) {
+            cursor_y = temp_immunity_y
+        } else {
+            cursor_y = temp_vulnerability_y
+        }
+        cursor_x = start_x
 
         text_align_left()
 
@@ -1451,50 +1525,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         }
         GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.CR)
         cursor_y += LINE_HEIGHT
-/*
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
-    //Some sort of tab control for displaying stuff
-    text_size := rl.GuiGetStyle(.TEXTBOX, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
-    text_spacing := rl.GuiGetStyle(.TEXTBOX, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING)
-    padding := rl.GuiGetStyle(.TEXTBOX, cast(i32)rl.GuiControlProperty.TEXT_PADDING)
 
-    //log.infof("Text padding: %v", padding)
-    
-    font_size: i32 = 25
-    rl.GuiSetStyle(.TEXTBOX, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, font_size)
-
-    switch GuiTabControl({cursor_x, cursor_y, width, LINE_HEIGHT}, &state.entity_stats_tab_state) {
-    case 0: //Traits
-      if entity.traits != "" {
-        cursor_y += LINE_HEIGHT
-
-        lines_needed := getTextLinesNeeded(entity.traits, width - (cast(f32)padding * 2), font_size)
-
-        rl.GuiTextBox({cursor_x, cursor_y, width, cast(f32)lines_needed * 28}, entity.traits, font_size, false)
-        cursor_y += cast(f32)lines_needed * 28
-      }
-    case 1: //Actions
-      if entity.actions != "" {
-        cursor_y += LINE_HEIGHT
-
-        lines_needed := getTextLinesNeeded(entity.actions, width - (cast(f32)padding * 2), font_size)
-
-        rl.GuiTextBox({cursor_x, cursor_y, width, cast(f32)lines_needed * 25}, entity.actions, font_size, false)
-        cursor_y += cast(f32)lines_needed * 25
-      }
-    case 2: //Legendary actions
-      if entity.legendary_actions != "" {
-        cursor_y += LINE_HEIGHT
-
-        lines_needed := getTextLinesNeeded(entity.legendary_actions, width - (cast(f32)padding * 2), font_size)
-
-        rl.GuiTextBox({cursor_x, cursor_y, width, cast(f32)lines_needed * 25}, entity.legendary_actions, font_size, false)
-        cursor_y += cast(f32)lines_needed * 25
-      }
-    }
-*/
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
     }

@@ -378,7 +378,7 @@ get_vulnerabilities_resistances_or_immunities_json :: proc (resistances: []json.
 
 gen_vulnerability_resistance_or_immunity_string :: proc(values: DamageSet) -> (result: []string) {
     temp_list: [dynamic]string
-    defer delete(temp_list)
+    //defer delete(temp_list)
     types := []DamageType{.SLASHING, .PIERCING, .BLUDGEONING, .NON_MAGICAL, .POISON, .ACID, .FIRE, .COLD, .RADIANT, .NECROTIC, .LIGHTNING, .THUNDER, .FORCE, .PSYCHIC}
 
     for type in types {
@@ -400,15 +400,15 @@ gen_vulnerability_resistance_or_immunity_string :: proc(values: DamageSet) -> (r
         case .PSYCHIC    : if .PSYCHIC in values {append(&temp_list, "Psychic")}
         }
     }
-    copy_slice(result, temp_list[:])
+    result = temp_list[:]
     return
 }
 
 get_conditions :: proc{get_conditions_string, get_conditions_json}
 
-get_conditions_string :: proc(immunities: []string) -> (result: ConditionSet) {
-    for immunity in immunities {
-        switch strings.to_lower(immunity, allocator=context.temp_allocator) {
+get_conditions_string :: proc(conditions: []string) -> (result: ConditionSet) {
+    for condition in conditions {
+        switch strings.to_lower(condition, allocator=context.temp_allocator) {
         case "blinded"      : result |= {.BLINDED}
         case "charmed"      : result |= {.CHARMED}
         case "deafened"     : result |= {.DEAFENED}
@@ -430,9 +430,9 @@ get_conditions_string :: proc(immunities: []string) -> (result: ConditionSet) {
     return
 }
 
-get_conditions_json :: proc(immunities: []json.Value) -> (result: ConditionSet) {
-    for immunity in immunities {
-        switch strings.to_lower(immunity.(string), allocator=context.temp_allocator) {
+get_conditions_json :: proc(conditions: []json.Value) -> (result: ConditionSet) {
+    for condition in conditions {
+        switch strings.to_lower(condition.(string), allocator=context.temp_allocator) {
         case "blinded"      : result |= {.BLINDED}
         case "charmed"      : result |= {.CHARMED}
         case "deafened"     : result |= {.DEAFENED}
@@ -456,7 +456,7 @@ get_conditions_json :: proc(immunities: []json.Value) -> (result: ConditionSet) 
 
 gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {
     temp_list: [dynamic]string
-    defer delete(temp_list)
+    //defer delete(temp_list)
     types := []Condition{.BLINDED, .CHARMED, .DEAFENED, .FRIGHTENED, .GRAPPLED, .INCAPACITATED, .INVISIBLE, .PARALYZED, .PETRIFIED, .POISONED, .PRONE, .RESTRAINED, .STUNNED, .UNCONSCIOUS, .EXHAUSTION}
 
     for type in types {
@@ -478,7 +478,7 @@ gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {
         case .EXHAUSTION   : if .EXHAUSTION in values {append(&temp_list, "Exhaustion")}
         }
     }
-    copy_slice(result, temp_list[:])
+    result = temp_list[:]
     return
 }
 
