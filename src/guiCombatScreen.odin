@@ -479,10 +479,16 @@ draw_combat_screen :: proc() {
         from_dropdown_y := state.cursor.y
         state.cursor.x += draw_width / 2
 
+        GuiDropdownControl({from_dropdown_x, from_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.from_dropdown)
+        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.from_dropdown)
+
         to_dropdown_x := state.cursor.x
         to_dropdown_y := state.cursor.y
         state.cursor.x = current_panel_x + PANEL_PADDING
         state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+        GuiDropdownSelectControl({to_dropdown_x, to_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.to_dropdown)
+        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
 
         GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage")
         state.cursor.x += draw_width / 2
@@ -574,11 +580,6 @@ draw_combat_screen :: proc() {
         }
         state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-        GuiDropdownControl({from_dropdown_x, from_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.from_dropdown)
-        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.from_dropdown)
-
-        GuiDropdownSelectControl({to_dropdown_x, to_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.to_dropdown)
-        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
         state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y + PANEL_PADDING
     }
 
