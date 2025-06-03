@@ -349,8 +349,11 @@ init_state :: proc(state: ^State) {
     state.cursor = {0, 0}
     state.mouse_pos = rl.GetMousePosition()
 
-    state.srd_entities = load_entities_from_file(state.config.ENTITY_FILE_PATH)
-    state.custom_entities = load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+    state.srd_entities    = make(#soa[dynamic]Entity, allocator=entities_alloc)
+    state.custom_entities = make(#soa[dynamic]Entity, allocator=entities_alloc)
+
+    load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
+    load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
     state.gui_properties = getDefaultProperties()
     init_load_screen()
     init_setup_screen()
@@ -359,10 +362,10 @@ init_state :: proc(state: ^State) {
     init_entity_screen()
     state.current_screen_state = state.title_screen_state
 
-    state.server_state = ServerState{
-        true,
-        "{}",
-    }
+    state.server_state = ServerState{}
+
+    state.server_state.running = true
+    state.server_state.json_data = "{}"
 }
 
 d_init_state :: proc(state: ^State) {

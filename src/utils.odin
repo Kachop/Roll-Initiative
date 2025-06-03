@@ -8,6 +8,7 @@ import "core:strconv"
 import "core:encoding/json"
 import "core:strings"
 import "core:time"
+import vmem "core:mem/virtual"
 import rl "vendor:raylib"
 
 
@@ -62,23 +63,17 @@ fit_text :: proc(text: cstring, width: f32, control: rl.GuiControl, text_size: ^
 }
 
 crop_text :: proc(text: cstring, width: f32, text_size: i32) -> (result: cstring) {
-    display_string: [dynamic]rune
-    defer delete(display_string)
-    for char in string(text) {
-        append(&display_string, char)
-        if get_text_width(cstr(utf8.runes_to_string(display_string[:], allocator=frame_alloc)), text_size) > cast(i32)width {
-            pop(&display_string)
-            pop(&display_string)
-            pop(&display_string)
-            pop(&display_string)
-            append(&display_string, rune('.'))
-            append(&display_string, rune('.'))
-            append(&display_string, rune('.'))
-            result = cstr(utf8.runes_to_string(display_string[:], allocator=frame_alloc))
+    str := string(text)
+    i   := 0
+    for len(str) > 0 {
+        if get_text_width(cstr(str), text_size) > cast(i32)width {
+            str = strings.concatenate([]string{str[:len(str)-4], "..."}, allocator=frame_alloc)
+        } else {
+            result = strings.clone_to_cstring(str, allocator=frame_alloc)
             return
         }
+        i += 1
     }
-    result = cstr(utf8.runes_to_string(display_string[:], allocator=frame_alloc))
     return
 }
 
@@ -97,8 +92,11 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 }
 
 reload_entities :: proc() {
-    state.srd_entities = load_entities_from_file(state.config.ENTITY_FILE_PATH)
-    state.custom_entities = load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+    vmem.arena_free_all(&entities_arena)
+    //state.srd_entities    = make(#soa[dynamic]Entity, entities_alloc)
+    //state.custom_entities = make(#soa[dynamic]Entity, entities_alloc)
+    load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
+    load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
 }
 
 order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
@@ -129,7 +127,10 @@ order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
             append(&entities_sorted, entity)
         }
     }
-    entities^ = entities_sorted[:]
+
+    for i in 0 ..< num_entities {
+        entities[i] = entities_sorted[i]
+    }
 }
 
 match_entity :: proc(entity_name: string) -> (result: Entity, ok: bool) {
@@ -192,6 +193,8 @@ to_i32_cstr :: proc(cstr: cstring) -> i32 {
 }
 
 combat_to_json :: proc() {
+    context.allocator = server_alloc
+    delete(state.server_state.json_data)
     result := ""
 
     combat_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(state.combat_screen_state.combat_timer))
@@ -202,7 +205,7 @@ combat_to_json :: proc() {
         fmt.tprint(state.combat_screen_state.current_round),
         ",\"current_entity_index\": ",
         fmt.tprint(state.combat_screen_state.current_entity_idx),
-        ",\"entities\": ["}, "", allocator=frame_alloc)
+        ",\"entities\": ["}, "")
 
     for i in 0 ..< state.combat_screen_state.num_entities {
         entity := state.combat_screen_state.entities[i]
@@ -242,7 +245,7 @@ combat_to_json :: proc() {
                 fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
                 "\"",
                 "},",
-            }, "", frame_alloc)
+            }, "")
         } else {
             entity_string = strings.join([]string{
                 "{\"name\": \"",
@@ -267,13 +270,14 @@ combat_to_json :: proc() {
                 fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
                 "\"",
                 "}",
-            }, "", allocator=frame_alloc)
+            }, "")
         }
-        result = strings.join([]string{result, entity_string}, "", allocator=frame_alloc)
+        result = strings.join([]string{result, entity_string}, "")
     }
  
-    result = strings.join([]string{result, "]}"}, "", allocator=frame_alloc)
-    state.server_state.json_data = strings.clone(result)
+    result = strings.join([]string{result, "]}"}, "")
+    state.server_state.json_data = result
+    context.allocator = static_alloc
     return
 }
 

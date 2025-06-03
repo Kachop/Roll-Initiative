@@ -60,6 +60,7 @@ draw_setup_screen :: proc() {
     state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
     if GuiButton({state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, "")) {
+        fmt.println("Combat entities:", len(state.combat_screen_state.entities))
         if state.setup_screen_state.num_entities > 0 {
             for i in 0 ..< state.setup_screen_state.num_entities {
                 if (state.setup_screen_state.entities_selected[i].initiative == 0) {
@@ -81,6 +82,7 @@ draw_setup_screen :: proc() {
                 append(&state.combat_screen_state.entity_button_states, entity_button_state^)
             }
             state.current_screen_state = state.combat_screen_state
+            fmt.println("Combat entities:", len(state.combat_screen_state.entities))
             return
         }else {
             new_message := MessageBoxState{}
@@ -169,27 +171,29 @@ draw_setup_screen :: proc() {
         state.cursor.x += PANEL_PADDING
         state.cursor.y += PANEL_PADDING
 
-        for &entity in state.setup_screen_state.entities_searched {
-            if GuiButton({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, entity.name) {
-                new_entity := new(Entity)
-                new_entity^ = entity
-                match_count := 0
-                for i in 0 ..< state.setup_screen_state.num_entities {
-                    selected_entity := state.setup_screen_state.entities_selected[i]
-                    if selected_entity.name == entity.name {
-                        match_count += 1
-                        }
-                }
-                if match_count > 0 {
-                    new_entity.alias = fmt.caprint(entity.name, match_count + 1)
-                }
-                state.setup_screen_state.entities_selected[state.setup_screen_state.num_entities] = new_entity^
-                entity_button_state := new(EntityButtonState)
+        for entity in state.setup_screen_state.entities_searched {
+            if rl.CheckCollisionRecs({state.setup_screen_state.panel_left.rec.x, state.setup_screen_state.panel_left.rec.y, state.setup_screen_state.panel_left.rec.width, state.setup_screen_state.panel_left.rec.height}, {state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}) {
+                if GuiButton({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, entity.name) {
+                    new_entity := new(Entity)
+                    new_entity^ = entity
+                    match_count := 0
+                    for i in 0 ..< state.setup_screen_state.num_entities {
+                        selected_entity := state.setup_screen_state.entities_selected[i]
+                        if selected_entity.name == entity.name {
+                            match_count += 1
+                            }
+                    }
+                    if match_count > 0 {
+                        new_entity.alias = fmt.caprint(entity.name, match_count + 1)
+                    }
+                    state.setup_screen_state.entities_selected[state.setup_screen_state.num_entities] = new_entity^
+                    entity_button_state := new(EntityButtonState)
 
-                idx := state.setup_screen_state.num_entities
-                init_entity_button_state(entity_button_state, &state.setup_screen_state.entities_selected[idx], &state.setup_screen_state.entity_button_states, idx)
-                append(&state.setup_screen_state.entity_button_states, entity_button_state^)
-                state.setup_screen_state.num_entities += 1
+                    idx := state.setup_screen_state.num_entities
+                    init_entity_button_state(entity_button_state, &state.setup_screen_state.entities_selected[idx], &state.setup_screen_state.entity_button_states, idx)
+                    append(&state.setup_screen_state.entity_button_states, entity_button_state^)
+                    state.setup_screen_state.num_entities += 1
+                }
             }
             state.cursor.y += LINE_HEIGHT + PANEL_PADDING
         }
@@ -228,32 +232,34 @@ draw_setup_screen :: proc() {
         start_y := state.cursor.y
 
         for i in 0 ..< state.setup_screen_state.num_entities {
-            state.setup_screen_state.entity_button_states[i].index = i
-            if GuiEntityButtonClickable({state.cursor.x, state.cursor.y, draw_width - LINE_HEIGHT, LINE_HEIGHT}, &state.setup_screen_state.entity_button_states[i]) {
-                state.setup_screen_state.selected_entity = &state.setup_screen_state.entities_selected[i]
-                state.setup_screen_state.selected_entity_idx = i
-                state.setup_screen_state.initiative_input.text = cstr(state.setup_screen_state.entities_selected[i].initiative)
-            }
-            state.cursor.x += draw_width - LINE_HEIGHT
-
-            if GuiButton({state.cursor.x, state.cursor.y, LINE_HEIGHT, LINE_HEIGHT}, rl.GuiIconText(.ICON_CROSS, "")) {
-                if (&state.setup_screen_state.entities_selected[i] == state.setup_screen_state.selected_entity) {
-                    state.setup_screen_state.selected_entity     = nil
-                    state.setup_screen_state.selected_entity_idx = 0
-                } else if (i < state.setup_screen_state.selected_entity_idx) {
-                    state.setup_screen_state.selected_entity_idx -= 1
-                    state.setup_screen_state.selected_entity = &state.setup_screen_state.entities_selected[state.setup_screen_state.selected_entity_idx]
+            if rl.CheckCollisionRecs({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, {state.setup_screen_state.panel_mid.rec.x, state.setup_screen_state.panel_mid.rec.y, state.setup_screen_state.panel_mid.rec.width, state.setup_screen_state.panel_mid.rec.height}) {
+                state.setup_screen_state.entity_button_states[i].index = i
+                if GuiEntityButtonClickable({state.cursor.x, state.cursor.y, draw_width - LINE_HEIGHT, LINE_HEIGHT}, &state.setup_screen_state.entity_button_states[i]) {
+                    state.setup_screen_state.selected_entity = &state.setup_screen_state.entities_selected[i]
+                    state.setup_screen_state.selected_entity_idx = i
+                    state.setup_screen_state.initiative_input.text = cstr(state.setup_screen_state.entities_selected[i].initiative)
                 }
+                state.cursor.x += draw_width - LINE_HEIGHT
 
-                for j in i ..< state.setup_screen_state.num_entities {
-                    if j < state.setup_screen_state.num_entities {
-                        state.setup_screen_state.entities_selected[j] = state.setup_screen_state.entities_selected[j+1]
-                    } else {
-                        state.setup_screen_state.entities_selected[j] = Entity{}
+                if GuiButton({state.cursor.x, state.cursor.y, LINE_HEIGHT, LINE_HEIGHT}, rl.GuiIconText(.ICON_CROSS, "")) {
+                    if (&state.setup_screen_state.entities_selected[i] == state.setup_screen_state.selected_entity) {
+                        state.setup_screen_state.selected_entity     = nil
+                        state.setup_screen_state.selected_entity_idx = 0
+                    } else if (i < state.setup_screen_state.selected_entity_idx) {
+                        state.setup_screen_state.selected_entity_idx -= 1
+                        state.setup_screen_state.selected_entity = &state.setup_screen_state.entities_selected[state.setup_screen_state.selected_entity_idx]
                     }
+
+                    for j in i ..< state.setup_screen_state.num_entities {
+                        if j < state.setup_screen_state.num_entities {
+                            state.setup_screen_state.entities_selected[j] = state.setup_screen_state.entities_selected[j+1]
+                        } else {
+                            state.setup_screen_state.entities_selected[j] = Entity{}
+                        }
+                    }
+                    ordered_remove(&state.setup_screen_state.entity_button_states, i)
+                    state.setup_screen_state.num_entities -= 1
                 }
-                ordered_remove(&state.setup_screen_state.entity_button_states, i)
-                state.setup_screen_state.num_entities -= 1
             }
             state.cursor.x = start_x
             state.cursor.y += LINE_HEIGHT + PANEL_PADDING

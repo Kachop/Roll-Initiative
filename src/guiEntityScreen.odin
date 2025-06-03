@@ -489,7 +489,8 @@ draw_entity_screen :: proc() {
             add_entity_to_file(new_entity, state.config.CUSTOM_ENTITY_FILE_PATH)
         } else {
             //Edit file. Re-write whole file with current entity being replaced.
-            temp_entities_list := load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+            temp_entities_list: #soa[dynamic]Entity
+            load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &temp_entities_list)
             defer delete_soa(temp_entities_list)
             temp_entities_list[state.entity_screen_state.entity_to_edit] = new_entity
             for entity, i in temp_entities_list {
@@ -686,6 +687,27 @@ set_input_values :: proc() {
         state.entity_screen_state.combined_image, _ = get_entity_icon_data(cstr(state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index]), cstr(state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index]))
     } else {
         //Set everything to default options. Will happen when some clear button is clicked.
+        delete(state.entity_screen_state.name_input.text)
+        delete(state.entity_screen_state.race_input.text)
+        delete(state.entity_screen_state.size_input.text)
+        delete(state.entity_screen_state.AC_input.text)
+        delete(state.entity_screen_state.HP_max_input.text)
+        delete(state.entity_screen_state.HP_input.text)
+        delete(state.entity_screen_state.temp_HP_input.text)
+        delete(state.entity_screen_state.STR_input.text)
+        delete(state.entity_screen_state.STR_save_input.text)
+        delete(state.entity_screen_state.DEX_input.text)
+        delete(state.entity_screen_state.DEX_save_input.text)
+        delete(state.entity_screen_state.CON_input.text)
+        delete(state.entity_screen_state.CON_save_input.text)
+        delete(state.entity_screen_state.WIS_input.text)
+        delete(state.entity_screen_state.WIS_save_input.text)
+        delete(state.entity_screen_state.INT_input.text)
+        delete(state.entity_screen_state.INT_save_input.text)
+        delete(state.entity_screen_state.CHA_input.text)
+        delete(state.entity_screen_state.CHA_save_input.text)
+        delete(state.entity_screen_state.languages_input.text)
+        rl.UnloadTexture(state.entity_screen_state.combined_image)
         state.entity_screen_state.name_input.text        = fmt.caprint("")
         state.entity_screen_state.race_input.text        = fmt.caprint("")
         state.entity_screen_state.size_input.text        = fmt.caprint("")
@@ -713,7 +735,7 @@ set_input_values :: proc() {
             state.entity_screen_state.DMG_immune_input.selected[i]     = false
         }
 
-        state.entity_screen_state.languages_input.text = cstr("")
+        state.entity_screen_state.languages_input.text = fmt.caprint("")
         state.entity_screen_state.current_icon_index   = 0
         state.entity_screen_state.current_border_index = 0
         state.entity_screen_state.combined_image, _    = get_entity_icon_data(cstr(state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index]), cstr(state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index]))

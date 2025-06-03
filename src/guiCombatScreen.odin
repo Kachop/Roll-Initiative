@@ -101,14 +101,13 @@ draw_combat_screen :: proc() {
     stop_button_x := state.cursor.x
     stop_button_y := state.cursor.y
     defer if GuiButton({stop_button_x, stop_button_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, &state.combat_screen_state.stop_button, rl.GuiIconText(.ICON_PLAYER_STOP, "")) {
-        temp_entities_list := load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+        temp_entities_list: #soa[dynamic]Entity
+        load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &temp_entities_list)
         defer delete_soa(temp_entities_list)
 
         player_count := 0
         for i in 0 ..< state.combat_screen_state.num_entities {
-            context.allocator = frame_alloc
             entity := state.combat_screen_state.entities[i]
-            context.allocator = static_alloc
             if entity.type == .PLAYER {
                 for temp_entity, j in temp_entities_list {
                     if entity.name == temp_entity.name {
@@ -173,12 +172,6 @@ draw_combat_screen :: proc() {
     state.cursor.y += LINE_HEIGHT + PANEL_PADDING
     //IP LABEL
 
-    delete(state.combat_screen_state.entity_names)
-    state.combat_screen_state.entity_names = make([dynamic]cstring)
-    for i in 0 ..< state.combat_screen_state.num_entities {
-        append(&state.combat_screen_state.entity_names, cstr(state.combat_screen_state.entities[i].alias))
-    }
-
     if state.combat_screen_state.first_load {
         state.combat_screen_state.first_load = false
 
@@ -215,6 +208,11 @@ draw_combat_screen :: proc() {
             state.cursor.y,
             panel_width,
             0,
+        }
+
+        //clear(&state.combat_screen_state.entity_names)
+        for i in 0 ..< state.combat_screen_state.num_entities {
+            append(&state.combat_screen_state.entity_names, state.combat_screen_state.entities[i].alias)
         }
 
         init_dropdown_state(&state.combat_screen_state.from_dropdown, "From:", state.combat_screen_state.entity_names[:], &state.combat_screen_state.btn_list)
@@ -276,7 +274,7 @@ draw_combat_screen :: proc() {
                     state.combat_screen_state.entity_button_states[i].index = i
                     if GuiEntityButtonClickable({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, &state.combat_screen_state.entity_button_states[i]) {
                         for j in i ..< state.combat_screen_state.num_entities {
-                            if j < state.combat_screen_state.num_entities {
+                            if j < state.combat_screen_state.num_entities - 1 {
                                 state.combat_screen_state.entities[j] = state.combat_screen_state.entities[j+1]
                             } else {
                                 state.combat_screen_state.entities[j] = Entity{}
@@ -289,9 +287,8 @@ draw_combat_screen :: proc() {
                         ordered_remove(&state.combat_screen_state.entity_button_states, i)
                         state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
 
-                        delete(state.combat_screen_state.entity_names)
-                        state.combat_screen_state.entity_names = make([dynamic]cstring)
-                        
+                        clear(&state.combat_screen_state.entity_names)
+                        //state.combat_screen_state.entity_names = make([dynamic]cstring)
                         for i in 0 ..< state.combat_screen_state.num_entities {
                             append(&state.combat_screen_state.entity_names, state.combat_screen_state.entities[i].alias)
                         }
@@ -311,7 +308,7 @@ draw_combat_screen :: proc() {
             state.combat_screen_state.panel_left_top.scroll.y = 0
         }
     } else {
-        defer switch GuiTabControl({state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT}, &state.setup_screen_state.filter_tab) {
+        switch GuiTabControl({state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT}, &state.setup_screen_state.filter_tab) {
         case 0: state.setup_screen_state.entities_filtered = state.srd_entities
         case 1: state.setup_screen_state.entities_filtered = state.custom_entities
         }
@@ -350,9 +347,7 @@ draw_combat_screen :: proc() {
                     new_entity^ = entity
                     match_count := 0
                     for i in 0 ..< state.combat_screen_state.num_entities {
-                        context.allocator = frame_alloc
                         selected_entity := state.combat_screen_state.entities[i]
-                        context.allocator = static_alloc
                         if selected_entity.name == entity.name {
                             match_count += 1
                         }
@@ -370,11 +365,11 @@ draw_combat_screen :: proc() {
 
                     state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
 
-                    delete(state.combat_screen_state.entity_names)
-                    state.combat_screen_state.entity_names = make([dynamic]cstring)
+                    clear(&state.combat_screen_state.entity_names)
+                    //state.combat_screen_state.entity_names = make([dynamic]cstring)
 
                     for i in 0 ..< state.combat_screen_state.num_entities {
-                        append(&state.combat_screen_state.entity_names, cstr(state.combat_screen_state.entities[i].alias))
+                        append(&state.combat_screen_state.entity_names, state.combat_screen_state.entities[i].alias)
                     }
 
                     init_dropdown_state(&state.combat_screen_state.from_dropdown, "From:", state.combat_screen_state.entity_names[:], &state.combat_screen_state.btn_list)
@@ -581,7 +576,7 @@ draw_combat_screen :: proc() {
         state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
         GuiDropdownControl({from_dropdown_x, from_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.from_dropdown)
-        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
+        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.from_dropdown)
 
         GuiDropdownSelectControl({to_dropdown_x, to_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.to_dropdown)
         register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
@@ -628,49 +623,49 @@ draw_combat_screen :: proc() {
 
     GuiPanel({state.cursor.x, state.cursor.y, panel_width, panel_height / 2}, &state.combat_screen_state.panel_right_bottom, "Entity Abilities")
 
-  switch GuiTabControl({state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT}, &state.combat_screen_state.current_entity_tab_state) {
-  case 0:
-    state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.traits
-  case 1:
-    state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.actions
-  case 2:
-    state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.legendary_actions
-  }
-  state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_right_bottom.scroll.y
-  state.cursor.y = state.cursor.y
-    
-  if (state.combat_screen_state.panel_right_bottom.height_needed > state.combat_screen_state.panel_right_bottom.rec.height) {
-    state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width - 14
-    state.combat_screen_state.panel_right_bottom.content_rec.height = state.combat_screen_state.panel_right_bottom.height_needed
-    rl.GuiScrollPanel(state.combat_screen_state.panel_right_bottom.rec, nil, state.combat_screen_state.panel_right_bottom.content_rec, &state.combat_screen_state.panel_right_bottom.scroll, &state.combat_screen_state.panel_right_bottom.view)
-
-    rl.BeginScissorMode(cast(i32)state.combat_screen_state.panel_right_bottom.view.x, cast(i32)state.combat_screen_state.panel_right_bottom.view.y, cast(i32)state.combat_screen_state.panel_right_bottom.view.width, cast(i32)state.combat_screen_state.panel_right_bottom.view.height)
-  } else {
-    state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width
-  }
-
-  {
-    start_y := state.cursor.y
-    
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
-
-    if state.combat_screen_state.panel_right_bottom_text != "" {
-      lines_needed := get_text_lines_needed(state.combat_screen_state.panel_right_bottom_text, state.combat_screen_state.panel_right_bottom.content_rec.width - (PANEL_PADDING * 2), TEXT_SIZE)
-      rl.GuiTextBox({state.cursor.x, state.cursor.y, state.combat_screen_state.panel_right_bottom.content_rec.width, cast(f32)lines_needed * 28}, state.combat_screen_state.panel_right_bottom_text, TEXT_SIZE, false)
-      state.cursor.y += cast(f32)lines_needed * 28
+    switch GuiTabControl({state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT}, &state.combat_screen_state.current_entity_tab_state) {
+    case 0:
+        state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.traits
+    case 1:
+        state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.actions
+    case 2:
+        state.combat_screen_state.panel_right_bottom_text = state.combat_screen_state.current_entity.legendary_actions
     }
-    state.combat_screen_state.panel_right_bottom.height_needed = (state.cursor.y - start_y)
-  }
+    state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_right_bottom.scroll.y
+    state.cursor.y = state.cursor.y
+    
+    if (state.combat_screen_state.panel_right_bottom.height_needed > state.combat_screen_state.panel_right_bottom.rec.height) {
+        state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width - 14
+        state.combat_screen_state.panel_right_bottom.content_rec.height = state.combat_screen_state.panel_right_bottom.height_needed
+        rl.GuiScrollPanel(state.combat_screen_state.panel_right_bottom.rec, nil, state.combat_screen_state.panel_right_bottom.content_rec, &state.combat_screen_state.panel_right_bottom.scroll, &state.combat_screen_state.panel_right_bottom.view)
 
-  if (state.combat_screen_state.panel_right_bottom.height_needed > state.combat_screen_state.panel_right_bottom.rec.height) {
-    rl.EndScissorMode()
-  } else {
-    state.combat_screen_state.panel_right_bottom.scroll.y = 0
-  }
-  rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
-  rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
+        rl.BeginScissorMode(cast(i32)state.combat_screen_state.panel_right_bottom.view.x, cast(i32)state.combat_screen_state.panel_right_bottom.view.y, cast(i32)state.combat_screen_state.panel_right_bottom.view.width, cast(i32)state.combat_screen_state.panel_right_bottom.view.height)
+    } else {
+        state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width
+    }
+
+    {
+        start_y := state.cursor.y
+    
+        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_WORD)
+        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
+        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
+
+        if state.combat_screen_state.panel_right_bottom_text != "" {
+            lines_needed := get_text_lines_needed(state.combat_screen_state.panel_right_bottom_text, state.combat_screen_state.panel_right_bottom.content_rec.width - (PANEL_PADDING * 2), TEXT_SIZE)
+            rl.GuiTextBox({state.cursor.x, state.cursor.y, state.combat_screen_state.panel_right_bottom.content_rec.width, cast(f32)lines_needed * 28}, state.combat_screen_state.panel_right_bottom_text, TEXT_SIZE, false)
+            state.cursor.y += cast(f32)lines_needed * 28
+        }
+        state.combat_screen_state.panel_right_bottom.height_needed = (state.cursor.y - start_y)
+    }
+
+    if (state.combat_screen_state.panel_right_bottom.height_needed > state.combat_screen_state.panel_right_bottom.rec.height) {
+        rl.EndScissorMode()
+    } else {
+        state.combat_screen_state.panel_right_bottom.scroll.y = 0
+    }
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
+    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
 }
 
 resolve_damage :: proc() {

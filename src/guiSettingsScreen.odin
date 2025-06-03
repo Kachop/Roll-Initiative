@@ -109,8 +109,8 @@ draw_settings_screen :: proc() {
         SAVE_CONFIG(&state.config)
         LOAD_CONFIG(&state.config)
 
-        state.srd_entities    = load_entities_from_file(state.config.ENTITY_FILE_PATH)
-        state.custom_entities = load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH)
+        load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
+        load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
 
         new_message := MessageBoxState{}
 

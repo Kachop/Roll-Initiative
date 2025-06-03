@@ -22,13 +22,15 @@ app_title :: "/Roll-Initiative"
 VERSION_MAJOR :: 0
 VERSION_MINOR :: 9
 
-static_arena: vmem.Arena
-temp_arena  : vmem.Arena
-frame_arena : vmem.Arena
+static_arena  : vmem.Arena
+entities_arena: vmem.Arena
+server_arena  : vmem.Arena
+frame_arena   : vmem.Arena
 
-static_alloc: mem.Allocator
-temp_alloc  : mem.Allocator
-frame_alloc : mem.Allocator
+static_alloc  : mem.Allocator
+entities_alloc: mem.Allocator
+server_alloc  : mem.Allocator
+frame_alloc   : mem.Allocator
 
 cstr :: fmt.ctprint
 str  :: fmt.tprint
@@ -41,17 +43,21 @@ FRAME := 0
 @(init)
 init :: proc() {
     //Initialise memory arenas
-    arena_err := vmem.arena_init_static(&static_arena, 15*mem.Megabyte)
+    arena_err := vmem.arena_init_static(&static_arena, 10*mem.Megabyte)
     if arena_err == .None {
         static_alloc = vmem.arena_allocator(&static_arena)
     }
-    arena_err = vmem.arena_init_static(&temp_arena, 1*mem.Megabyte)
+    arena_err = vmem.arena_init_static(&entities_arena, 100*mem.Megabyte)
     if arena_err == .None {
-        temp_alloc = vmem.arena_allocator(&temp_arena)
+        entities_alloc = vmem.arena_allocator(&entities_arena)
+    }
+    arena_err = vmem.arena_init_static(&server_arena, 10*mem.Megabyte)
+    if arena_err == .None {
+        server_alloc = vmem.arena_allocator(&server_arena)
     }
     frame_alloc = vmem.arena_allocator(&frame_arena)
 
-    context.allocator = static_alloc
+    context.allocator      = static_alloc
     context.temp_allocator = frame_alloc
 
     rl.SetTraceLogLevel(.NONE)
@@ -130,7 +136,8 @@ main :: proc() {
         if (FRAME == 60) {
             log.infof("HOVER STACK: %v", state.hover_stack)
             log.infof("Static alloc | Reserved: %v, Used: %v", static_arena.total_reserved, static_arena.total_used)
-            log.infof("Temp alloc   | Reserved: %v, Used: %v", temp_arena.total_reserved, temp_arena.total_used)
+            log.infof("Entities alloc   | Reserved: %v, Used: %v", entities_arena.total_reserved, entities_arena.total_used)
+            log.infof("Server alloc   | Reserved: %v, Used: %v", server_arena.total_reserved, server_arena.total_used)
             log.infof("Frame alloc  | Reserved: %v, Used: %v", frame_arena.total_reserved, frame_arena.total_used)
             FRAME = 0
         }
@@ -141,6 +148,7 @@ main :: proc() {
     thread.terminate(server_thread, 0)
     thread.destroy(server_thread)
     vmem.arena_destroy(&frame_arena)
-    vmem.arena_destroy(&temp_arena)
+    vmem.arena_destroy(&entities_arena)
+    vmem.arena_destroy(&server_arena)
     vmem.arena_destroy(&static_arena)
 }

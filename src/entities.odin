@@ -6,6 +6,7 @@ import "core:os"
 import "core:encoding/json"
 import "core:strings"
 import "core:math/rand"
+import vmem "core:mem/virtual"
 import rl "vendor:raylib"
 
 EntityType :: enum {
@@ -120,8 +121,12 @@ Entity :: struct {
     icon_data : string,
 }
 
-load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
-    entities: #soa[dynamic]Entity
+load_entities_from_file :: proc(filename: string, entities: ^#soa[dynamic]Entity) {
+    context.allocator = entities_alloc
+    clear(entities)
+
+    entities^ = make(#soa[dynamic]Entity)
+
     log.infof("LOADING FILE: %v", filename)
     defer log.infof("Loaded %v entities from file", len(entities))
 
@@ -129,10 +134,12 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
     defer delete(file_data)
     if (ok) {
         json_data, err := json.parse(file_data)
+        defer json.destroy_value(json_data)
         //Loop over the entities and fill the struct.
         if err == .None {
             for entity in json_data.(json.Array) {
                 entity_fields := entity.(json.Object)
+                defer json.destroy_value(entity_fields)
         
                 entity_type: EntityType
                 switch entity_fields["Type"].(string) {
@@ -198,11 +205,15 @@ load_entities_from_file :: proc(filename: string) -> #soa[dynamic]Entity {
                     fmt.caprint(entity_fields["img_border"].(string)) if ("img_border" in entity_fields) else "",
                     icon_data,
                 }
-                append_soa(&entities, new_entity)
+                append_soa(entities, new_entity)
             }
+        } else {
+            log.infof("Error parsing JSON: %v", err)
         }
+    } else {
+        log.infof("Error reading files")
     }
-    return entities
+    context.allocator = static_alloc
 }
 
 add_entity_to_file :: proc(entity: Entity, filename: string = state.config.CUSTOM_ENTITY_FILE_PATH, wipe: bool = false) {

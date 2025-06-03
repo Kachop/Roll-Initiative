@@ -6,6 +6,7 @@ import "core:net"
 import "core:strings"
 import "core:os/os2"
 import "core:encoding/json"
+import vmem "core:mem/virtual"
 import http "shared:odin-http"
 
 /*
@@ -81,6 +82,7 @@ str_to_ipaddr :: proc(addr: string) -> (result: net.IP4_Address) {
 }
 
 run_combat_server :: proc() {
+    context.allocator = frame_alloc
 	context.logger = log.create_console_logger(.Info)
 
 	s: http.Server
@@ -89,7 +91,7 @@ run_combat_server :: proc() {
 
 	// Set up routing
 	router: http.Router
-	http.router_init(&router)
+	http.router_init(&router, allocator=static_alloc)
 	defer http.router_destroy(&router)
 
     http.route_get(&router, "/", http.handler(index))
@@ -100,6 +102,7 @@ run_combat_server :: proc() {
 	log.info("Listening on ", state.config.IP_ADDRESS, ":", state.config.PORT)
     opts := http.Default_Server_Opts
     opts.thread_count = 1
+    context.allocator = static_alloc
 	err := http.listen_and_serve(&s, routed, net.Endpoint{address = state.config.IP_ADDRESS, port = state.config.PORT}, opts)
 	fmt.assertf(err == nil, "server stopped with error: %v", err)
 }
@@ -113,13 +116,16 @@ event :: proc(req: ^http.Request, res: ^http.Response) {
     data := fmt.tprintf("data:%v\n\n", state.server_state.json_data)
 
     respond_sse(res, data)
+    vmem.arena_free_all(&server_arena)
 }
 
 respond_sse :: proc(r: ^http.Response, text: string, status: http.Status = .OK, loc := #caller_location) {
+    context.allocator = frame_alloc
     r.status = status
     http.headers_set_content_type(&r.headers, "text/event-stream")
     //http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
     //http.headers_set_unsafe(&r.headers, "Keep-Alive", "timeout=1")
     http.body_set(r, text, loc)
     http.respond(r, loc)
+    context.allocator = static_alloc
 }

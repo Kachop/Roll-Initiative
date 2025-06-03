@@ -102,6 +102,7 @@ renderHTML :: proc(text: string) -> (result: cstring) {
             sresult = sresult[:len(sresult)-2]
         }
         result = strings.clone_to_cstring(sresult)
+        delete(sresult)
     }
     return result
 }

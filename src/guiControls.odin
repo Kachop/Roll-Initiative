@@ -70,14 +70,16 @@ clear_hover_stack :: proc() {
 GuiLabel :: proc(bounds: rl.Rectangle, text: cstring) {
     initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
     label_string: cstring
-    if string(text)[0] != '#' {
-        if !fit_text(text, bounds.width, .DEFAULT, &state.gui_properties.TEXT_SIZE) {
-            label_string = crop_text(text, bounds.width, state.gui_properties.TEXT_SIZE)
+    if text != "" {
+        if string(text)[0] != '#' {
+            if !fit_text(text, bounds.width, .DEFAULT, &state.gui_properties.TEXT_SIZE) {
+                label_string = crop_text(text, bounds.width, state.gui_properties.TEXT_SIZE)
+            } else {
+                label_string = text
+            }
         } else {
             label_string = text
         }
-    } else {
-        label_string = text
     }
     rl.GuiLabel(bounds, label_string)
     state.gui_properties.TEXT_SIZE = initial_text_size
@@ -748,8 +750,8 @@ DropdownSelectState :: struct {
 init_dropdown_select_state :: proc(dropdown_state: ^DropdownSelectState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
     dropdown_state.id       = GUI_ID
     dropdown_state.title    = title
-    dropdown_state.check_box_states = make_slice([]CheckBoxState, len(labels))
-    dropdown_state.selected = make_slice([]bool, len(labels))
+    dropdown_state.check_box_states = make_slice([]CheckBoxState, len(labels), allocator=static_alloc)
+    dropdown_state.selected = make_slice([]bool, len(labels), allocator=static_alloc)
     dropdown_state.btn_list = btn_list
 
     GUI_ID += 1
@@ -915,6 +917,8 @@ init_tab_control_state :: proc(tab_state: ^TabControlState, options: []cstring) 
 GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 {
     using state.gui_properties
 
+    context.allocator = frame_alloc
+
     cursor_x := bounds.x
     cursor_y := bounds.y
 
@@ -990,6 +994,7 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
     }
 
     text_align_left()
+    context.allocator = static_alloc
     return tab_state.selected
 }
 
@@ -1244,6 +1249,8 @@ GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
 GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextInputState=nil) {
     using state.gui_properties
 
+    context.allocator = frame_alloc
+    
     if entity != nil {
         cursor_x := bounds.x
         cursor_y := bounds.y
@@ -1491,5 +1498,6 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
         rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
     }
+    context.allocator = static_alloc
 }
 
