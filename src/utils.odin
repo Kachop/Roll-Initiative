@@ -154,11 +154,13 @@ get_entity_icon_from_paths :: proc(icon_path: cstring, border_path: cstring) -> 
     temp_border_image := rl.LoadImage(cstr(state.config.CUSTOM_ENTITIES_DIR, "..", "borders", border_path, sep=FILE_SEPERATOR))
     defer rl.UnloadImage(temp_border_image)
 
-    if temp_icon_image.width != 128 || temp_icon_image.height != 128 {
-        rl.ImageResize(&temp_icon_image, 128, 128)
+    img_size : i32 = 256
+
+    if temp_icon_image.width != img_size || temp_icon_image.height != img_size {
+        rl.ImageResize(&temp_icon_image, img_size, img_size)
     }
-    if temp_border_image.width != 128 || temp_border_image.height != 128 {
-        rl.ImageResize(&temp_border_image, 128, 128)
+    if temp_border_image.width != img_size || temp_border_image.height != img_size {
+        rl.ImageResize(&temp_border_image, img_size, img_size)
     }
 
     rl.ImageAlphaMask(&temp_icon_image, temp_border_image)
@@ -192,7 +194,6 @@ to_i32_cstr :: proc(cstr: cstring) -> i32 {
 
 combat_to_json :: proc() {
     context.allocator = server_alloc
-    delete(state.server_state.json_data)
     result := ""
 
     combat_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(state.combat_screen_state.combat_timer))
@@ -233,6 +234,8 @@ combat_to_json :: proc() {
                 fmt.tprint(entity.HP_max),
                 ",\"temp_health\": ",
                 fmt.tprint(entity.temp_HP),
+                ",\"ac\": ",
+                fmt.tprint(entity.AC),
                 ",\"conditions\": ",
                 fmt.tprintf("%v", gen_condition_string(entity.conditions)),
                 ",\"visible\": ",
@@ -258,6 +261,8 @@ combat_to_json :: proc() {
                 fmt.tprint(entity.HP_max),
                 ",\"temp_health\": ",
                 fmt.tprint(entity.temp_HP),
+                ",\"ac\": ",
+                fmt.tprint(entity.AC),
                 ",\"conditions\": ",
                 fmt.tprintf("%v", gen_condition_string(entity.conditions)),
                 ",\"visible\": ",

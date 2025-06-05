@@ -35,8 +35,8 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "",
-		"img_url": "Belasar_small.png",
-		"img_border": "square.png"
+		"img_url": "Belasar.png",
+		"img_border": "square rounded.png"
 	},
 	{
 		"Name": "Darty",
@@ -74,7 +74,7 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "Common, Draconic",
-		"img_url": "Darty_small.png",
+		"img_url": "Darty.png",
 		"img_border": "square rounded.png"
 	},
 	{
@@ -113,7 +113,7 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "",
-		"img_url": "Sera_small.png",
+		"img_url": "Sera.png",
 		"img_border": "square rounded.png"
 	},
 	{
@@ -152,8 +152,8 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "",
-		"img_url": "Varik_small.png",
-		"img_border": "square rounded.png"
+		"img_url": "Varik.png",
+		"img_border": "square.png"
 	},
 	{
 		"Name": "Sora",
@@ -191,7 +191,7 @@
 		"Condition Immunities": [],
 		"Senses": "",
 		"Languages": "",
-		"img_url": "Sora_small.png",
+		"img_url": "Soria.png",
 		"img_border": "circle.png"
 	}
 ]

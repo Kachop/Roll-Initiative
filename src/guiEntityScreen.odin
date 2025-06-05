@@ -544,8 +544,13 @@ draw_entity_screen :: proc() {
             }
             state.cursor.x = start_x - PANEL_PADDING + (panel_width / 2) - 64
 
-            rl.DrawTexture(state.entity_screen_state.combined_image, cast(i32)state.cursor.x, cast(i32)state.cursor.y, rl.WHITE)
+            display_img := rl.LoadImageFromTexture(state.entity_screen_state.combined_image)
+            rl.ImageResize(&display_img, 128, 128)
+            draw_texture := rl.LoadTextureFromImage(display_img)
+            rl.DrawTexture(draw_texture, cast(i32)state.cursor.x, cast(i32)state.cursor.y, rl.WHITE)
             state.cursor.x = start_x + draw_width + PANEL_PADDING - (PANEL_PADDING * 3)
+
+            rl.UnloadImage(display_img)
 
             if GuiButton({state.cursor.x, state.cursor.y, PANEL_PADDING * 3, 128}, rl.GuiIconText(.ICON_ARROW_RIGHT_FILL, "")) {
                 if state.entity_screen_state.current_border_index < cast(i32)len(state.entity_screen_state.borders) - 1 {
@@ -576,6 +581,17 @@ draw_entity_screen :: proc() {
                 }
                 state.entity_screen_state.combined_image, _ = get_entity_icon_data(cstr(state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index]), cstr(state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index]))
             }
+            state.cursor.x = start_x
+            state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+            GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT / 1.5}, "Image Dir:")
+            state.cursor.y += (LINE_HEIGHT / 1.5) + PANEL_PADDING
+            GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT / 1.5}, cstr(state.config.CUSTOM_ENTITIES_DIR, "images", sep=""))
+            state.cursor.y += (LINE_HEIGHT / 1.5) + PANEL_PADDING
+
+            GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT / 1.5}, "Border Dir:")
+            state.cursor.y += (LINE_HEIGHT / 1.5) + PANEL_PADDING
+            GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT / 1.5}, cstr(state.app_dir, FILE_SEPERATOR, "borders", sep=""))
         } else {
             GuiLabel({state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT}, "No images found")
         }

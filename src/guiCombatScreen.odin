@@ -344,6 +344,7 @@ draw_combat_screen :: proc() {
                 if GuiButton({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, entity.name) {
                     new_entity := new(Entity)
                     new_entity^ = entity
+                    
                     match_count := 0
                     for i in 0 ..< state.combat_screen_state.num_entities {
                         selected_entity := state.combat_screen_state.entities[i]
@@ -365,8 +366,6 @@ draw_combat_screen :: proc() {
                     state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
 
                     clear(&state.combat_screen_state.entity_names)
-                    //state.combat_screen_state.entity_names = make([dynamic]cstring)
-
                     for i in 0 ..< state.combat_screen_state.num_entities {
                         append(&state.combat_screen_state.entity_names, state.combat_screen_state.entities[i].alias)
                     }

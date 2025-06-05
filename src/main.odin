@@ -51,7 +51,7 @@ init :: proc() {
     if arena_err == .None {
         entities_alloc = vmem.arena_allocator(&entities_arena)
     }
-    arena_err = vmem.arena_init_static(&server_arena, 10*mem.Megabyte)
+    arena_err = vmem.arena_init_static(&server_arena, 100*mem.Megabyte)
     if arena_err == .None {
         server_alloc = vmem.arena_allocator(&server_arena)
     }

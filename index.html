@@ -30,13 +30,17 @@
 			grid-column: 3;
 		}
 
+        .entities-container {
+            display: grid;
+        }
+
 		ol {
 			list-style-type: none;
 			padding: 10px;
 		}
 
 		ol li {
-			font-size: 50px;
+			font-size: 40px;
 			padding: 8px 8px;
 			margin: 2px;
 			border: 2px solid #000000;
@@ -44,6 +48,60 @@
 			vertical-align: center;
 			border-radius: 10px;
 		}
+
+        .current-entity-container {
+            grid-column: 1;
+            text-align: center;
+        }
+
+        .entities-list {
+            grid-column: 2;
+            text-align: center;
+        }
+        
+        .current-entity-img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            vertical-align: center;
+            align-content: center;
+            grid-column-start: 1;
+            grid-column-end: 4;
+            grid-row-start: 2;
+            grid-row-end: 4;
+        }
+
+        .current-entity-label {
+            grid-column-start: 1;
+            grid-column-end: 4;
+            grid-row-start: 1;
+            grid-row-end: 1;
+            text-align: center;
+        }
+
+        .current-entity-health {
+            text-align: center;
+            grid-column-start: 1;
+            grid-column-end: 2;
+            grid-row-start: 4;
+            grid-row-end: 5;
+        }
+
+        .current-entity-ac {
+            text-align: center;
+            grid-column-start: 2;
+            grid-column-end: 4;
+            grid-row-start: 4;
+            grid-row-end: 5;
+        }
+
+        .current-entity-conditions {
+            text-align: center;
+            grid-column-start: 3;
+            grid-column-end: 4;
+            grid-row-start: 4;
+            grid-row-end: 5;
+        }
 
 		ol li.current-entity {
 			border: 4px solid #000000;
@@ -82,23 +140,28 @@
 			grid-column-end: 2;
 		}
 
+        .img-border {
+            border: 5px solid #900;
+            border-radius: 10px;
+        }
+
 		.entity_label {
+			text-align: center;
+			grid-column-start: 2;
+			grid-column-end: 3;
+		}
+
+		.entity_health {
 			text-align: center;
 			grid-column-start: 3;
 			grid-column-end: 4;
 		}
 
-		.entity_health {
-			text-align: center;
-			grid-column-start: 5;
-			grid-column-end: 6;
-		}
-
 		.entity_conditions {
-			font-size: 12px;
+			font-size: 10px;
 			text-align: center;
-			grid-column-start: 7;
-			grid-column-end: 8;
+			grid-column-start: 4;
+			grid-column-end: 5;
 		}
 	</style>
 </head>
@@ -109,7 +172,14 @@
 	</div>
 
 	<div class=fantasy-font class=title-bar id=content>
-		<ol id="entities"></ol>
+        <div class=entities-container>
+            <div class=current-entity-container>
+                <ol id=current-entity-display></ol>
+            </div>
+            <div class=entities-list>
+		        <ol id="entities"></ol>
+            </div>
+        </div>
 	</div>
 	<script type="text/javascript">
 		var events = new EventSource("/data", {
@@ -120,14 +190,15 @@
 			},
 		});
 
+        var current_entity = document.getElementById("current-entity-display");
 		var entities = document.getElementById("entities");
 
 		events.onmessage = function(e) {
-			var test = JSON.parse(e.data);
-			round.innerHTML = test.round;
+			var combat_data = JSON.parse(e.data);
+			round.innerHTML = combat_data.round;
 			var display_text = document.getElementById("content");
 
-			if (test.round == undefined) {
+			if (combat_data.round == undefined) {
 				display_text.removeChild(display_text.lastChild);
 				display_text.appendChild(document.createTextNode("Waiting for combat to start"));
 			} else {
@@ -135,13 +206,126 @@
 					display_text.removeChild(display_text.lastChild);
 				}
 
+                if (current_entity.firstChild) {
+                    current_entity.removeChild(current_entity.firstChild);
+                }
+
+                for (var i in combat_data.entities) {
+                    var entity = combat_data.entities[i]
+                    if ((entity.visible) && (i == combat_data.current_entity_index)) {
+                        var entry = document.createElement("li");
+                        var container = document.createElement("div");
+                        container.classList.add("container");
+                        var img = document.createElement("img");
+                        img.classList.add("current-entity-img");
+                        var character_label = document.createElement("div");
+                        character_label.classList.add("current-entity-label");
+                        var health_label = document.createElement("div");
+                        health_label.classList.add("current-entity-health");
+                        var conditions_label = document.createElement("div");
+                        conditions_label.classList.add("current-entity-conditions");
+
+                        var image_size;
+                        if (window.innerHeight < window.innerWidth) {
+                            img_size = window.innerHeight / 1.5;
+                        } else {
+                            img_size = window.innerWidth / 2;
+                        }
+
+                        if (entity.type == "player") {
+                            img.src = "data:imgage/png;base64," + entity.img_url;
+                            img.width = img_size;
+                            img.height = img_size;
+                        } else {
+                            img.src = entity.img_url;
+                            img.width = img_size;
+                            img.height = img_size;
+                            img.classList.add("img-border");
+                        }
+
+						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
+						character_label.classList.add("fantasy-font");
+
+						if ((entity.type == "player") || (entity.type == "NPC")) {
+                            health_label.appendChild(document.createTextNode("HP: "));
+							health_label.appendChild(document.createTextNode(entity.health));
+							health_label.appendChild(document.createTextNode("/"));
+							health_label.appendChild(document.createTextNode(entity.max_health));
+							if (entity.temp_health > 0) {
+								health_label.appendChild(document.createTextNode("+"));
+								health_label.appendChild(document.createTextNode(entity.temp_health));
+							}
+
+							if ((entity.health + entity.temp_health) == entity.max_health) {
+								entry.classList.add('full-health');
+							} else if ((entity.health + entity.temp_health) == 0) {
+								entry.classList.add('dead');
+							} else if ((entity.health + entity.temp_health) <= 10) {
+								entry.classList.add('rlc');
+							} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
+								entry.classList.add('low-health');
+							} else {
+								entry.classList.add('mid-health');
+							}
+
+                            var ac_label = document.createElement("div");
+                            ac_label.classList.add("current-entity-ac");
+
+                            ac_label.appendChild(document.createTextNode("AC: "));
+                            ac_label.appendChild(document.createTextNode(entity.ac));
+						} else {
+							//If it's a monster display bloodied, regretting life choices, etc.
+							if (entity.health == entity.max_health) {
+								health_label.appendChild(document.createTextNode("Healthy"));
+								entry.classList.add('full-health');
+							} else if (entity.health == 0) {
+								health_label.appendChild(document.createTextNode("Defeated"));
+								entry.classList.add('dead');
+							} else if (entity.health <= 10) {
+								health_label.appendChild(document.createTextNode("Regretting life choices..."));
+								entry.classList.add('rlc');
+							} else if (entity.health <= (entity.max_health / 2)) {
+								health_label.appendChild(document.createTextNode("Bloodied"));
+								entry.classList.add('low-health');
+							} else {
+								health_label.appendChild(document.createTextNode("Hurt"));
+								entry.classList.add('mid-health');
+							}
+						}
+
+						for (index in entity.conditions) {
+							conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+							conditions_label.appendChild(document.createTextNode("\n"));
+						}
+
+						container.appendChild(img);
+						container.appendChild(character_label);
+						container.appendChild(health_label);
+                        if ((entity.type == "player") || (entity.type == "NPC")) {
+                            container.appendChild(ac_label);
+                        }
+						container.appendChild(conditions_label);
+
+						entry.appendChild(container);
+
+						current_entity.appendChild(entry);
+                    }
+                }
+
 				while (entities.firstChild) {
 					entities.removeChild(entities.lastChild);
 				}
+                
+                var past_current_entity = false;
+                var insert_point = 1;
+                var first_done = false;
 
-				for (var i in test.entities) {
-					var entity = test.entities[i]
-					if (entity.visible) {
+				for (var i in combat_data.entities) {
+					var entity = combat_data.entities[i]
+                    if (combat_data.current_entity_index == i) {
+                        past_current_entity = true;
+                    }
+					if ((entity.visible) && (i != combat_data.current_entity_index)) {
 						var entry = document.createElement("li");
 						var container = document.createElement("div");
 						container.classList.add("container");
@@ -166,10 +350,6 @@
 
 						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
 						character_label.classList.add("fantasy-font");
-
-						if (i == test.current_entity_index) {
-							entry.classList.add('current-entity');
-						}
 
 						if ((entity.type == "player") || (entity.type == "NPC")) {
 							health_label.appendChild(document.createTextNode(entity.health));
@@ -223,7 +403,17 @@
 
 						entry.appendChild(container);
 
-						entities.appendChild(entry);
+                        if (past_current_entity) {
+                            if (first_done) {
+                                entities.insertBefore(entry, entities.childNodes[insert_point]);                                
+                                insert_point += 1;
+                            } else {
+                                entities.insertBefore(entry, entities.firstChild);
+                                first_done = true;
+                            }
+                        } else {
+                            entities.appendChild(entry);
+                        }
 					}
 				}
 			}

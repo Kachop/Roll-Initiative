@@ -1312,9 +1312,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_mod if (entity.STR_mod > 0) else entity.STR_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_mod, sep="") if (entity.STR_mod >= 0) else cstr(entity.STR_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_save if (entity.STR_save > 0) else entity.STR_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_save, sep="") if (entity.STR_save >= 0) else cstr(entity.STR_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
@@ -1324,9 +1324,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_mod if (entity.STR_mod > 0) else entity.DEX_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_mod, sep="") if (entity.STR_mod >= 0) else cstr(entity.DEX_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_save if (entity.DEX_save > 0) else entity.DEX_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_save, sep="") if (entity.DEX_save >= 0) else cstr(entity.DEX_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
@@ -1336,9 +1336,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_mod if (entity.CON_mod > 0) else entity.CON_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_mod, sep="") if (entity.CON_mod >= 0) else cstr(entity.CON_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_save if (entity.CON_save > 0) else entity.CON_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_save, sep="") if (entity.CON_save >= 0) else cstr(entity.CON_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
@@ -1348,9 +1348,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_mod if (entity.INT_mod > 0) else entity.INT_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_mod, sep="") if (entity.INT_mod >= 0) else cstr(entity.INT_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_save if (entity.INT_save > 0) else entity.INT_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_save, sep="") if (entity.INT_save >= 0) else cstr(entity.INT_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
@@ -1360,9 +1360,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_mod if (entity.WIS_mod > 0) else entity.WIS_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_mod, sep="") if (entity.WIS_mod >= 0) else cstr(entity.WIS_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_save if (entity.WIS_save > 0) else entity.WIS_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_save, sep="") if (entity.WIS_save >= 0) else cstr(entity.WIS_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
@@ -1372,9 +1372,9 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CHA))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_mod if (entity.CHA_mod > 0) else entity.CHA_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_mod, sep="") if (entity.CHA_mod >= 0) else cstr(entity.CHA_mod, sep=""))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_save if (entity.CHA_save > 0) else entity.CHA_save, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_save, sep="") if (entity.CHA_save >= 0) else cstr(entity.CHA_save, sep=""))
         cursor_x = start_x
         cursor_y += LINE_HEIGHT
 
