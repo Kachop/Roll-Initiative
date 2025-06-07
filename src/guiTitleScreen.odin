@@ -50,7 +50,7 @@ draw_title_screen :: proc() {
     }
   
     state.cursor.x = PADDING_LEFT
-    state.cursor.y = state.window_height * 0.95
+    state.cursor.y = state.window_height * 0.93
     TEXT_SIZE = 20
     rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 

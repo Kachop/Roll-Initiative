@@ -200,7 +200,9 @@ combat_to_json :: proc() {
     turn_timer := cast(i32)time.duration_seconds(time.stopwatch_duration(state.combat_screen_state.turn_timer))
 
     result = strings.join([]string{
-        "{\"round\": ",
+        "{\"combat_name\": \"",
+        fmt.tprint(state.setup_screen_state.filename_input.text),
+        "\",\"round\": ",
         fmt.tprint(state.combat_screen_state.current_round),
         ",\"current_entity_index\": ",
         fmt.tprint(state.combat_screen_state.current_entity_idx),

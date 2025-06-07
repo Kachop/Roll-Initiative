@@ -19,8 +19,8 @@ when ODIN_OS == .Windows {
 }
 
 app_title :: "/Roll-Initiative"
-VERSION_MAJOR :: 0
-VERSION_MINOR :: 9
+VERSION_MAJOR :: 1
+VERSION_MINOR :: 0
 
 static_arena  : vmem.Arena
 entities_arena: vmem.Arena

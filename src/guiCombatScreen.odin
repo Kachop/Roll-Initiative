@@ -60,8 +60,9 @@ draw_combat_screen :: proc() {
             state.combat_screen_state.panel_left_top.scroll.y = 0
         } else {
             state.combat_screen_state.current_entity_idx += 1
-            if (state.combat_screen_state.panel_left_top.scroll.y >= -(state.combat_screen_state.panel_left_top.content_rec.height)) {
-                state.combat_screen_state.panel_left_top.scroll.y -= LINE_HEIGHT + PANEL_PADDING
+            state.combat_screen_state.panel_left_top.scroll.y = -cast(f32)(state.combat_screen_state.current_entity_idx) * (LINE_HEIGHT + PANEL_PADDING)
+            if (state.combat_screen_state.panel_left_top.scroll.y <= -(state.combat_screen_state.panel_left_top.content_rec.height)) {
+                state.combat_screen_state.panel_left_top.scroll.y -= state.combat_screen_state.panel_left_top.content_rec.height
             }
         }
         state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]

@@ -13,22 +13,244 @@
 			font-style: normal;
 		}
 
-		.title-bar {
-			text-align: center;
-			display: grid;
-		}
+        .body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
 
-		.app-name {
-			grid-column: 1;
-		}
+        @media only screen and (orientation: landscape) {
+		    .title-bar {
+			    text-align: center;
+			    display: grid;
+                height: 20vh;
 
-		.combat-title {
-			grid-column: 2;
-		}
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                color: white;
+                background-color: #000000;
+		    }
 
-		.round-label {
-			grid-column: 3;
-		}
+		    .combat-title {
+                font-size: 7vh;
+                grid-row: 2;
+			    grid-column: 1;
+		    }
+
+		    .round-label {
+                font-size: 7vh;
+                grid-row: 2;
+			    grid-column: 2;
+		    }
+
+            .current-entity-header {
+                grid-column: 1;
+                grid-row: 1;
+                height: 5vh;
+                font-size: 6vh;
+                text-align: center;
+            }
+
+            .entities-header {
+                grid-column: 2;
+                grid-row: 1;
+                height: 5vh;
+                font-size: 6vh;
+                text-align: center;
+            }
+
+            .current-entity-img {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+                align-content: center;
+                grid-column-start: 1;
+                grid-column-end: 4;
+                grid-row-start: 2;
+                grid-row-end: 4;
+                width: 40vh;
+            }
+
+            ol li {
+			    font-size: 6vh;
+			    padding: 8px 8px;
+			    margin: 2px;
+			    border: 4px solid #000000;
+			    text-align: center;
+			    vertical-align: center;
+			    border-radius: 10px;
+		    }
+       
+            .entity_img {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+			    align-content: center;
+			    grid-column-start: 1;
+			    grid-column-end: 2;
+                height: 15vh;
+                width: 15vh;
+		    }
+
+            .img-border {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+			    align-content: center;
+                border: 2px solid #900;
+                border-radius: 20px;
+            }
+
+		    .entity_label {
+			    text-align: center;
+                vertical-align: center;
+                align-content: center;
+			    grid-column-start: 2;
+			    grid-column-end: 3;
+                width: 5vw;
+                height: 15vh;
+                font-size: 4vh;
+		    }
+
+		    .entity_health {
+                vertical-align: center;
+			    text-align: center;
+                align-content: center;
+			    grid-column-start: 3;
+			    grid-column-end: 4;
+                width: 4vw;
+                height: 15vh;
+                font-size: 4vh;
+		    }
+
+		    .entity_conditions {
+			    font-size: 10px;
+			    text-align: center;
+			    grid-column-start: 4;
+			    grid-column-end: 5;
+		    }   
+        }
+
+        @media only screen and (orientation: portrait) {
+		    .title-bar {
+			    text-align: center;
+			    display: grid;
+                height: 10vh;
+
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                color: white;
+                background-color: #000000;
+		    }
+
+		    .combat-title {
+                font-size: 4vw;
+                grid-row: 2;
+			    grid-column: 1;
+		    }
+
+		    .round-label {
+                font-size: 4vw;
+                grid-row: 2;
+			    grid-column: 2;
+		    }
+
+            .current-entity-header {
+                grid-column: 1;
+                grid-row: 1;
+                height: 5vh;
+                font-size: 4vw;
+                text-align: center;
+            }
+            
+            .entities-header {
+                grid-column: 2;
+                grid-row: 1;
+                height: 5vh;
+                font-size: 4vw;
+                text-align: center;
+            }
+
+            .current-entity-img {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+                align-content: center;
+                grid-column-start: 1;
+                grid-column-end: 4;
+                grid-row-start: 2;
+                grid-row-end: 4;
+                width: 40vw;
+            }
+
+            ol li {
+			    font-size: 3vw;
+			    padding: 8px 8px;
+			    margin: 2px;
+			    border: 4px solid #000000;
+			    text-align: center;
+			    vertical-align: center;
+			    border-radius: 10px;
+		    }
+
+    		.entity_img {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+			    align-content: center;
+			    grid-column-start: 1;
+			    grid-column-end: 2;
+                width: 7vh;
+                height: 7vh;
+		    }
+
+            .img-border {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                vertical-align: center;
+			    align-content: center;
+                border: 2px solid #900;
+                border-radius: 20px;
+            }
+
+		    .entity_label {
+			    text-align: center;
+                vertical-align: center;
+                align-content: center;
+			    grid-column-start: 2;
+			    grid-column-end: 3;
+                width: 5vw;
+                height: 7vh;
+                font-size: 2.4vw;
+		    }
+
+		    .entity_health {
+                vertical-align: center;
+			    text-align: center;
+                align-content: center;
+			    grid-column-start: 3;
+			    grid-column-end: 4;
+                width: 4vw;
+                height: 7vh;
+                font-size: 2.4vw;
+		    }
+
+		    .entity_conditions {
+			    font-size: 10px;
+			    text-align: center;
+			    grid-column-start: 4;
+			    grid-column-end: 5;
+		    }
+        }
+
 
         .entities-container {
             display: grid;
@@ -37,38 +259,20 @@
 		ol {
 			list-style-type: none;
 			padding: 10px;
-		}
-
-		ol li {
-			font-size: 40px;
-			padding: 8px 8px;
-			margin: 2px;
-			border: 2px solid #000000;
-			text-align: center;
-			vertical-align: center;
-			border-radius: 10px;
-		}
+		}	
 
         .current-entity-container {
             grid-column: 1;
+            grid-row: 2;
             text-align: center;
+            width: 48vw;
         }
 
         .entities-list {
             grid-column: 2;
+            grid-row: 2;
             text-align: center;
-        }
-        
-        .current-entity-img {
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-            vertical-align: center;
-            align-content: center;
-            grid-column-start: 1;
-            grid-column-end: 4;
-            grid-row-start: 2;
-            grid-row-end: 4;
+            width: 48vw;
         }
 
         .current-entity-label {
@@ -104,7 +308,7 @@
         }
 
 		ol li.current-entity {
-			border: 4px solid #000000;
+			border: 6px solid #000000;
 		}
 
 		ol li.full-health {
@@ -133,48 +337,25 @@
 			vertical-align: center;
 			align-content: center;
 		}
-
-		.entity_img {
-			align-content: center;
-			grid-column-start: 1;
-			grid-column-end: 2;
-		}
-
-        .img-border {
-            border: 5px solid #900;
-            border-radius: 10px;
-        }
-
-		.entity_label {
-			text-align: center;
-			grid-column-start: 2;
-			grid-column-end: 3;
-		}
-
-		.entity_health {
-			text-align: center;
-			grid-column-start: 3;
-			grid-column-end: 4;
-		}
-
-		.entity_conditions {
-			font-size: 10px;
-			text-align: center;
-			grid-column-start: 4;
-			grid-column-end: 5;
-		}
 	</style>
 </head>
 <body>
 	<div class=title-bar>
-		<h1 class=fantasy-font class=app-name>Roll Initiative</h1>
-		<p class=round-label>Round: <stretch id="round"></stretch></p>
+        <h1 class=combat-title class=fantasy-font><stretch class=fantasy-font id="combat_name"></stretch></h1>
+		<h1 class=round-label class=fantasy-font>Round: <stretch class=fantasy-font id="round"></stretch></h1>
 	</div>
+    <br>
 
 	<div class=fantasy-font class=title-bar id=content>
         <div class=entities-container>
+            <div class=current-entity-header>
+                Current Combatant
+            </div>
             <div class=current-entity-container>
                 <ol id=current-entity-display></ol>
+            </div>
+            <div class=entities-header>
+                Turn Order
             </div>
             <div class=entities-list>
 		        <ol id="entities"></ol>
@@ -196,6 +377,9 @@
 		events.onmessage = function(e) {
 			var combat_data = JSON.parse(e.data);
 			round.innerHTML = combat_data.round;
+            if (combat_data.combat_name != undefined) {
+                combat_name.innerHTML = combat_data.combat_name;
+            }
 			var display_text = document.getElementById("content");
 
 			if (combat_data.round == undefined) {
@@ -227,19 +411,19 @@
 
                         var image_size;
                         if (window.innerHeight < window.innerWidth) {
-                            img_size = window.innerHeight / 1.5;
+                            //img_size = window.innerHeight / 1.5;
                         } else {
-                            img_size = window.innerWidth / 2;
+                            //img_size = window.innerWidth / 2;
                         }
 
                         if (entity.type == "player") {
                             img.src = "data:imgage/png;base64," + entity.img_url;
-                            img.width = img_size;
-                            img.height = img_size;
+                            //img.width = img_size;
+                            //img.height = img_size;
                         } else {
                             img.src = entity.img_url;
-                            img.width = img_size;
-                            img.height = img_size;
+                            //img.width = img_size;
+                            //img.height = img_size;
                             img.classList.add("img-border");
                         }
 
@@ -346,6 +530,7 @@
 							img.src = entity.img_url;
 							img.width = 64;
 							img.height = 64;
+                            img.classList.add("img-border")
 						}
 
 						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
