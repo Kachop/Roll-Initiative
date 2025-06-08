@@ -5,6 +5,7 @@ import "core:log"
 import "core:strings"
 import "core:unicode/utf8"
 import "core:time"
+import http "shared:odin-http"
 import rl "vendor:raylib"
 
 draw_combat_screen :: proc() {

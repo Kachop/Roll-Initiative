@@ -113,7 +113,8 @@ index :: proc(req: ^http.Request, res: ^http.Response) {
 
 event :: proc(req: ^http.Request, res: ^http.Response) {
     //Crab the current combat state and convert it to JSON and send to the site.
-    data := fmt.tprintf("data:%v\n\n", state.server_state.json_data)
+    //Send initial connection ping
+    data := fmt.tprintf("data:%v\nretry:%v\n\n", state.server_state.json_data, 1000)
 
     respond_sse(res, data)
     vmem.arena_free_all(&server_arena)
@@ -123,7 +124,8 @@ respond_sse :: proc(r: ^http.Response, text: string, status: http.Status = .OK, 
     context.allocator = frame_alloc
     r.status = status
     http.headers_set_content_type(&r.headers, "text/event-stream")
-    //http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
+    http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
+    http.headers_set_unsafe(&r.headers, "Cache-Control", "no-cache")
     //http.headers_set_unsafe(&r.headers, "Keep-Alive", "timeout=1")
     http.body_set(r, text, loc)
     http.respond(r, loc)

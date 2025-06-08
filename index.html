@@ -71,6 +71,7 @@
                 grid-row-start: 2;
                 grid-row-end: 4;
                 width: 40vh;
+                height: 40vh;
             }
 
             ol li {
@@ -187,6 +188,7 @@
                 grid-row-start: 2;
                 grid-row-end: 4;
                 width: 40vw;
+                height: 40vw;
             }
 
             ol li {
@@ -363,13 +365,7 @@
         </div>
 	</div>
 	<script type="text/javascript">
-		var events = new EventSource("/data", {
-			headers: {
-				'Content-Type': 'text/event-stream',
-				'Cache-Control': 'no-cache',
-				'Connection': 'keep-alive'
-			},
-		});
+		var events = new EventSource("/data");
 
         var current_entity = document.getElementById("current-entity-display");
 		var entities = document.getElementById("entities");
@@ -524,12 +520,8 @@
 
 						if (entity.type == "player") {
 							img.src = "data:image/png;base64," + entity.img_url;
-							img.width = 64;
-							img.height = 64;
 						} else {
 							img.src = entity.img_url;
-							img.width = 64;
-							img.height = 64;
                             img.classList.add("img-border")
 						}
 

@@ -60,7 +60,6 @@ draw_setup_screen :: proc() {
     state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
     if GuiButton({state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, rl.GuiIconText(.ICON_PLAYER_PLAY, "")) {
-        fmt.println("Combat entities:", len(state.combat_screen_state.entities))
         if state.setup_screen_state.num_entities > 0 {
             for i in 0 ..< state.setup_screen_state.num_entities {
                 if (state.setup_screen_state.entities_selected[i].initiative == 0) {
@@ -82,7 +81,6 @@ draw_setup_screen :: proc() {
                 append(&state.combat_screen_state.entity_button_states, entity_button_state^)
             }
             state.current_screen_state = state.combat_screen_state
-            fmt.println("Combat entities:", len(state.combat_screen_state.entities))
             return
         }else {
             new_message := MessageBoxState{}
