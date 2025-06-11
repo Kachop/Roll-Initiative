@@ -35,12 +35,13 @@ draw_combat_screen :: proc() {
             if (state.combat_screen_state.current_round > 1) {
                 state.combat_screen_state.current_entity_idx = cast(i32)state.combat_screen_state.num_entities - 1
                 state.combat_screen_state.current_round -= 1
-                state.combat_screen_state.panel_left_top.scroll.y = -(state.combat_screen_state.panel_left_top.content_rec.height - state.combat_screen_state.panel_left_top.rec.height)
+                state.combat_screen_state.panel_left_top.scroll.y = -(state.combat_screen_state.panel_left_top.content_rec.height)
             }
         } else {
             state.combat_screen_state.current_entity_idx -= 1
-            if (state.combat_screen_state.panel_left_top.scroll.y < 0) {
-                state.combat_screen_state.panel_left_top.scroll.y += LINE_HEIGHT + PANEL_PADDING
+            state.combat_screen_state.panel_left_top.scroll.y = -cast(f32)state.combat_screen_state.current_entity_idx * (LINE_HEIGHT + PANEL_PADDING)
+            if (state.combat_screen_state.panel_left_top.scroll.y > 0) {
+                state.combat_screen_state.panel_left_top.scroll.y = 0
             }
         }
         state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
@@ -55,19 +56,28 @@ draw_combat_screen :: proc() {
     increment_button_x := state.cursor.x
     increment_button_y := state.cursor.y
     defer if GuiButton({increment_button_x, increment_button_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, &state.combat_screen_state.increment_button, rl.GuiIconText(.ICON_ARROW_RIGHT, "")) {
+        if (state.combat_screen_state.current_entity.HP == 0) {
+            logger_add_dead_entity_turn(&state.combat_screen_state.combat_logger)
+        }
         if (state.combat_screen_state.current_entity_idx == cast(i32)state.combat_screen_state.num_entities - 1) {
             state.combat_screen_state.current_entity_idx = 0
             state.combat_screen_state.current_round += 1
             state.combat_screen_state.panel_left_top.scroll.y = 0
+
+            logger_add_turn(&state.combat_screen_state.combat_logger)
+            logger_add_round(&state.combat_screen_state.combat_logger)
         } else {
             state.combat_screen_state.current_entity_idx += 1
             state.combat_screen_state.panel_left_top.scroll.y = -cast(f32)(state.combat_screen_state.current_entity_idx) * (LINE_HEIGHT + PANEL_PADDING)
             if (state.combat_screen_state.panel_left_top.scroll.y <= -(state.combat_screen_state.panel_left_top.content_rec.height)) {
-                state.combat_screen_state.panel_left_top.scroll.y -= state.combat_screen_state.panel_left_top.content_rec.height
+                state.combat_screen_state.panel_left_top.scroll.y = -state.combat_screen_state.panel_left_top.content_rec.height
             }
+
+            logger_add_turn(&state.combat_screen_state.combat_logger)
         }
         state.combat_screen_state.current_entity = &state.combat_screen_state.entities[state.combat_screen_state.current_entity_idx]
         state.combat_screen_state.from_dropdown.selected = state.combat_screen_state.current_entity_idx
+        logger_set_entity(&state.combat_screen_state.combat_logger, state.combat_screen_state.current_entity)
         time.stopwatch_reset(&state.combat_screen_state.turn_timer)
         if state.combat_screen_state.combat_timer.running {
             time.stopwatch_start(&state.combat_screen_state.turn_timer)
@@ -91,12 +101,14 @@ draw_combat_screen :: proc() {
     start_button_y := state.cursor.y
     defer if GuiButton({start_button_x, start_button_y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, &state.combat_screen_state.start_button, combat_time, rl.GuiIconName.ICON_PLAYER_PLAY if (!state.combat_screen_state.combat_timer.running) else rl.GuiIconName.ICON_PLAYER_PAUSE) {
         if !state.combat_screen_state.combat_timer.running {
+            init_logger(&state.combat_screen_state.combat_logger)
+            logger_set_entity(&state.combat_screen_state.combat_logger, state.combat_screen_state.current_entity)
             time.stopwatch_start(&state.combat_screen_state.combat_timer)
             time.stopwatch_start(&state.combat_screen_state.turn_timer)
         } else {
             time.stopwatch_stop(&state.combat_screen_state.combat_timer)
             time.stopwatch_stop(&state.combat_screen_state.turn_timer)
-        }
+        } 
     }
     state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
@@ -138,6 +150,16 @@ draw_combat_screen :: proc() {
             init_message_box(&new_message, "Notification!", fmt.caprintf("No PC's to save."))
         }
         reload_entities()
+
+        logger_add_turn(&state.combat_screen_state.combat_logger)
+        logger_end_combat(&state.combat_screen_state.combat_logger)
+        if logger_save_to_file(&state.combat_screen_state.combat_logger) {
+            init_message_box(&new_message, "Notification!", fmt.caprintf("Combat log saved"))
+            add_message(&state.combat_screen_state.message_queue, new_message)
+        } else {
+            init_message_box(&new_message, "Error!", fmt.caprintf("Error saving combat log"))
+            add_message(&state.combat_screen_state.message_queue, new_message)
+        }
     }
     state.cursor.x = PADDING_LEFT
     state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
@@ -145,10 +167,10 @@ draw_combat_screen :: proc() {
     current_panel_x := state.cursor.x
     panel_y         := state.cursor.y
 
-    draw_width  := state.window_width - PANEL_PADDING - PADDING_RIGHT
+    draw_width  := state.window_width - PADDING_LEFT - PADDING_RIGHT
     draw_height := state.window_height - state.cursor.y - PADDING_BOTTOM
 
-    panel_width  := state.window_width / 3.5
+    panel_width  := (state.window_width - (PADDING_LEFT * 2) - (PADDING_RIGHT * 2)) / 3
     panel_height := draw_height
     
     dynamic_x_padding := (draw_width - (3 * panel_width)) / 2
@@ -445,7 +467,9 @@ draw_combat_screen :: proc() {
     state.cursor.y = panel_y
 
     GuiPanel({state.cursor.x, state.cursor.y, panel_width, panel_height}, &state.combat_screen_state.panel_mid, "Combat Controls")
-    state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_mid.scroll.y
+    state.combat_screen_state.panel_mid.rec.y      += LINE_HEIGHT
+    state.combat_screen_state.panel_mid.rec.height -= LINE_HEIGHT
+    state.cursor.y += LINE_HEIGHT
 
     draw_width  = panel_width - (PANEL_PADDING * 2)
     draw_height = panel_height - LINE_HEIGHT - (PANEL_PADDING * 2)
@@ -456,6 +480,28 @@ draw_combat_screen :: proc() {
             scroll_locked = true
         }
     }
+
+    from_dropdown_x := state.cursor.x
+    from_dropdown_y := state.cursor.y
+
+    defer {
+        text_align_center()
+        GuiDropdownControl({from_dropdown_x, from_dropdown_y, panel_width / 2, LINE_HEIGHT}, &state.combat_screen_state.from_dropdown)
+        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.from_dropdown)
+    }
+    state.cursor.x += panel_width / 2
+
+    to_dropdown_x := state.cursor.x
+    to_dropdown_y := state.cursor.y
+
+    defer {
+        text_align_center()
+        GuiDropdownSelectControl({to_dropdown_x, to_dropdown_y, panel_width / 2, LINE_HEIGHT}, &state.combat_screen_state.to_dropdown)
+        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
+    }
+    state.cursor.x = current_panel_x 
+    state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_mid.scroll.y
+    start_y := state.cursor.y
 
     if (state.combat_screen_state.panel_mid.height_needed > state.combat_screen_state.panel_mid.rec.height) {
         state.combat_screen_state.panel_mid.content_rec.width = panel_width - 14
@@ -472,26 +518,10 @@ draw_combat_screen :: proc() {
     }
     
     {   
-        start_y := state.cursor.y
         state.cursor.x += PANEL_PADDING
         state.cursor.y += PANEL_PADDING
 
-        from_dropdown_x := state.cursor.x
-        from_dropdown_y := state.cursor.y
-        state.cursor.x += draw_width / 2
-
-        GuiDropdownControl({from_dropdown_x, from_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.from_dropdown)
-        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.from_dropdown)
-
-        to_dropdown_x := state.cursor.x
-        to_dropdown_y := state.cursor.y
-        state.cursor.x = current_panel_x + PANEL_PADDING
-        state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-        GuiDropdownSelectControl({to_dropdown_x, to_dropdown_y, draw_width / 2, LINE_HEIGHT}, &state.combat_screen_state.to_dropdown)
-        register_button(&state.combat_screen_state.btn_list, &state.combat_screen_state.to_dropdown)
-
-        GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage")
+        GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage type:")
         state.cursor.x += draw_width / 2
         
         dmg_type_x := state.cursor.x
@@ -581,7 +611,7 @@ draw_combat_screen :: proc() {
         }
         state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-        state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y + PANEL_PADDING
+        state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y
     }
 
     if (state.combat_screen_state.panel_mid.height_needed > state.combat_screen_state.panel_mid.rec.height) {
@@ -707,10 +737,23 @@ resolve_damage :: proc() {
                 } else {
                     entity.temp_HP = -dmg_amount
                 }
+
+                entity_from := state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
+                if (entity.HP > 0) {
+                    if (entity.alias != state.combat_screen_state.current_entity.alias) {
+                        logger_add_damage_dealt(&state.combat_screen_state.combat_logger, int(dmg_amount), &entity_from, entity)
+                    } else {
+                        logger_add_damage_recieved(&state.combat_screen_state.combat_logger, int(dmg_amount), &entity_from)
+                    }
+                } else {
+                    logger_add_hit_dead(&state.combat_screen_state.combat_logger, &entity_from, entity)
+                }
             }
         }
         state.combat_screen_state.to_dropdown.selected[i] = false
     }
+    state.combat_screen_state.dmg_type_dropdown.selected = 0
+    state.combat_screen_state.dmg_input.text = ""
 }
 
 resolve_healing :: proc() {
@@ -724,6 +767,7 @@ resolve_healing :: proc() {
         }
         state.combat_screen_state.to_dropdown.selected[i] = false
     }
+    state.combat_screen_state.heal_input.text = ""
 }
 
 resolve_temp_HP :: proc() {
@@ -736,6 +780,7 @@ resolve_temp_HP :: proc() {
         }
         state.combat_screen_state.to_dropdown.selected[i] = false
     }
+    state.combat_screen_state.temp_HP_input.text = ""
 }
 
 resolve_conditions :: proc() {

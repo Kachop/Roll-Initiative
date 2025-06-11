@@ -713,7 +713,7 @@ _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
             option_bounds := rl.Rectangle{x, cursor_y, dropdown_content_rec.width, LINE_HEIGHT}
   
             if rl.CheckCollisionRecs(option_bounds, {bounds_check_x, bounds_check_y, bounds_check_width, dropdown_height}) {
-                GuiLabel({option_bounds.x + (cast(f32)border * 2), option_bounds.y, option_bounds.width, LINE_HEIGHT}, label)
+                GuiLabel({option_bounds.x + (cast(f32)border * 2), option_bounds.y, dropdown_content_rec.width - (border * 2), LINE_HEIGHT}, label)
                 rl.GuiLine({option_bounds.x, option_bounds.y, option_bounds.width, cast(f32)border}, "")
               
                 if rl.CheckCollisionPointRec(state.mouse_pos, option_bounds) {
@@ -1279,6 +1279,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
             cursor_y += LINE_HEIGHT
         }
 
+        text_align_center()
         GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
         cursor_x += width / 2
         GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
@@ -1324,7 +1325,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX))
         cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_mod, sep="") if (entity.STR_mod >= 0) else cstr(entity.DEX_mod, sep=""))
+        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_mod, sep="") if (entity.DEX_mod >= 0) else cstr(entity.DEX_mod, sep=""))
         cursor_x += width / 4
         GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_save, sep="") if (entity.DEX_save >= 0) else cstr(entity.DEX_save, sep=""))
         cursor_x = start_x

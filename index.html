@@ -370,8 +370,8 @@
         var current_entity = document.getElementById("current-entity-display");
 		var entities = document.getElementById("entities");
 
-		events.onmessage = function(e) {
-			var combat_data = JSON.parse(e.data);
+        events.onmessage = function(event) {
+			var combat_data = JSON.parse(event.data);
 			round.innerHTML = combat_data.round;
             if (combat_data.combat_name != undefined) {
                 combat_name.innerHTML = combat_data.combat_name;

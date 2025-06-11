@@ -15,8 +15,16 @@ Uses SSE to keep clients upto date with the state of things.
 Client will recieve JSON object of combat, will lay it out automatically and style it.
 */
 
+/*
+TODO: Set up connection properly so that it is persistent.
+      Figure out how to send specific events based on button presses
+      Reconfigure the way the client works so not all the data needs to be sent every time.
+*/
+
 ServerState :: struct {
     running: bool,
+    req: ^http.Request,
+    res: ^http.Response,
     json_data: string,
 }
 
@@ -121,13 +129,12 @@ event :: proc(req: ^http.Request, res: ^http.Response) {
 }
 
 respond_sse :: proc(r: ^http.Response, text: string, status: http.Status = .OK, loc := #caller_location) {
-    context.allocator = frame_alloc
+    //context.allocator = frame_alloc
     r.status = status
     http.headers_set_content_type(&r.headers, "text/event-stream")
     http.headers_set_unsafe(&r.headers, "Connection", "keep-alive")
     http.headers_set_unsafe(&r.headers, "Cache-Control", "no-cache")
-    //http.headers_set_unsafe(&r.headers, "Keep-Alive", "timeout=1")
     http.body_set(r, text, loc)
     http.respond(r, loc)
-    context.allocator = static_alloc
+    //context.allocator = static_alloc
 }

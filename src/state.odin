@@ -99,8 +99,9 @@ CombatScreenState :: struct {
     view_entity       : ^Entity,
     current_round     : i32,
 
-    turn_timer  : time.Stopwatch,
-    combat_timer: time.Stopwatch,
+    turn_timer   : time.Stopwatch,
+    combat_timer : time.Stopwatch,
+    combat_logger: Logger,
 
     add_entity_mode     : bool,
     remove_entity_mode  : bool,
@@ -160,7 +161,7 @@ init_combat_screen :: proc() {
     init_panel_state(&state.combat_screen_state.panel_left_bottom)
     init_panel_state(&state.combat_screen_state.panel_mid)
     dmg_type_options := [dynamic]cstring{"Any", "Slashing", "Piercing", "Bludgeoning", "Non-magical", "Poison", "Acid", "Fire", "Cold", "Radiant", "Necrotic", "Lightning", "Thunder", "Force", "Psychic"}
-    init_dropdown_state(&state.combat_screen_state.dmg_type_dropdown, "Type:", dmg_type_options[:], &state.combat_screen_state.btn_list)
+    init_dropdown_state(&state.combat_screen_state.dmg_type_dropdown, "", dmg_type_options[:], &state.combat_screen_state.btn_list)
     init_text_input_state(&state.combat_screen_state.dmg_input)
     init_text_input_state(&state.combat_screen_state.heal_input)
     init_text_input_state(&state.combat_screen_state.temp_HP_input)

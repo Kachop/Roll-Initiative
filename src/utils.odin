@@ -107,12 +107,12 @@ order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
                 inject_at(&entities_sorted, j, entity)
                 break sorting_loop
             } else if (entity.initiative == sorted_entity.initiative) {
-                if entity.DEX_mod >= sorted_entity.DEX_mod {
+                if entity.DEX >= sorted_entity.DEX {
                     inject_at(&entities_sorted, j, entity)
                     break sorting_loop
                 } else {
                     if j < len(entities_sorted) - 1 {
-                        inject_at(&entities_sorted, j, entity)
+                        inject_at(&entities_sorted, j+1, entity)
                         break sorting_loop
                     }
                 }
@@ -126,8 +126,8 @@ order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
         }
     }
 
-    for i in 0 ..< num_entities {
-        entities[i] = entities_sorted[i]
+    for entity, i in entities_sorted {
+        entities[i] = entity
     }
 }
 

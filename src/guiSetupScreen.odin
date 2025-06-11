@@ -105,7 +105,7 @@ draw_setup_screen :: proc() {
     draw_width : f32 = state.window_width - PADDING_LEFT - PADDING_RIGHT
     draw_heght : f32 = state.window_height - state.cursor.y - PADDING_BOTTOM
 
-    panel_width  := state.window_width / 3.5
+    panel_width  := (state.window_width - (PADDING_LEFT * 2) - (PADDING_RIGHT * 2)) / 3
     panel_height := draw_heght
     dynamic_x_padding : f32 = (draw_width - (3 * panel_width)) / 2
 
