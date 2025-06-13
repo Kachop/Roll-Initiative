@@ -2,1534 +2,2253 @@ package main
 
 import "core:fmt"
 import "core:log"
+import "core:slice"
 import "core:strings"
 import "core:unicode/utf8"
-import "core:slice"
 import rl "vendor:raylib"
 
 /*
-TODO: Fix issue with dropdowns not scissoring properly!
+NOTE:Issue with the way raylib does scissoring. Means having one scroll-area within another is impossible. Currently working around by disabling the outer scroll area when then inner one is activated.
+TODO:Set dropdown box max size such that elements aren't drawn outside of scroll area.
 */
 
 GuiControl :: struct {
-    id     : i32,
-    hovered: bool,
+	id:      i32,
+	hovered: bool,
 }
 
 HoverStack :: struct {
-    stack: [dynamic]^GuiControl,
-    count: i32,
+	stack: [dynamic]^GuiControl,
+	count: i32,
 }
 
 hover_stack_add :: proc(gui_control: ^GuiControl) {
-    already_added: bool
+	already_added: bool
 
-    if state.hover_stack.count == 0 {
-        for item in state.hover_stack.stack {
-            if item.id ==  gui_control.id {
-                already_added = true
-            }
-        }
-    } else {
-        for item, i in state.hover_stack.stack {
-            if item.id == gui_control.id {
-                ordered_remove(&state.hover_stack.stack, i)
-            }
-        }
-    }
-    if !already_added {
-        append(&state.hover_stack.stack, gui_control)
-        state.hover_stack.count += 1
-    }
+	if state.hover_stack.count == 0 {
+		for item in state.hover_stack.stack {
+			if item.id == gui_control.id {
+				already_added = true
+			}
+		}
+	} else {
+		for item, i in state.hover_stack.stack {
+			if item.id == gui_control.id {
+				ordered_remove(&state.hover_stack.stack, i)
+			}
+		}
+	}
+	if !already_added {
+		append(&state.hover_stack.stack, gui_control)
+		state.hover_stack.count += 1
+	}
 }
 
 is_current_hover :: proc(gui_control: GuiControl) -> bool {
-    if len(state.hover_stack.stack) > 0 {
-        if state.hover_stack.stack[len(state.hover_stack.stack)-1].id == gui_control.id {
-            return true
-        }
-    }
-    return false
+	if len(state.hover_stack.stack) > 0 {
+		if state.hover_stack.stack[len(state.hover_stack.stack) - 1].id == gui_control.id {
+			return true
+		}
+	}
+	return false
 }
 
 clean_hover_stack :: proc() {
-    for item, i in state.hover_stack.stack {
-        if item.hovered == false {
-            ordered_remove(&state.hover_stack.stack, i)
-        }
-    }
-    state.hover_stack.count = 0
+	for item, i in state.hover_stack.stack {
+		if item.hovered == false {
+			ordered_remove(&state.hover_stack.stack, i)
+		}
+	}
+	state.hover_stack.count = 0
 }
 
 clear_hover_stack :: proc() {
-    delete(state.hover_stack.stack)
-    state.hover_stack.stack = make([dynamic]^GuiControl)
-    state.hover_stack.count = 0
+	delete(state.hover_stack.stack)
+	state.hover_stack.stack = make([dynamic]^GuiControl)
+	state.hover_stack.count = 0
 }
 
 GuiLabel :: proc(bounds: rl.Rectangle, text: cstring) {
-    initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
-    label_string: cstring
-    if text != "" {
-        if string(text)[0] != '#' {
-            if !fit_text(text, bounds.width, .DEFAULT, &state.gui_properties.TEXT_SIZE) {
-                label_string = crop_text(text, bounds.width, state.gui_properties.TEXT_SIZE)
-            } else {
-                label_string = text
-            }
-        } else {
-            label_string = text
-        }
-    }
-    rl.GuiLabel(bounds, label_string)
-    state.gui_properties.TEXT_SIZE = initial_text_size
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+	initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
+	label_string: cstring
+	if text != "" {
+		if string(text)[0] != '#' {
+			if !fit_text(text, bounds.width, .DEFAULT, &state.gui_properties.TEXT_SIZE) {
+				label_string = crop_text(text, bounds.width, state.gui_properties.TEXT_SIZE)
+			} else {
+				label_string = text
+			}
+		} else {
+			label_string = text
+		}
+	}
+	rl.GuiLabel(bounds, label_string)
+	state.gui_properties.TEXT_SIZE = initial_text_size
+	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
 }
 
 ButtonState :: struct {
-    using gui_control: GuiControl,
+	using gui_control: GuiControl,
 }
-  
+
 init_button_state :: proc(button_state: ^ButtonState) {
-    button_state.id   = GUI_ID
+	button_state.id = GUI_ID
 
-    GUI_ID += 1
+	GUI_ID += 1
 }
 
-GuiButton :: proc{
-    GuiButtonWithState,
-    GuiButtonStateless,
+GuiButton :: proc {
+	GuiButtonWithState,
+	GuiButtonStateless,
 }
- 
-GuiButtonWithState :: proc(bounds: rl.Rectangle, button_state: ^ButtonState, text:cstring, icon: rl.GuiIconName = rl.GuiIconName.ICON_NONE) -> bool {
-    using state.gui_properties
 
-    initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
-    defer {
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)initial_alignment)
-    }
+GuiButtonWithState :: proc(
+	bounds: rl.Rectangle,
+	button_state: ^ButtonState,
+	text: cstring,
+	icon: rl.GuiIconName = rl.GuiIconName.ICON_NONE,
+) -> bool {
+	using state.gui_properties
 
-    border : f32 : 2
+	initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
+	defer {
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
+			cast(i32)initial_alignment,
+		)
+	}
 
-    rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(bounds.x + border), cast(i32)(bounds.y + border), cast(i32)(bounds.width - (border * 2)), cast(i32)(bounds.height - (border * 2)), BUTTON_COLOUR)
-    text_align_center()
-    if icon != rl.GuiIconName.ICON_NONE {
-        initial_text_colour := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL)
-        rl.GuiDrawIcon(icon, cast(i32)(bounds.x), cast(i32)(bounds.y), cast(i32)(bounds.height / 16), BUTTON_BORDER_COLOUR)
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000FF)
-        GuiLabel({bounds.x + border, bounds.y + border, bounds.width - (border * 2), bounds.height - (border * 2)}, text)
+	border: f32 : 2
 
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, initial_text_colour)
-    } else {
-        GuiLabel({bounds.x + border, bounds.y + border, bounds.width - (border * 2), bounds.height - (border * 2)}, text)
-    }
+	rl.DrawRectangle(
+		cast(i32)bounds.x,
+		cast(i32)bounds.y,
+		cast(i32)bounds.width,
+		cast(i32)bounds.height,
+		BUTTON_BORDER_COLOUR,
+	)
+	rl.DrawRectangle(
+		cast(i32)(bounds.x + border),
+		cast(i32)(bounds.y + border),
+		cast(i32)(bounds.width - (border * 2)),
+		cast(i32)(bounds.height - (border * 2)),
+		BUTTON_COLOUR,
+	)
+	text_align_center()
+	if icon != rl.GuiIconName.ICON_NONE {
+		initial_text_colour := rl.GuiGetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL,
+		)
+		rl.GuiDrawIcon(
+			icon,
+			cast(i32)(bounds.x),
+			cast(i32)(bounds.y),
+			cast(i32)(bounds.height / 16),
+			BUTTON_BORDER_COLOUR,
+		)
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000FF)
+		GuiLabel(
+			{
+				bounds.x + border,
+				bounds.y + border,
+				bounds.width - (border * 2),
+				bounds.height - (border * 2),
+			},
+			text,
+		)
 
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-        button_state.hovered = true
-        hover_stack_add(button_state)
-    } else {
-        button_state.hovered = false
-    }
-    
-    if is_current_hover(button_state) {
-        rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_HOVER_COLOUR)
-        if rl.IsMouseButtonReleased(.LEFT) {
-            button_state.hovered = false
-            return true
-        }
-    }
-    return false
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL,
+			initial_text_colour,
+		)
+	} else {
+		GuiLabel(
+			{
+				bounds.x + border,
+				bounds.y + border,
+				bounds.width - (border * 2),
+				bounds.height - (border * 2),
+			},
+			text,
+		)
+	}
+
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		button_state.hovered = true
+		hover_stack_add(button_state)
+	} else {
+		button_state.hovered = false
+	}
+
+	if is_current_hover(button_state) {
+		rl.DrawRectangle(
+			cast(i32)bounds.x,
+			cast(i32)bounds.y,
+			cast(i32)bounds.width,
+			cast(i32)bounds.height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
+			button_state.hovered = false
+			return true
+		}
+	}
+	return false
 }
-  
-GuiButtonStateless :: proc(bounds: rl.Rectangle, text: cstring, icon: rl.GuiIconName = rl.GuiIconName.ICON_NONE) -> bool {
-    using state.gui_properties
 
-    initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
-    defer {
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)initial_alignment)
-    }
+GuiButtonStateless :: proc(
+	bounds: rl.Rectangle,
+	text: cstring,
+	icon: rl.GuiIconName = rl.GuiIconName.ICON_NONE,
+) -> bool {
+	using state.gui_properties
 
-    border : f32 : 2
-  
-    rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(bounds.x + border), cast(i32)(bounds.y + border), cast(i32)(bounds.width - (border * 2)), cast(i32)(bounds.height - (border * 2)), BUTTON_COLOUR)
-    text_align_center()
+	initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
+	defer {
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
+			cast(i32)initial_alignment,
+		)
+	}
 
-    if icon != rl.GuiIconName.ICON_NONE {
-        initial_text_colour := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL)
-        rl.GuiDrawIcon(icon, cast(i32)(bounds.x), cast(i32)(bounds.y), cast(i32)(bounds.height / 16), BUTTON_BORDER_COLOUR)
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000FF)
-        GuiLabel({bounds.x + border, bounds.y + border, bounds.width - (border * 2), bounds.height - (border * 2)}, text)
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, initial_text_colour)
-    } else {
-        GuiLabel({bounds.x + border, bounds.y + border, bounds.width - (border * 2), bounds.height - (border * 2)}, text)
-    }
- 
-    if len(state.hover_stack.stack) == 0 {
-      if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-        rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_HOVER_COLOUR)
-        if rl.IsMouseButtonReleased(.LEFT) {
-          return true
-        }
-      }
-    }
-    return false
+	border: f32 : 2
+
+	rl.DrawRectangle(
+		cast(i32)bounds.x,
+		cast(i32)bounds.y,
+		cast(i32)bounds.width,
+		cast(i32)bounds.height,
+		BUTTON_BORDER_COLOUR,
+	)
+	rl.DrawRectangle(
+		cast(i32)(bounds.x + border),
+		cast(i32)(bounds.y + border),
+		cast(i32)(bounds.width - (border * 2)),
+		cast(i32)(bounds.height - (border * 2)),
+		BUTTON_COLOUR,
+	)
+	text_align_center()
+
+	if icon != rl.GuiIconName.ICON_NONE {
+		initial_text_colour := rl.GuiGetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL,
+		)
+		rl.GuiDrawIcon(
+			icon,
+			cast(i32)(bounds.x),
+			cast(i32)(bounds.y),
+			cast(i32)(bounds.height / 16),
+			BUTTON_BORDER_COLOUR,
+		)
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL, 0x000000FF)
+		GuiLabel(
+			{
+				bounds.x + border,
+				bounds.y + border,
+				bounds.width - (border * 2),
+				bounds.height - (border * 2),
+			},
+			text,
+		)
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiControlProperty.TEXT_COLOR_NORMAL,
+			initial_text_colour,
+		)
+	} else {
+		GuiLabel(
+			{
+				bounds.x + border,
+				bounds.y + border,
+				bounds.width - (border * 2),
+				bounds.height - (border * 2),
+			},
+			text,
+		)
+	}
+
+	if len(state.hover_stack.stack) == 0 {
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			rl.DrawRectangle(
+				cast(i32)bounds.x,
+				cast(i32)bounds.y,
+				cast(i32)bounds.width,
+				cast(i32)bounds.height,
+				BUTTON_HOVER_COLOUR,
+			)
+			if rl.IsMouseButtonReleased(.LEFT) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 TextInputState :: struct {
-    using gui_control: GuiControl,
-    edit_mode: bool,
-    alloc    : [256]rune,
-    text     : cstring,
+	using gui_control: GuiControl,
+	edit_mode:         bool,
+	alloc:             [256]rune,
+	text:              cstring,
 }
-  
-init_text_input_state :: proc(input_state: ^TextInputState) {
-    input_state.id   = GUI_ID
-    input_state.text = fmt.caprint(utf8.runes_to_string(input_state.alloc[:]))
 
-    GUI_ID += 1
+init_text_input_state :: proc(input_state: ^TextInputState) {
+	input_state.id = GUI_ID
+	input_state.text = fmt.caprint(utf8.runes_to_string(input_state.alloc[:]))
+
+	GUI_ID += 1
 }
-  
+
+clear_text_input :: proc(text_inpit: ^TextInputState) {
+	text_inpit.text = fmt.caprint(utf8.runes_to_string(text_inpit.alloc[:]))
+}
+
 GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-      input_state.hovered = true
-      hover_stack_add(input_state)
-    } else {
-      input_state.hovered = false
-    }
-  
-    text_align_left()
-    if (rl.GuiTextBox(bounds, input_state.text, size_of(input_state.alloc), input_state.edit_mode)) {
-        if is_current_hover(input_state) && !input_state.edit_mode {
-          input_state.edit_mode = true
-        } else if input_state.edit_mode {
-          input_state.edit_mode = false
-        }
-    }
-    text_align_center()
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		input_state.hovered = true
+		hover_stack_add(input_state)
+	} else {
+		input_state.hovered = false
+	}
+
+	text_align_left()
+	if (rl.GuiTextBox(
+			   bounds,
+			   input_state.text,
+			   size_of(input_state.alloc),
+			   input_state.edit_mode,
+		   )) {
+		if is_current_hover(input_state) && !input_state.edit_mode {
+			input_state.edit_mode = true
+		} else if input_state.edit_mode {
+			input_state.edit_mode = false
+		}
+	}
+	text_align_center()
 }
 
 ToggleState :: struct {
-    using gui_control: GuiControl,
-
-    text  : cstring,
-    toggle: ^bool,
+	using gui_control: GuiControl,
+	text:              cstring,
+	toggle:            ^bool,
 }
 
 init_toggle_state :: proc(toggle_state: ^ToggleState, text: cstring, toggle: ^bool) {
-    toggle_state.id     = GUI_ID
-    toggle_state.text   = text
-    toggle_state.toggle = toggle
+	toggle_state.id = GUI_ID
+	toggle_state.text = text
+	toggle_state.toggle = toggle
 
-    GUI_ID += 1
+	GUI_ID += 1
 }
 
 GuiToggle :: proc(bounds: rl.Rectangle, toggle_state: ^ToggleState) -> bool {
-    using state.gui_properties
+	using state.gui_properties
 
-    initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
+	initial_alignment := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT)
 
-    defer {
-      rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, initial_alignment)
-    }
+	defer {
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, initial_alignment)
+	}
 
-    border :: 2
-  
-    rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)bounds.x + border, cast(i32)bounds.y + border, cast(i32)bounds.width - (border * 2), cast(i32)bounds.height - (border * 2), BUTTON_COLOUR)
-    rl.GuiSetStyle(.LABEL, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
-    GuiLabel(bounds, toggle_state.text)
+	border :: 2
 
-    if toggle_state.toggle^ {
-        rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_ACTIVE_COLOUR)   
-    }
+	rl.DrawRectangle(
+		cast(i32)bounds.x,
+		cast(i32)bounds.y,
+		cast(i32)bounds.width,
+		cast(i32)bounds.height,
+		BUTTON_BORDER_COLOUR,
+	)
+	rl.DrawRectangle(
+		cast(i32)bounds.x + border,
+		cast(i32)bounds.y + border,
+		cast(i32)bounds.width - (border * 2),
+		cast(i32)bounds.height - (border * 2),
+		BUTTON_COLOUR,
+	)
+	rl.GuiSetStyle(
+		.LABEL,
+		cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
+		cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
+	)
+	GuiLabel(bounds, toggle_state.text)
 
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-        toggle_state.hovered = true
-        hover_stack_add(toggle_state)
-    } else {
-        toggle_state.hovered = false
-    }
-      
-    if is_current_hover(toggle_state) {
-        rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_HOVER_COLOUR)
-        if rl.IsMouseButtonReleased(.LEFT) {
-            toggle_state.toggle^ = !toggle_state.toggle^
-            return true
-        }
-    }
-    return false
+	if toggle_state.toggle^ {
+		rl.DrawRectangle(
+			cast(i32)bounds.x,
+			cast(i32)bounds.y,
+			cast(i32)bounds.width,
+			cast(i32)bounds.height,
+			BUTTON_ACTIVE_COLOUR,
+		)
+	}
+
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		toggle_state.hovered = true
+		hover_stack_add(toggle_state)
+	} else {
+		toggle_state.hovered = false
+	}
+
+	if is_current_hover(toggle_state) {
+		rl.DrawRectangle(
+			cast(i32)bounds.x,
+			cast(i32)bounds.y,
+			cast(i32)bounds.width,
+			cast(i32)bounds.height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
+			toggle_state.toggle^ = !toggle_state.toggle^
+			return true
+		}
+	}
+	return false
+}
+
+ToggleSliderState :: struct {
+	using gui_control: GuiControl,
+	options:           []cstring,
+	selected:          int,
+}
+
+init_toggle_slider_state :: proc(slider_state: ^ToggleSliderState, options: []cstring) {
+	slider_state.id = GUI_ID
+	slider_state.options = options
+
+	GUI_ID += 1
+}
+
+GuiToggleSlider :: proc(bounds: rl.Rectangle, slider_state: ^ToggleSliderState) -> int {
+	using state.gui_properties
+
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
+
+	border: f32 : 2
+
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangle(
+		cast(i32)(x + border),
+		cast(i32)(y + border),
+		cast(i32)(width - (border * 2)),
+		cast(i32)(height - (border * 2)),
+		BUTTON_COLOUR,
+	)
+
+	option_bounds := rl.Rectangle {
+		x + cast(f32)(slider_state.selected * (cast(int)width / len(slider_state.options))),
+		y,
+		cast(f32)(cast(int)width / len(slider_state.options)),
+		height,
+	}
+
+	rl.DrawRectangle(
+		cast(i32)option_bounds.x,
+		cast(i32)option_bounds.y,
+		cast(i32)option_bounds.width,
+		cast(i32)option_bounds.height,
+		BUTTON_ACTIVE_COLOUR,
+	)
+
+	GuiLabel(bounds, slider_state.options[slider_state.selected])
+
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		slider_state.hovered = true
+		hover_stack_add(slider_state)
+	} else {
+		slider_state.hovered = false
+	}
+
+	if is_current_hover(slider_state) {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)y,
+			cast(i32)width,
+			cast(i32)height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
+			if (slider_state.selected != len(slider_state.options) - 1) {
+				slider_state.selected += 1
+			} else {
+				slider_state.selected = 0
+			}
+		}
+	}
+	return slider_state.selected
+
 }
 
 CheckBoxState :: struct {
-    using gui_control: GuiControl,
-
-    text  : cstring,
-    toggle: ^bool,
+	using gui_control: GuiControl,
+	text:              cstring,
+	toggle:            ^bool,
 }
 
 init_check_box :: proc(check_box_state: ^CheckBoxState, text: cstring, toggle: ^bool) {
-    check_box_state.id     = GUI_ID
-    check_box_state.text   = text
-    check_box_state.toggle = toggle
+	check_box_state.id = GUI_ID
+	check_box_state.text = text
+	check_box_state.toggle = toggle
 
-    GUI_ID += 1
+	GUI_ID += 1
 }
 
 GuiCheckBox :: proc {
-    GuiCheckBoxWithState,
-    GuiCheckBoxStateless,
+	GuiCheckBoxWithState,
+	GuiCheckBoxStateless,
 }
 
-GuiCheckBoxWithState :: proc (bounds: rl.Rectangle, check_box_state: ^CheckBoxState) {
-    using state.gui_properties
+GuiCheckBoxWithState :: proc(bounds: rl.Rectangle, check_box_state: ^CheckBoxState) {
+	using state.gui_properties
 
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    border : f32 : 2
+	border: f32 : 2
 
-    box_x      := x 
-    box_y      := y
-    box_width  := height
-    box_height := height
+	box_x := x
+	box_y := y
+	box_width := height
+	box_height := height
 
-    label_x      := box_x + box_width + border
-    label_y      := y
-    label_width  := width - box_width - (border * 4)
-    label_height := height
+	label_x := box_x + box_width + border
+	label_y := y
+	label_width := width - box_width - (border * 4)
+	label_height := height
 
-    rl.DrawRectangle(cast(i32)box_x, cast(i32)box_y, cast(i32)box_width, cast(i32)box_height, BUTTON_BORDER_COLOUR)
-    if !check_box_state.toggle^ {
-        rl.DrawRectangle(cast(i32)(box_x + border), cast(i32)(box_y + border), cast(i32)(box_width - (border * 2)), cast(i32)(box_height - (border * 2)), BUTTON_COLOUR)
-    } else {
-        rl.DrawRectangle(cast(i32)(box_x + border), cast(i32)(box_y + border), cast(i32)(box_width - (border * 2)), cast(i32)(box_height - (border * 2)), BUTTON_ACTIVE_COLOUR)
-    }
+	rl.DrawRectangle(
+		cast(i32)box_x,
+		cast(i32)box_y,
+		cast(i32)box_width,
+		cast(i32)box_height,
+		BUTTON_BORDER_COLOUR,
+	)
+	if !check_box_state.toggle^ {
+		rl.DrawRectangle(
+			cast(i32)(box_x + border),
+			cast(i32)(box_y + border),
+			cast(i32)(box_width - (border * 2)),
+			cast(i32)(box_height - (border * 2)),
+			BUTTON_COLOUR,
+		)
+	} else {
+		rl.DrawRectangle(
+			cast(i32)(box_x + border),
+			cast(i32)(box_y + border),
+			cast(i32)(box_width - (border * 2)),
+			cast(i32)(box_height - (border * 2)),
+			BUTTON_ACTIVE_COLOUR,
+		)
+	}
 
-    GuiLabel({label_x, label_y, label_width, label_height}, check_box_state.text)
+	GuiLabel({label_x, label_y, label_width, label_height}, check_box_state.text)
 
-    if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
-        check_box_state.hovered = true
-        hover_stack_add(check_box_state)
-    } else {
-        check_box_state.hovered = false
-    }
-      
-    if is_current_hover(check_box_state) {
-        rl.DrawRectangle(cast(i32)box_x, cast(i32)box_y, cast(i32)box_width, cast(i32)box_height, BUTTON_HOVER_COLOUR)
-        if rl.IsMouseButtonReleased(.LEFT) {
-            check_box_state.toggle^ = !check_box_state.toggle^
-        }
-    }
+	if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
+		check_box_state.hovered = true
+		hover_stack_add(check_box_state)
+	} else {
+		check_box_state.hovered = false
+	}
+
+	if is_current_hover(check_box_state) {
+		rl.DrawRectangle(
+			cast(i32)box_x,
+			cast(i32)box_y,
+			cast(i32)box_width,
+			cast(i32)box_height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
+			check_box_state.toggle^ = !check_box_state.toggle^
+		}
+	}
 
 }
 
 GuiCheckBoxStateless :: proc(bounds: rl.Rectangle, text: cstring, toggle: ^bool) {
-    using state.gui_properties
+	using state.gui_properties
 
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    box_x      := x
-    box_y      := y
-    box_width  := height
-    box_height := height
+	box_x := x
+	box_y := y
+	box_width := height
+	box_height := height
 
-    label_x      := box_x + box_width
-    label_y      := y
-    label_width  := width - box_width
-    label_height := height
+	label_x := box_x + box_width
+	label_y := y
+	label_width := width - box_width
+	label_height := height
 
-    border : f32 : 2
+	border: f32 : 2
 
-    rl.DrawRectangle(cast(i32)box_x, cast(i32)box_y, cast(i32)box_width, cast(i32)box_height, BUTTON_BORDER_COLOUR)
-    if !toggle^ {
-        rl.DrawRectangle(cast(i32)(box_x + border), cast(i32)(box_y + border), cast(i32)(box_width - (border * 2)), cast(i32)(box_height - (border * 2)), BUTTON_COLOUR)
-    } else {
-        rl.DrawRectangle(cast(i32)(box_x + border), cast(i32)(box_y + border), cast(i32)(box_width - (border * 2)), cast(i32)(box_height - (border * 2)), BUTTON_ACTIVE_COLOUR)
-    }
+	rl.DrawRectangle(
+		cast(i32)box_x,
+		cast(i32)box_y,
+		cast(i32)box_width,
+		cast(i32)box_height,
+		BUTTON_BORDER_COLOUR,
+	)
+	if !toggle^ {
+		rl.DrawRectangle(
+			cast(i32)(box_x + border),
+			cast(i32)(box_y + border),
+			cast(i32)(box_width - (border * 2)),
+			cast(i32)(box_height - (border * 2)),
+			BUTTON_COLOUR,
+		)
+	} else {
+		rl.DrawRectangle(
+			cast(i32)(box_x + border),
+			cast(i32)(box_y + border),
+			cast(i32)(box_width - (border * 2)),
+			cast(i32)(box_height - (border * 2)),
+			BUTTON_ACTIVE_COLOUR,
+		)
+	}
 
-    GuiLabel({label_x, label_y, label_width, label_height}, text)
+	GuiLabel({label_x, label_y, label_width, label_height}, text)
 
-    if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
-        rl.DrawRectangle(cast(i32)box_x, cast(i32)box_y, cast(i32)box_width, cast(i32)box_height, BUTTON_HOVER_COLOUR)
-        if rl.IsMouseButtonReleased(.LEFT) {
-            toggle^ = !toggle^
-        }
-    }
+	if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
+		rl.DrawRectangle(
+			cast(i32)box_x,
+			cast(i32)box_y,
+			cast(i32)box_width,
+			cast(i32)box_height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
+			toggle^ = !toggle^
+		}
+	}
 }
 
 EntityButtonState :: struct {
-    using guiControl: GuiControl,
-
-    entity     : ^Entity,
-    btn_list   : ^[dynamic]EntityButtonState,
-    index      : int,
-    up_button  : ButtonState,
-    down_button: ButtonState,
-    check_box  : CheckBoxState,
+	using guiControl: GuiControl,
+	entity:           ^Entity,
+	btn_list:         ^[dynamic]EntityButtonState,
+	index:            int,
+	up_button:        ButtonState,
+	down_button:      ButtonState,
+	check_box:        CheckBoxState,
 }
 
-init_entity_button_state :: proc(button_state: ^EntityButtonState, entity: ^Entity, btn_list: ^[dynamic]EntityButtonState, index: int) {
-    button_state.id       = GUI_ID
-    button_state.entity   = entity
-    button_state.btn_list = btn_list
-    button_state.index    = index
+init_entity_button_state :: proc(
+	button_state: ^EntityButtonState,
+	entity: ^Entity,
+	btn_list: ^[dynamic]EntityButtonState,
+	index: int,
+) {
+	button_state.id = GUI_ID
+	button_state.entity = entity
+	button_state.btn_list = btn_list
+	button_state.index = index
 
-    GUI_ID += 1
- 
-    up_button   := ButtonState{}
-    down_button := ButtonState{}
+	GUI_ID += 1
 
-    init_button_state(&button_state.up_button)
-    init_button_state(&button_state.down_button)
+	up_button := ButtonState{}
+	down_button := ButtonState{}
 
-    init_check_box(&button_state.check_box, "visible", &entity.visible)
+	init_button_state(&button_state.up_button)
+	init_button_state(&button_state.down_button)
+
+	init_check_box(&button_state.check_box, "visible", &entity.visible)
 }
 
-GuiEntityButtonClickable :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) -> (clicked: bool) {
-    using state.gui_properties
-    rl.GuiSetIconScale(1)
-    defer rl.GuiSetIconScale(2)
+GuiEntityButtonClickable :: proc(
+	rec: rl.Rectangle,
+	button_state: ^EntityButtonState,
+) -> (
+	clicked: bool,
+) {
+	using state.gui_properties
+	rl.GuiSetIconScale(1)
+	defer rl.GuiSetIconScale(2)
 
-    x      := rec.x
-    y      := rec.y
-    width  := rec.width
-    height := rec.height
+	x := rec.x
+	y := rec.y
+	width := rec.width
+	height := rec.height
 
-    BORDER : f32 : 2
-    MARGIN : f32 : 0.01
+	BORDER: f32 : 2
+	MARGIN: f32 : 0.01
 
-    INITIATIVE_SPLIT : f32 : 0.14
-    NAME_SPLIT       : f32 : 0.54
-    HEALTH_SPLIT     : f32 : 0.29
+	INITIATIVE_SPLIT: f32 : 0.14
+	NAME_SPLIT: f32 : 0.54
+	HEALTH_SPLIT: f32 : 0.29
 
-    LABELS_WIDTH : f32 = (width - (BORDER * 2)) - (height * 0.35) - (height * 0.1)
+	LABELS_WIDTH: f32 = (width - (BORDER * 2)) - (height * 0.35) - (height * 0.1)
 
-    initiative_x      := x + BORDER + (height * 0.35) + (height * 0.1)
-    initiative_y      := y + BORDER
-    initiative_width  := LABELS_WIDTH * INITIATIVE_SPLIT
-    initiative_height := height - (BORDER * 2)
+	initiative_x := x + BORDER + (height * 0.35) + (height * 0.1)
+	initiative_y := y + BORDER
+	initiative_width := LABELS_WIDTH * INITIATIVE_SPLIT
+	initiative_height := height - (BORDER * 2)
 
-    name_x      := initiative_x + initiative_width + (LABELS_WIDTH * MARGIN) 
-    name_y      := y + BORDER
-    name_width  := LABELS_WIDTH * NAME_SPLIT
-    name_height := height - (BORDER * 2)
+	name_x := initiative_x + initiative_width + (LABELS_WIDTH * MARGIN)
+	name_y := y + BORDER
+	name_width := LABELS_WIDTH * NAME_SPLIT
+	name_height := height - (BORDER * 2)
 
-    health_x      := initiative_x + initiative_width + name_width + (LABELS_WIDTH * MARGIN)
-    health_y      := y + BORDER
-    health_width  := LABELS_WIDTH * HEALTH_SPLIT
-    health_height := height - (BORDER * 2)
+	health_x := initiative_x + initiative_width + name_width + (LABELS_WIDTH * MARGIN)
+	health_y := y + BORDER
+	health_width := LABELS_WIDTH * HEALTH_SPLIT
+	health_height := height - (BORDER * 2)
 
-    //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(x + BORDER), cast(i32)(y + BORDER), cast(i32)(width - (BORDER * 2)), cast(i32)(height - (BORDER * 2)), BUTTON_COLOUR)
-    
-    GuiLabel({name_x, name_y, name_width, name_height}, cstr(button_state.entity.alias))
-      
-    if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
-        button_state.hovered = true
-        hover_stack_add(button_state)
-    } else {
-        button_state.hovered = false
-    }
+	//Draw border
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangle(
+		cast(i32)(x + BORDER),
+		cast(i32)(y + BORDER),
+		cast(i32)(width - (BORDER * 2)),
+		cast(i32)(height - (BORDER * 2)),
+		BUTTON_COLOUR,
+	)
 
-    if is_current_hover(button_state) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2))
-          
-        if rl.IsMouseButtonReleased(.LEFT) {
-            clicked = true
-            return
-        }
-    }
+	GuiLabel({name_x, name_y, name_width, name_height}, cstr(button_state.entity.alias))
 
-    if GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, &button_state.up_button, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (button_state.index > 0) {
-            temp_entity := button_state.btn_list[button_state.index-1]
-            button_state.btn_list[button_state.index-1] = button_state.btn_list[button_state.index]
-            button_state.btn_list[button_state.index] = temp_entity
-        }
-    }
-      
-    if GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, &button_state.down_button, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (button_state.index < len(button_state.btn_list^)-1) {
-            temp_entity := button_state.btn_list[button_state.index+1]
-            button_state.btn_list[button_state.index+1] = button_state.btn_list[button_state.index]
-            button_state.btn_list[button_state.index] = temp_entity
-        }
-    }
-    //Initiative label
-    GuiLabel({initiative_x, initiative_y, initiative_width, initiative_height}, cstr(button_state.entity.initiative))
-    //Health label
-    health_label_text: cstring
-    if button_state.entity.temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", button_state.entity.HP, button_state.entity.HP_max, button_state.entity.temp_HP)
-    } else {
-        health_label_text = fmt.ctprintf("%v/%v", button_state.entity.HP, button_state.entity.HP_max)
-    }
+	if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
+		button_state.hovered = true
+		hover_stack_add(button_state)
+	} else {
+		button_state.hovered = false
+	}
 
-    GuiLabel({health_x, health_y, health_width, health_height}, cstr(health_label_text))
-    text_align_left()
-    GuiCheckBox({x + (width * 0.75), y + (height * 0.75), (width * 0.25), (height * 0.2)}, &button_state.check_box)
-    text_align_center()
-    return
+	if is_current_hover(button_state) {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)y,
+			cast(i32)width,
+			cast(i32)height,
+			rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2),
+		)
+
+		if rl.IsMouseButtonReleased(.LEFT) {
+			clicked = true
+			return
+		}
+	}
+
+	if GuiButton(
+		{x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)},
+		&button_state.up_button,
+		rl.GuiIconText(.ICON_ARROW_UP, ""),
+	) {
+		if (button_state.index > 0) {
+			temp_entity := button_state.btn_list[button_state.index - 1]
+			button_state.btn_list[button_state.index - 1] =
+				button_state.btn_list[button_state.index]
+			button_state.btn_list[button_state.index] = temp_entity
+		}
+	}
+
+	if GuiButton(
+		{x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)},
+		&button_state.down_button,
+		rl.GuiIconText(.ICON_ARROW_DOWN, ""),
+	) {
+		if (button_state.index < len(button_state.btn_list^) - 1) {
+			temp_entity := button_state.btn_list[button_state.index + 1]
+			button_state.btn_list[button_state.index + 1] =
+				button_state.btn_list[button_state.index]
+			button_state.btn_list[button_state.index] = temp_entity
+		}
+	}
+	//Initiative label
+	GuiLabel(
+		{initiative_x, initiative_y, initiative_width, initiative_height},
+		cstr(button_state.entity.initiative),
+	)
+	//Health label
+	health_label_text: cstring
+	if button_state.entity.temp_HP > 0 {
+		health_label_text = fmt.ctprintf(
+			"%v/%v+%v",
+			button_state.entity.HP,
+			button_state.entity.HP_max,
+			button_state.entity.temp_HP,
+		)
+	} else {
+		health_label_text = fmt.ctprintf(
+			"%v/%v",
+			button_state.entity.HP,
+			button_state.entity.HP_max,
+		)
+	}
+
+	GuiLabel({health_x, health_y, health_width, health_height}, cstr(health_label_text))
+	text_align_left()
+	GuiCheckBox(
+		{x + (width * 0.75), y + (height * 0.75), (width * 0.25), (height * 0.2)},
+		&button_state.check_box,
+	)
+	text_align_center()
+	return
 }
 
 GuiEntityButton :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) {
-    using state.gui_properties
-    rl.GuiSetIconScale(1)
-    defer rl.GuiSetIconScale(2)
+	using state.gui_properties
+	rl.GuiSetIconScale(1)
+	defer rl.GuiSetIconScale(2)
 
-    x := rec.x
-    y := rec.y
-    width := rec.width
-    height := rec.height
+	x := rec.x
+	y := rec.y
+	width := rec.width
+	height := rec.height
 
-    BORDER : f32 : 2
-    MARGIN : f32 : 0.01
+	BORDER: f32 : 2
+	MARGIN: f32 : 0.01
 
-    INITIATIVE_SPLIT : f32 : 0.14
-    NAME_SPLIT       : f32 : 0.54
-    HEALTH_SPLIT     : f32 : 0.29
+	INITIATIVE_SPLIT: f32 : 0.14
+	NAME_SPLIT: f32 : 0.54
+	HEALTH_SPLIT: f32 : 0.29
 
-    LABELS_WIDTH : f32 = (width - (BORDER * 2)) - (height * 0.35) - (height * 0.1)
+	LABELS_WIDTH: f32 = (width - (BORDER * 2)) - (height * 0.35) - (height * 0.1)
 
-    initiative_x      := x + BORDER + (height * 0.35) + (height * 0.1)
-    initiative_y      := y + BORDER
-    initiative_width  := LABELS_WIDTH * INITIATIVE_SPLIT
-    initiative_height := height - (BORDER * 2)
+	initiative_x := x + BORDER + (height * 0.35) + (height * 0.1)
+	initiative_y := y + BORDER
+	initiative_width := LABELS_WIDTH * INITIATIVE_SPLIT
+	initiative_height := height - (BORDER * 2)
 
-    name_x      := initiative_x + initiative_width + (LABELS_WIDTH * MARGIN) 
-    name_y      := y + BORDER
-    name_width  := LABELS_WIDTH * NAME_SPLIT
-    name_height := height - (BORDER * 2)
+	name_x := initiative_x + initiative_width + (LABELS_WIDTH * MARGIN)
+	name_y := y + BORDER
+	name_width := LABELS_WIDTH * NAME_SPLIT
+	name_height := height - (BORDER * 2)
 
-    health_x      := initiative_x + initiative_width + name_width + (LABELS_WIDTH * MARGIN)
-    health_y      := y + BORDER
-    health_width  := LABELS_WIDTH * HEALTH_SPLIT
-    health_height := height - (BORDER * 2)
+	health_x := initiative_x + initiative_width + name_width + (LABELS_WIDTH * MARGIN)
+	health_y := y + BORDER
+	health_width := LABELS_WIDTH * HEALTH_SPLIT
+	health_height := height - (BORDER * 2)
 
-    name       := button_state.entity.alias
-    initiative := button_state.entity.initiative
-    //Draw border
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(x + BORDER), cast(i32)(y + BORDER), cast(i32)(width - (BORDER * 2)), cast(i32)(height - (BORDER * 2)), BUTTON_COLOUR)
-    
-    GuiLabel({name_x, name_y, name_width, name_height}, cstr(name))
-    
-    if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
-        button_state.hovered = true
-        hover_stack_add(button_state)
-    } else {
-        button_state.hovered = false
-    }
+	name := button_state.entity.alias
+	initiative := button_state.entity.initiative
+	//Draw border
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangle(
+		cast(i32)(x + BORDER),
+		cast(i32)(y + BORDER),
+		cast(i32)(width - (BORDER * 2)),
+		cast(i32)(height - (BORDER * 2)),
+		BUTTON_COLOUR,
+	)
 
-    if GuiButton({x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)}, &button_state.up_button, rl.GuiIconText(.ICON_ARROW_UP, "")) {
-        if (button_state.index > 0) {
-            temp_entity := button_state.btn_list[button_state.index-1]
-            button_state.btn_list[button_state.index-1] = button_state.btn_list[button_state.index]
-            button_state.btn_list[button_state.index] = temp_entity
-        }
-    }
-      
-    if GuiButton({x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)}, &button_state.down_button, rl.GuiIconText(.ICON_ARROW_DOWN, "")) {
-        if (button_state.index < len(button_state.btn_list^)-1) {
-            temp_entity := button_state.btn_list[button_state.index+1]
-            button_state.btn_list[button_state.index+1] = button_state.btn_list[button_state.index]
-            button_state.btn_list[button_state.index] = temp_entity
-        }
-    }
+	GuiLabel({name_x, name_y, name_width, name_height}, cstr(name))
 
-    //Initiative label
-    GuiLabel({initiative_x, initiative_y, initiative_width, initiative_height}, cstr(initiative))
-    //Health label
-    health_label_text: cstring
-    if button_state.entity.temp_HP > 0 {
-        health_label_text = fmt.ctprintf("%v/%v+%v", button_state.entity.HP, button_state.entity.HP_max, button_state.entity.temp_HP)
-    } else {
-        health_label_text = fmt.ctprintf("%v/%v", button_state.entity.HP, button_state.entity.HP_max)
-    }
+	if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
+		button_state.hovered = true
+		hover_stack_add(button_state)
+	} else {
+		button_state.hovered = false
+	}
 
-    GuiLabel({health_x, health_y, health_width, health_height}, cstr(health_label_text))
-    //Visibility option 
-    text_align_left()
-    GuiCheckBox({x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)}, "visible", &button_state.entity.visible)
-    text_align_center()
+	if GuiButton(
+		{x + (height * 0.1), y + (height * 0.1), (height * 0.35), (height * 0.35)},
+		&button_state.up_button,
+		rl.GuiIconText(.ICON_ARROW_UP, ""),
+	) {
+		if (button_state.index > 0) {
+			temp_entity := button_state.btn_list[button_state.index - 1]
+			button_state.btn_list[button_state.index - 1] =
+				button_state.btn_list[button_state.index]
+			button_state.btn_list[button_state.index] = temp_entity
+		}
+	}
+
+	if GuiButton(
+		{x + (height * 0.1), y + (height * 0.55), (height * 0.35), (height * 0.35)},
+		&button_state.down_button,
+		rl.GuiIconText(.ICON_ARROW_DOWN, ""),
+	) {
+		if (button_state.index < len(button_state.btn_list^) - 1) {
+			temp_entity := button_state.btn_list[button_state.index + 1]
+			button_state.btn_list[button_state.index + 1] =
+				button_state.btn_list[button_state.index]
+			button_state.btn_list[button_state.index] = temp_entity
+		}
+	}
+
+	//Initiative label
+	GuiLabel({initiative_x, initiative_y, initiative_width, initiative_height}, cstr(initiative))
+	//Health label
+	health_label_text: cstring
+	if button_state.entity.temp_HP > 0 {
+		health_label_text = fmt.ctprintf(
+			"%v/%v+%v",
+			button_state.entity.HP,
+			button_state.entity.HP_max,
+			button_state.entity.temp_HP,
+		)
+	} else {
+		health_label_text = fmt.ctprintf(
+			"%v/%v",
+			button_state.entity.HP,
+			button_state.entity.HP_max,
+		)
+	}
+
+	GuiLabel({health_x, health_y, health_width, health_height}, cstr(health_label_text))
+	//Visibility option 
+	text_align_left()
+	GuiCheckBox(
+		{x + (width * 0.8), y + (height * 0.75), (height * 0.2), (height * 0.2)},
+		"visible",
+		&button_state.entity.visible,
+	)
+	text_align_center()
 }
 
-dropdown_bounds     : rl.Rectangle
+dropdown_bounds: rl.Rectangle
 dropdown_content_rec: rl.Rectangle
-dropdown_view       : rl.Rectangle
-dropdown_scrolll    : rl.Vector2
+dropdown_view: rl.Rectangle
+dropdown_scrolll: rl.Vector2
 
 DropdownState :: struct {
-    using gui_control: GuiControl,
-
-    title           : cstring,
-    static_title    : bool,
-    labels          : []cstring,
-    selected        : i32,
-    active          : bool,
-    btn_list        : ^map[i32]^bool,
-}
-  
-init_dropdown_state :: proc(dropdown_state: ^DropdownState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {  
-    dropdown_state.id       = GUI_ID
-    dropdown_state.labels   = labels
-    dropdown_state.btn_list = btn_list
-
-    if title != "" {
-        dropdown_state.title = title
-        dropdown_state.static_title = true
-    }
-
-    GUI_ID += 1
+	using gui_control: GuiControl,
+	title:             cstring,
+	static_title:      bool,
+	labels:            []cstring,
+	selected:          i32,
+	active:            bool,
+	btn_list:          ^map[i32]^bool,
 }
 
-@(deferred_in=_draw_dropdown)
+init_dropdown_state :: proc(
+	dropdown_state: ^DropdownState,
+	title: cstring,
+	labels: []cstring,
+	btn_list: ^map[i32]^bool,
+) {
+	dropdown_state.id = GUI_ID
+	dropdown_state.labels = labels
+	dropdown_state.btn_list = btn_list
+
+	if title != "" {
+		dropdown_state.title = title
+		dropdown_state.static_title = true
+	}
+
+	GUI_ID += 1
+}
+
+@(deferred_in = _draw_dropdown)
 GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
-    using state.gui_properties
+	using state.gui_properties
 
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    initial_text_size := TEXT_SIZE
+	initial_text_size := TEXT_SIZE
 
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
+	defer {
+		TEXT_SIZE = initial_text_size
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	}
 
-    border    : f32 : 2
-    max_items : f32 : 4
+	border: f32 : 2
+	max_items: f32 : 4
 
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-        dropdown_state.hovered = true
-        hover_stack_add(dropdown_state)
-    } else {
-        dropdown_state.hovered = false
-    }
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		dropdown_state.hovered = true
+		hover_stack_add(dropdown_state)
+	} else {
+		dropdown_state.hovered = false
+	}
 
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(x + border), cast(i32)(y + border), cast(i32)(width - (border * 2)), cast(i32)(height - (border * 2)), BUTTON_COLOUR)
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_HOVER_COLOUR)
-    }
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangle(
+		cast(i32)(x + border),
+		cast(i32)(y + border),
+		cast(i32)(width - (border * 2)),
+		cast(i32)(height - (border * 2)),
+		BUTTON_COLOUR,
+	)
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)y,
+			cast(i32)width,
+			cast(i32)height,
+			BUTTON_HOVER_COLOUR,
+		)
+	}
 
-    if !dropdown_state.static_title {
-        dropdown_state.title = dropdown_state.labels[dropdown_state.selected]
-    }
-    GuiLabel({x + border, y + border, width - (2 * border), height - (2 * border)}, dropdown_state.title)
+	if !dropdown_state.static_title {
+		dropdown_state.title = dropdown_state.labels[dropdown_state.selected]
+	}
+	GuiLabel(
+		{x + border, y + border, width - (2 * border), height - (2 * border)},
+		dropdown_state.title,
+	)
 }
 
 @(private)
 _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
-    using state.gui_properties
-  
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	using state.gui_properties
 
-    bounds_check_x      := x
-    bounds_check_y      := y
-    bounds_check_width  := width
-    bounds_check_height := height
-  
-    cursor_x : f32 = x
-    cursor_y : f32 = y
-  
-    border    : f32 : 2
-    max_items : f32 : 4
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    dropdown_height : f32 = cast(f32)(max_items * LINE_HEIGHT) if (cast(f32)len(dropdown_state.labels) >= max_items) else cast(f32)len(dropdown_state.labels) * LINE_HEIGHT
+	bounds_check_x := x
+	bounds_check_y := y
+	bounds_check_width := width
+	bounds_check_height := height
 
-    if y <= (state.window_height / 2) {
-        cursor_y += LINE_HEIGHT
-        bounds_check_y += LINE_HEIGHT
-    } else {
-        cursor_y -= dropdown_height
-        bounds_check_y -= dropdown_height
-    }
- 
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, cursor_y, bounds.width, bounds.height + dropdown_height}) {
-        dropdown_state.hovered = true
-        hover_stack_add(dropdown_state)
-    } else {
-        dropdown_state.hovered = false
-    }
-   
-    if is_current_hover(dropdown_state) {
-        if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-            if rl.IsMouseButtonReleased(.LEFT) {
-                if !dropdown_state.active {
-                    for _, dropdown_active in dropdown_state.btn_list {
-                        dropdown_active^ = false
-                    }
-                    dropdown_state.active = true
-                } else {
-                    dropdown_state.active = false
-                }
-                if (dropdown_state.active) {
-                    dropdown_bounds        = {x, cursor_y, width, LINE_HEIGHT * max_items}
-                    dropdown_content_rec = {x, cursor_y, width, 0}
-                    dropdown_view       = {0, 0, 0, 0}
-                    dropdown_scrolll     = {0, 0}
-                }
-            }
-        }
-    }
+	cursor_x: f32 = x
+	cursor_y: f32 = y
 
-    if dropdown_state.active {
-        rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, BUTTON_BORDER_COLOUR)
-        rl.DrawRectangle(cast(i32)(x + border), cast(i32)(cursor_y + border), cast(i32)(width - (border * 2)), cast(i32)(dropdown_height - (border * 2)), DROPDOWN_COLOUR)
-          
-        if (cast(i32)len(dropdown_state.labels) > cast(i32)max_items) {
-            dropdown_content_rec.width  = width - 14
-            dropdown_content_rec.height = cast(f32)len(dropdown_state.labels) * LINE_HEIGHT
+	border: f32 : 2
+	max_items: f32 : 4
 
-            rl.GuiScrollPanel(dropdown_bounds, nil, dropdown_content_rec, &dropdown_scrolll, &dropdown_view)
-            rl.BeginScissorMode(cast(i32)dropdown_view.x, cast(i32)dropdown_view.y, cast(i32)dropdown_view.width, cast(i32)dropdown_view.height)
-            rl.ClearBackground(DROPDOWN_COLOUR)
-        } else {
-            dropdown_content_rec.width = width
-        }
-      
-        cursor_y += dropdown_scrolll.y
+	dropdown_height: f32 =
+		cast(f32)(max_items * LINE_HEIGHT) if (cast(f32)len(dropdown_state.labels) >= max_items) else cast(f32)len(dropdown_state.labels) * LINE_HEIGHT
 
-        selected_cursor_y  := cursor_y + (cast(f32)dropdown_state.selected * LINE_HEIGHT)
-        currently_selected := rl.Rectangle{x, selected_cursor_y, dropdown_content_rec.width, LINE_HEIGHT}
+	if y <= (state.window_height / 2) {
+		cursor_y += LINE_HEIGHT
+		bounds_check_y += LINE_HEIGHT
+	} else {
+		cursor_y -= dropdown_height
+		bounds_check_y -= dropdown_height
+	}
 
-        rl.DrawRectangle(cast(i32)currently_selected.x, cast(i32)currently_selected.y, cast(i32)currently_selected.width, cast(i32)currently_selected.height, DROPDOWN_SELECTED_COLOUR)
-          
-        for label, i in dropdown_state.labels {
-            option_bounds := rl.Rectangle{x, cursor_y, dropdown_content_rec.width, LINE_HEIGHT}
-  
-            if rl.CheckCollisionRecs(option_bounds, {bounds_check_x, bounds_check_y, bounds_check_width, dropdown_height}) {
-                GuiLabel({option_bounds.x + (cast(f32)border * 2), option_bounds.y, dropdown_content_rec.width - (border * 2), LINE_HEIGHT}, label)
-                rl.GuiLine({option_bounds.x, option_bounds.y, option_bounds.width, cast(f32)border}, "")
-              
-                if rl.CheckCollisionPointRec(state.mouse_pos, option_bounds) {
-                    rl.DrawRectangle(cast(i32)option_bounds.x, cast(i32)option_bounds.y, cast(i32)option_bounds.width, cast(i32)option_bounds.height, DROPDOWN_HOVER_COLOUR)
-                    //Draw highlight colour
-                    if rl.IsMouseButtonReleased(.LEFT) {
-                        dropdown_state.selected = cast(i32)i
-                        dropdown_state.active   = false
-                        state.hover_consumed    = false
-                    }
-                }
-            }
-            cursor_y += LINE_HEIGHT
-        }
-  
-        if (cast(i32)len(dropdown_state.labels) > cast(i32)max_items) {
-            rl.EndScissorMode()
-        } else {
-            dropdown_scrolll.y = 0
-        }
-    }
+	if rl.CheckCollisionPointRec(
+		state.mouse_pos,
+		bounds if (!dropdown_state.active) else rl.Rectangle{bounds.x, cursor_y, bounds.width, bounds.height + dropdown_height},
+	) {
+		dropdown_state.hovered = true
+		hover_stack_add(dropdown_state)
+	} else {
+		dropdown_state.hovered = false
+	}
+
+	if is_current_hover(dropdown_state) {
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			if rl.IsMouseButtonReleased(.LEFT) {
+				if !dropdown_state.active {
+					for _, dropdown_active in dropdown_state.btn_list {
+						dropdown_active^ = false
+					}
+					dropdown_state.active = true
+				} else {
+					dropdown_state.active = false
+				}
+				if (dropdown_state.active) {
+					dropdown_bounds = {x, cursor_y, width, LINE_HEIGHT * max_items}
+					dropdown_content_rec = {x, cursor_y, width, 0}
+					dropdown_view = {0, 0, 0, 0}
+					dropdown_scrolll = {0, 0}
+				}
+			}
+		}
+	}
+
+	if dropdown_state.active {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)cursor_y,
+			cast(i32)width,
+			cast(i32)dropdown_height,
+			BUTTON_BORDER_COLOUR,
+		)
+		rl.DrawRectangle(
+			cast(i32)(x + border),
+			cast(i32)(cursor_y + border),
+			cast(i32)(width - (border * 2)),
+			cast(i32)(dropdown_height - (border * 2)),
+			DROPDOWN_COLOUR,
+		)
+
+		if (cast(i32)len(dropdown_state.labels) > cast(i32)max_items) {
+			dropdown_content_rec.width = width - 14
+			dropdown_content_rec.height = cast(f32)len(dropdown_state.labels) * LINE_HEIGHT
+
+			rl.GuiScrollPanel(
+				dropdown_bounds,
+				nil,
+				dropdown_content_rec,
+				&dropdown_scrolll,
+				&dropdown_view,
+			)
+			rl.BeginScissorMode(
+				cast(i32)dropdown_view.x,
+				cast(i32)dropdown_view.y,
+				cast(i32)dropdown_view.width,
+				cast(i32)dropdown_view.height,
+			)
+			rl.ClearBackground(DROPDOWN_COLOUR)
+		} else {
+			dropdown_content_rec.width = width
+		}
+
+		cursor_y += dropdown_scrolll.y
+
+		selected_cursor_y := cursor_y + (cast(f32)dropdown_state.selected * LINE_HEIGHT)
+		currently_selected := rl.Rectangle {
+			x,
+			selected_cursor_y,
+			dropdown_content_rec.width,
+			LINE_HEIGHT,
+		}
+
+		rl.DrawRectangle(
+			cast(i32)currently_selected.x,
+			cast(i32)currently_selected.y,
+			cast(i32)currently_selected.width,
+			cast(i32)currently_selected.height,
+			DROPDOWN_SELECTED_COLOUR,
+		)
+
+		for label, i in dropdown_state.labels {
+			option_bounds := rl.Rectangle{x, cursor_y, dropdown_content_rec.width, LINE_HEIGHT}
+
+			if rl.CheckCollisionRecs(
+				option_bounds,
+				{bounds_check_x, bounds_check_y, bounds_check_width, dropdown_height},
+			) {
+				GuiLabel(
+					{
+						option_bounds.x + (cast(f32)border * 2),
+						option_bounds.y,
+						dropdown_content_rec.width - (border * 2),
+						LINE_HEIGHT,
+					},
+					label,
+				)
+				rl.GuiLine(
+					{option_bounds.x, option_bounds.y, option_bounds.width, cast(f32)border},
+					"",
+				)
+
+				if rl.CheckCollisionPointRec(state.mouse_pos, option_bounds) {
+					rl.DrawRectangle(
+						cast(i32)option_bounds.x,
+						cast(i32)option_bounds.y,
+						cast(i32)option_bounds.width,
+						cast(i32)option_bounds.height,
+						DROPDOWN_HOVER_COLOUR,
+					)
+					//Draw highlight colour
+					if rl.IsMouseButtonReleased(.LEFT) {
+						dropdown_state.selected = cast(i32)i
+						dropdown_state.active = false
+						state.hover_consumed = false
+					}
+				}
+			}
+			cursor_y += LINE_HEIGHT
+		}
+
+		if (cast(i32)len(dropdown_state.labels) > cast(i32)max_items) {
+			rl.EndScissorMode()
+		} else {
+			dropdown_scrolll.y = 0
+		}
+	}
 }
 
 DropdownSelectState :: struct {
-    using guiControl: GuiControl,
-
-    title   : cstring,
-    check_box_states: []CheckBoxState,
-    selected: []bool,
-    active  : bool,
-    btn_list: ^map[i32]^bool,
+	using guiControl: GuiControl,
+	title:            cstring,
+	check_box_states: []CheckBoxState,
+	selected:         []bool,
+	active:           bool,
+	btn_list:         ^map[i32]^bool,
 }
 
-init_dropdown_select_state :: proc(dropdown_state: ^DropdownSelectState, title: cstring, labels: []cstring, btn_list: ^map[i32]^bool) {
-    dropdown_state.id       = GUI_ID
-    dropdown_state.title    = title
-    dropdown_state.check_box_states = make_slice([]CheckBoxState, len(labels), allocator=static_alloc)
-    dropdown_state.selected = make_slice([]bool, len(labels), allocator=static_alloc)
-    dropdown_state.btn_list = btn_list
+init_dropdown_select_state :: proc(
+	dropdown_state: ^DropdownSelectState,
+	title: cstring,
+	labels: []cstring,
+	btn_list: ^map[i32]^bool,
+) {
+	dropdown_state.id = GUI_ID
+	dropdown_state.title = title
+	dropdown_state.check_box_states = make_slice(
+		[]CheckBoxState,
+		len(labels),
+		allocator = static_alloc,
+	)
+	dropdown_state.selected = make_slice([]bool, len(labels), allocator = static_alloc)
+	dropdown_state.btn_list = btn_list
 
-    GUI_ID += 1
+	GUI_ID += 1
 
-    for _, i in labels {
-        init_check_box(&dropdown_state.check_box_states[i], labels[i], &dropdown_state.selected[i])
-    }
+	for _, i in labels {
+		init_check_box(&dropdown_state.check_box_states[i], labels[i], &dropdown_state.selected[i])
+	}
 }
 
 DeInitDropdownSelectState :: proc(dropdown_state: ^DropdownSelectState) {
-    delete(dropdown_state.title)
-    delete(dropdown_state.check_box_states)
-    delete(dropdown_state.selected)
-    clear(dropdown_state.btn_list)
+	delete(dropdown_state.title)
+	delete(dropdown_state.check_box_states)
+	delete(dropdown_state.selected)
+	clear(dropdown_state.btn_list)
 }
 
-@(deferred_in=_draw_dropdown_select)
+@(deferred_in = _draw_dropdown_select)
 GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
-    using state.gui_properties
+	using state.gui_properties
 
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    initial_text_size := TEXT_SIZE
+	initial_text_size := TEXT_SIZE
 
-    defer {
-        TEXT_SIZE = initial_text_size
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-    }
+	defer {
+		TEXT_SIZE = initial_text_size
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	}
 
-    border    : f32 : 2
-    max_items : f32 : 4
+	border: f32 : 2
+	max_items: f32 : 4
 
-    if !dropdown_state.active {
-        if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-            dropdown_state.hovered = true
-            hover_stack_add(dropdown_state)
-        } else {
-            dropdown_state.hovered = false
-        }
-    }
+	if !dropdown_state.active {
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			dropdown_state.hovered = true
+			hover_stack_add(dropdown_state)
+		} else {
+			dropdown_state.hovered = false
+		}
+	}
 
-    rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-    rl.DrawRectangle(cast(i32)(x + border), cast(i32)(y + border), cast(i32)(width - (border * 2)), cast(i32)(height - (border * 2)), BUTTON_COLOUR)
-    if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
-        rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2))
-    }
-    GuiLabel({x + border, y + border, width - (border * 2), height - (border * 2)}, dropdown_state.title)
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangle(
+		cast(i32)(x + border),
+		cast(i32)(y + border),
+		cast(i32)(width - (border * 2)),
+		cast(i32)(height - (border * 2)),
+		BUTTON_COLOUR,
+	)
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)y,
+			cast(i32)width,
+			cast(i32)height,
+			rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2),
+		)
+	}
+	GuiLabel(
+		{x + border, y + border, width - (border * 2), height - (border * 2)},
+		dropdown_state.title,
+	)
 }
 
 @(private)
 _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSelectState) {
-    using state.gui_properties
+	using state.gui_properties
 
-    x      := bounds.x
-    y      := bounds.y
-    width  := bounds.width
-    height := bounds.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
-    bounds_check_x      := x
-    bounds_check_y      := y
-    bounds_check_width  := width
-    bounds_check_height := height
+	bounds_check_x := x
+	bounds_check_y := y
+	bounds_check_width := width
+	bounds_check_height := height
 
-    cursor_x : f32 = x
-    cursor_y : f32 = y
+	cursor_x: f32 = x
+	cursor_y: f32 = y
 
-    border    : f32 : 2
-    max_items : f32 : 4
+	border: f32 : 2
+	max_items: f32 : 4
 
-    dropdown_height : f32 = cast(f32)(max_items * LINE_HEIGHT) if (cast(f32)len(dropdown_state.check_box_states) >= max_items) else cast(f32)len(dropdown_state.check_box_states) * LINE_HEIGHT
-    
-    if y <= (state.window_height / 2) {
-        cursor_y += LINE_HEIGHT
-        bounds_check_y += LINE_HEIGHT
-    } else {
-        cursor_y -= dropdown_height
-        bounds_check_y -= dropdown_height
-    }
+	dropdown_height: f32 =
+		cast(f32)(max_items * LINE_HEIGHT) if (cast(f32)len(dropdown_state.check_box_states) >= max_items) else cast(f32)len(dropdown_state.check_box_states) * LINE_HEIGHT
 
-    if dropdown_state.active {
-        if rl.CheckCollisionPointRec(state.mouse_pos, rl.Rectangle{bounds_check_x, bounds_check_y if (y > (state.window_height / 2)) else bounds.y, bounds_check_width, bounds_check_height + dropdown_height}) {
-            dropdown_state.hovered = true
-            hover_stack_add(dropdown_state)
-        } else {
-            dropdown_state.hovered = false
-        }
+	if y <= (state.window_height / 2) {
+		cursor_y += LINE_HEIGHT
+		bounds_check_y += LINE_HEIGHT
+	} else {
+		cursor_y -= dropdown_height
+		bounds_check_y -= dropdown_height
+	}
 
-        rl.DrawRectangle(cast(i32)x, cast(i32)cursor_y, cast(i32)width, cast(i32)dropdown_height, BUTTON_BORDER_COLOUR)
-        rl.DrawRectangle(cast(i32)(x + border), cast(i32)(cursor_y + border), cast(i32)(width - (border * 2)), cast(i32)(dropdown_height - (border * 2)), DROPDOWN_COLOUR)
-        dropdown_bounds = {x, cursor_y, width, dropdown_height}
-        
-        cursor_y += dropdown_scrolll.y
+	if dropdown_state.active {
+		if rl.CheckCollisionPointRec(
+			state.mouse_pos,
+			rl.Rectangle {
+				bounds_check_x,
+				bounds_check_y if (y > (state.window_height / 2)) else bounds.y,
+				bounds_check_width,
+				bounds_check_height + dropdown_height,
+			},
+		) {
+			dropdown_state.hovered = true
+			hover_stack_add(dropdown_state)
+		} else {
+			dropdown_state.hovered = false
+		}
 
-        if (cast(f32)len(dropdown_state.check_box_states) > max_items) {
-            dropdown_content_rec.width = width - 14
-            dropdown_content_rec.height = cast(f32)len(dropdown_state.check_box_states) * LINE_HEIGHT
-            rl.GuiScrollPanel(dropdown_bounds, nil, dropdown_content_rec, &dropdown_scrolll, &dropdown_view)
-            rl.BeginScissorMode(cast(i32)dropdown_view.x, cast(i32)dropdown_view.y, cast(i32)dropdown_view.width, cast(i32)dropdown_view.height)
-        } else {
-            dropdown_content_rec.width = width
-        }
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)cursor_y,
+			cast(i32)width,
+			cast(i32)dropdown_height,
+			BUTTON_BORDER_COLOUR,
+		)
+		rl.DrawRectangle(
+			cast(i32)(x + border),
+			cast(i32)(cursor_y + border),
+			cast(i32)(width - (border * 2)),
+			cast(i32)(dropdown_height - (border * 2)),
+			DROPDOWN_COLOUR,
+		)
+		dropdown_bounds = {x, cursor_y, width, dropdown_height}
 
-        check_box_x      := x + border
-        check_box_width  := dropdown_content_rec.width - (border * 2)
-        check_box_height := LINE_HEIGHT - (border * 10)
+		cursor_y += dropdown_scrolll.y
 
-        for &check_box_state, i in dropdown_state.check_box_states {
-            if rl.CheckCollisionRecs({check_box_x, cursor_y + (LINE_HEIGHT / 2) - (check_box_height / 2), check_box_width, check_box_height}, {bounds_check_x, bounds_check_y, bounds_check_width, dropdown_height}) {
-                GuiCheckBox({check_box_x, cursor_y + (LINE_HEIGHT / 2) - (check_box_height / 2), check_box_width, check_box_height}, &check_box_state)
-                rl.GuiLine({x, cursor_y + LINE_HEIGHT, dropdown_content_rec.width, cast(f32)border}, "")
-            }
-            cursor_y += LINE_HEIGHT
-        }
+		if (cast(f32)len(dropdown_state.check_box_states) > max_items) {
+			dropdown_content_rec.width = width - 14
+			dropdown_content_rec.height =
+				cast(f32)len(dropdown_state.check_box_states) * LINE_HEIGHT
+			rl.GuiScrollPanel(
+				dropdown_bounds,
+				nil,
+				dropdown_content_rec,
+				&dropdown_scrolll,
+				&dropdown_view,
+			)
+			rl.BeginScissorMode(
+				cast(i32)dropdown_view.x,
+				cast(i32)dropdown_view.y,
+				cast(i32)dropdown_view.width,
+				cast(i32)dropdown_view.height,
+			)
+		} else {
+			dropdown_content_rec.width = width
+		}
 
-        if (cast(i32)len(dropdown_state.check_box_states) > cast(i32)max_items) {
-            rl.EndScissorMode()
-        } else {
-            dropdown_scrolll.y = 0
-        }
-    }
+		check_box_x := x + border
+		check_box_width := dropdown_content_rec.width - (border * 2)
+		check_box_height := LINE_HEIGHT - (border * 10)
 
-    if is_current_hover(dropdown_state) {
-        if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-            if rl.IsMouseButtonReleased(.LEFT) {
-                if !dropdown_state.active {
-                    for _, dropdown_active in dropdown_state.btn_list {
-                        dropdown_active^ = false
-                    }
-                    dropdown_state.active = true
-                } else {
-                    dropdown_state.active = false
-                    return
-                }
-                if (dropdown_state.active) {
-                    dropdown_bounds        = {x, cursor_y, width, LINE_HEIGHT * max_items}
-                    dropdown_content_rec = {x, cursor_y, width, 0}
-                    dropdown_view       = {0, 0, 0, 0}
-                    dropdown_scrolll     = {0, 0}
-                    return
-                }
-            }
-        }
-    }
+		for &check_box_state, i in dropdown_state.check_box_states {
+			if rl.CheckCollisionRecs(
+				{
+					check_box_x,
+					cursor_y + (LINE_HEIGHT / 2) - (check_box_height / 2),
+					check_box_width,
+					check_box_height,
+				},
+				{bounds_check_x, bounds_check_y, bounds_check_width, dropdown_height},
+			) {
+				GuiCheckBox(
+					{
+						check_box_x,
+						cursor_y + (LINE_HEIGHT / 2) - (check_box_height / 2),
+						check_box_width,
+						check_box_height,
+					},
+					&check_box_state,
+				)
+				rl.GuiLine(
+					{x, cursor_y + LINE_HEIGHT, dropdown_content_rec.width, cast(f32)border},
+					"",
+				)
+			}
+			cursor_y += LINE_HEIGHT
+		}
+
+		if (cast(i32)len(dropdown_state.check_box_states) > cast(i32)max_items) {
+			rl.EndScissorMode()
+		} else {
+			dropdown_scrolll.y = 0
+		}
+	}
+
+	if is_current_hover(dropdown_state) {
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			if rl.IsMouseButtonReleased(.LEFT) {
+				if !dropdown_state.active {
+					for _, dropdown_active in dropdown_state.btn_list {
+						dropdown_active^ = false
+					}
+					dropdown_state.active = true
+				} else {
+					dropdown_state.active = false
+					return
+				}
+				if (dropdown_state.active) {
+					dropdown_bounds = {x, cursor_y, width, LINE_HEIGHT * max_items}
+					dropdown_content_rec = {x, cursor_y, width, 0}
+					dropdown_view = {0, 0, 0, 0}
+					dropdown_scrolll = {0, 0}
+					return
+				}
+			}
+		}
+	}
 }
 
 TabControlState :: struct {
-    using guiControl: GuiControl,
-
-    options : []cstring,
-    selected: i32,
+	using guiControl: GuiControl,
+	options:          []cstring,
+	selected:         i32,
 }
 
 init_tab_control_state :: proc(tab_state: ^TabControlState, options: []cstring) {
-    tab_state.id      = GUI_ID
-    tab_state.options = options
-    
-    GUI_ID += 1
+	tab_state.id = GUI_ID
+	tab_state.options = options
+
+	GUI_ID += 1
 }
 
 GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 {
-    using state.gui_properties
+	using state.gui_properties
 
-    context.allocator = frame_alloc
+	context.allocator = frame_alloc
 
-    cursor_x := bounds.x
-    cursor_y := bounds.y
+	cursor_x := bounds.x
+	cursor_y := bounds.y
 
-    button_width := bounds.width / cast(f32)len(tab_state.options) + 1
-    
-    selected_padding : f32 : 5
-    border : f32 : 2
+	button_width := bounds.width / cast(f32)len(tab_state.options) + 1
 
-    tab_bounds: [dynamic]rl.Rectangle
-    defer delete(tab_bounds)
+	selected_padding: f32 : 5
+	border: f32 : 2
 
-    for _, i in tab_state.options {
-        switch i {
-        case 0:
-            if cast(i32)i == tab_state.selected {
-                append(&tab_bounds, rl.Rectangle{cursor_x, cursor_y - selected_padding, button_width + selected_padding, state.gui_properties.LINE_HEIGHT + selected_padding})
-            } else {
-                append(&tab_bounds, rl.Rectangle{cursor_x, cursor_y, button_width, state.gui_properties.LINE_HEIGHT})
-            }
-        case 1 ..< len(tab_state.options)-1:
-            if cast(i32)i == tab_state.selected {
-                append(&tab_bounds, rl.Rectangle{cursor_x - selected_padding, cursor_y - selected_padding, button_width + (selected_padding * 2), state.gui_properties.LINE_HEIGHT + selected_padding})
-            } else {
-                append(&tab_bounds, rl.Rectangle{cursor_x, cursor_y, button_width, state.gui_properties.LINE_HEIGHT})
-            }
-        case len(tab_state.options)-1:
-            if cast(i32)i == tab_state.selected {
-                append(&tab_bounds, rl.Rectangle{cursor_x - selected_padding, cursor_y - selected_padding, button_width + selected_padding, state.gui_properties.LINE_HEIGHT + selected_padding})
-            } else {
-                append(&tab_bounds, rl.Rectangle{cursor_x, cursor_y, button_width, state.gui_properties.LINE_HEIGHT})
-            }
-        }
-        cursor_x += button_width - (cast(f32)len(tab_state.options) / (cast(f32)len(tab_state.options) - 1))
-    }
-  
-    text_align_center()
+	tab_bounds: [dynamic]rl.Rectangle
+	defer delete(tab_bounds)
 
-    hovered := false
+	for _, i in tab_state.options {
+		switch i {
+		case 0:
+			if cast(i32)i == tab_state.selected {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x,
+						cursor_y - selected_padding,
+						button_width + selected_padding,
+						state.gui_properties.LINE_HEIGHT + selected_padding,
+					},
+				)
+			} else {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x,
+						cursor_y,
+						button_width,
+						state.gui_properties.LINE_HEIGHT,
+					},
+				)
+			}
+		case 1 ..< len(tab_state.options) - 1:
+			if cast(i32)i == tab_state.selected {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x - selected_padding,
+						cursor_y - selected_padding,
+						button_width + (selected_padding * 2),
+						state.gui_properties.LINE_HEIGHT + selected_padding,
+					},
+				)
+			} else {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x,
+						cursor_y,
+						button_width,
+						state.gui_properties.LINE_HEIGHT,
+					},
+				)
+			}
+		case len(tab_state.options) - 1:
+			if cast(i32)i == tab_state.selected {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x - selected_padding,
+						cursor_y - selected_padding,
+						button_width + selected_padding,
+						state.gui_properties.LINE_HEIGHT + selected_padding,
+					},
+				)
+			} else {
+				append(
+					&tab_bounds,
+					rl.Rectangle {
+						cursor_x,
+						cursor_y,
+						button_width,
+						state.gui_properties.LINE_HEIGHT,
+					},
+				)
+			}
+		}
+		cursor_x +=
+			button_width -
+			(cast(f32)len(tab_state.options) / (cast(f32)len(tab_state.options) - 1))
+	}
 
-    for bounds, i in tab_bounds {
-        if cast(i32)i != tab_state.selected {
-            rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)(bounds.x + border), cast(i32)(bounds.y + border), cast(i32)(bounds.width - (border * 2)), cast(i32)(bounds.height - (border * 2)), BUTTON_COLOUR)
-            GuiLabel({bounds.x + border, bounds.y + border, bounds.width - (border * 2), bounds.height - (border * 2)}, tab_state.options[i])
-        }
-    }
+	text_align_center()
 
-    for bounds, i in tab_bounds {
-        if cast(i32)i == tab_state.selected {
-            rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)bounds.height, BUTTON_BORDER_COLOUR)
-            rl.DrawRectangle(cast(i32)(bounds.x + selected_padding), cast(i32)(bounds.y + selected_padding), cast(i32)(bounds.width - (selected_padding * 2)), cast(i32)(bounds.height - (selected_padding * 2)), BUTTON_COLOUR)
-            GuiLabel({bounds.x + selected_padding, bounds.y + selected_padding, bounds.width - (selected_padding * 2), bounds.height - (selected_padding * 2)}, tab_state.options[i])
-        }
+	hovered := false
 
-        if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-            hovered = true
-        }
-      
-        if is_current_hover(tab_state) {
-            if rl.IsMouseButtonPressed(.LEFT) {
-                if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-                    tab_state.selected = cast(i32)i 
-                }
-            }
-        }
-    }
-    
-    if hovered {
-        tab_state.hovered = true
-        hover_stack_add(tab_state)
-    } else {
-        tab_state.hovered = false
-    }
+	for bounds, i in tab_bounds {
+		if cast(i32)i != tab_state.selected {
+			rl.DrawRectangle(
+				cast(i32)bounds.x,
+				cast(i32)bounds.y,
+				cast(i32)bounds.width,
+				cast(i32)bounds.height,
+				BUTTON_BORDER_COLOUR,
+			)
+			rl.DrawRectangle(
+				cast(i32)(bounds.x + border),
+				cast(i32)(bounds.y + border),
+				cast(i32)(bounds.width - (border * 2)),
+				cast(i32)(bounds.height - (border * 2)),
+				BUTTON_COLOUR,
+			)
+			GuiLabel(
+				{
+					bounds.x + border,
+					bounds.y + border,
+					bounds.width - (border * 2),
+					bounds.height - (border * 2),
+				},
+				tab_state.options[i],
+			)
+		}
+	}
 
-    text_align_left()
-    context.allocator = static_alloc
-    return tab_state.selected
+	for bounds, i in tab_bounds {
+		if cast(i32)i == tab_state.selected {
+			rl.DrawRectangle(
+				cast(i32)bounds.x,
+				cast(i32)bounds.y,
+				cast(i32)bounds.width,
+				cast(i32)bounds.height,
+				BUTTON_BORDER_COLOUR,
+			)
+			rl.DrawRectangle(
+				cast(i32)(bounds.x + selected_padding),
+				cast(i32)(bounds.y + selected_padding),
+				cast(i32)(bounds.width - (selected_padding * 2)),
+				cast(i32)(bounds.height - (selected_padding * 2)),
+				BUTTON_COLOUR,
+			)
+			GuiLabel(
+				{
+					bounds.x + selected_padding,
+					bounds.y + selected_padding,
+					bounds.width - (selected_padding * 2),
+					bounds.height - (selected_padding * 2),
+				},
+				tab_state.options[i],
+			)
+		}
+
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			hovered = true
+		}
+
+		if is_current_hover(tab_state) {
+			if rl.IsMouseButtonPressed(.LEFT) {
+				if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+					tab_state.selected = cast(i32)i
+				}
+			}
+		}
+	}
+
+	if hovered {
+		tab_state.hovered = true
+		hover_stack_add(tab_state)
+	} else {
+		tab_state.hovered = false
+	}
+
+	text_align_left()
+	context.allocator = static_alloc
+	return tab_state.selected
 }
 
 PanelState :: struct {
-    rec           : rl.Rectangle,
-    content_rec   : rl.Rectangle,
-    view          : rl.Rectangle,
-    scroll        : rl.Vector2,
-    height_needed : f32,
-    active        : bool,
+	rec:           rl.Rectangle,
+	content_rec:   rl.Rectangle,
+	view:          rl.Rectangle,
+	scroll:        rl.Vector2,
+	height_needed: f32,
+	active:        bool,
 }
 
 init_panel_state :: proc(state: ^PanelState) {
-    state.rec         = {0, 0, 0, 0}
-    state.content_rec = {}
-    state.view           = {0, 0, 0, 0}
-    state.scroll         = {0, 0}
+	state.rec = {0, 0, 0, 0}
+	state.content_rec = {}
+	state.view = {0, 0, 0, 0}
+	state.scroll = {0, 0}
 }
 
 GuiPanel :: proc(bounds: rl.Rectangle, panel_state: ^PanelState, text: cstring) {
-    rl.GuiPanel({
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height,
-    }, text)
+	rl.GuiPanel({bounds.x, bounds.y, bounds.width, bounds.height}, text)
 
-    panel_state.rec = {
-        bounds.x,
-        bounds.y + state.gui_properties.LINE_HEIGHT,
-        bounds.width,
-        bounds.height - state.gui_properties.LINE_HEIGHT,
-    }
+	panel_state.rec = {
+		bounds.x,
+		bounds.y + state.gui_properties.LINE_HEIGHT,
+		bounds.width,
+		bounds.height - state.gui_properties.LINE_HEIGHT,
+	}
 
-    rl.DrawRectangle(cast(i32)bounds.x, cast(i32)bounds.y, cast(i32)bounds.width, cast(i32)state.gui_properties.LINE_HEIGHT, state.gui_properties.HEADER_COLOUR)
-    text_align_center()
-    GuiLabel({bounds.x, bounds.y, bounds.width, state.gui_properties.LINE_HEIGHT}, text)
+	rl.DrawRectangle(
+		cast(i32)bounds.x,
+		cast(i32)bounds.y,
+		cast(i32)bounds.width,
+		cast(i32)state.gui_properties.LINE_HEIGHT,
+		state.gui_properties.HEADER_COLOUR,
+	)
+	text_align_center()
+	GuiLabel({bounds.x, bounds.y, bounds.width, state.gui_properties.LINE_HEIGHT}, text)
 }
 
 MessageBoxState :: struct {
-    using guiControl: GuiControl,
-
-    title           : cstring,
-    message         : cstring,
+	using guiControl: GuiControl,
+	title:            cstring,
+	message:          cstring,
 }
 
 init_message_box :: proc(message_box_state: ^MessageBoxState, title: cstring, message: cstring) {
-    message_box_state.id = GUI_ID
-    message_box_state.title   = title
-    message_box_state.message = message
+	message_box_state.id = GUI_ID
+	message_box_state.title = title
+	message_box_state.message = message
 
-    GUI_ID += 1
+	GUI_ID += 1
 }
 
 GuiMessageBox :: proc(bounds: rl.Rectangle, message_box_state: ^MessageBoxState) -> i32 {
-    initial_text_size := state.gui_properties.TEXT_SIZE
-    defer rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+	initial_text_size := state.gui_properties.TEXT_SIZE
+	defer rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
 
-    if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
-        message_box_state.hovered = true
-        hover_stack_add(message_box_state)
-    } else {
-        message_box_state.hovered = false
-    }
+	if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+		message_box_state.hovered = true
+		hover_stack_add(message_box_state)
+	} else {
+		message_box_state.hovered = false
+	}
 
-    state.gui_properties.TEXT_SIZE = state.gui_properties.TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, state.gui_properties.TEXT_SIZE)
+	state.gui_properties.TEXT_SIZE = state.gui_properties.TEXT_SIZE_DEFAULT
+	rl.GuiSetStyle(
+		.DEFAULT,
+		cast(i32)rl.GuiDefaultProperty.TEXT_SIZE,
+		state.gui_properties.TEXT_SIZE,
+	)
 
-    output := rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
+	output := rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
 
-    if is_current_hover(message_box_state) {
-        return output
-    } else {
-        return -1
-    }
+	if is_current_hover(message_box_state) {
+		return output
+	} else {
+		return -1
+	}
 }
 
 MessageBoxQueueState :: struct {
-    messages: [dynamic]MessageBoxState
+	messages: [dynamic]MessageBoxState,
 }
 
 add_message :: proc(message_queue: ^MessageBoxQueueState, message_box: MessageBoxState) {
-    append(&message_queue.messages, message_box)
+	append(&message_queue.messages, message_box)
 }
 
 remove_message :: proc(message_queue: ^MessageBoxQueueState, message_box: ^MessageBoxState) {
-    for test_message_box, i in message_queue.messages {
-        if test_message_box.id == message_box.id {
-            ordered_remove(&message_queue.messages, i)
-            message_box.hovered = false
-        }
-    }
+	for test_message_box, i in message_queue.messages {
+		if test_message_box.id == message_box.id {
+			ordered_remove(&message_queue.messages, i)
+			message_box.hovered = false
+		}
+	}
 }
 
 GuiMessageBoxQueue :: proc(message_queue_state: ^MessageBoxQueueState) {
-    cursor_x : f32 = state.window_width - 350
-    cursor_y : f32 = 50
+	cursor_x: f32 = state.window_width - 350
+	cursor_y: f32 = 50
 
-    message_loop: for &message_box, i in message_queue_state.messages {
-        if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) != -1 {
-            remove_message(message_queue_state, &message_box)
-        }
-        cursor_y += 110
+	message_loop: for &message_box, i in message_queue_state.messages {
+		if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) != -1 {
+			remove_message(message_queue_state, &message_box)
+		}
+		cursor_y += 110
 
-        if i >= 4 {
-            break message_loop
-        }
-    }
+		if i >= 4 {
+			break message_loop
+		}
+	}
 }
 
 GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
-    using state.gui_properties
+	using state.gui_properties
 
-    cursor_x := bounds.x
-    cursor_y := bounds.y
+	cursor_x := bounds.x
+	cursor_y := bounds.y
 
-    TEXT_SIZE = TEXT_SIZE_DEFAULT
-    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
- 
-    if (GuiButton({cursor_x, cursor_y, NAVBAR_SIZE, NAVBAR_SIZE}, rl.GuiIconText(.ICON_ARROW_LEFT, ""))) {
-        current_dir_split := strings.split(string(state.load_screen_state.current_dir), "/")
-        outer_directory := strings.clone_to_cstring(strings.join(current_dir_split[:len(current_dir_split)-1], "/"))
+	TEXT_SIZE = TEXT_SIZE_DEFAULT
+	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 
-        inject_at(&state.load_screen_state.dir_nav_list, state.load_screen_state.current_dir_index, outer_directory)
-        state.load_screen_state.current_dir = outer_directory
-        get_current_dir_files()
-    }
-    cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
+	if (GuiButton(
+			   {cursor_x, cursor_y, NAVBAR_SIZE, NAVBAR_SIZE},
+			   rl.GuiIconText(.ICON_ARROW_LEFT, ""),
+		   )) {
+		current_dir_split := strings.split(string(state.load_screen_state.current_dir), "/")
+		outer_directory := strings.clone_to_cstring(
+			strings.join(current_dir_split[:len(current_dir_split) - 1], "/"),
+		)
 
-    if (GuiButton({cursor_x, cursor_y, NAVBAR_SIZE, NAVBAR_SIZE}, rl.GuiIconText(.ICON_ARROW_RIGHT, ""))) {
-        if (state.load_screen_state.current_dir_index < (cast(u32)len(state.load_screen_state.dir_nav_list) - 1)) {
-            state.load_screen_state.current_dir = state.load_screen_state.dir_nav_list[state.load_screen_state.current_dir_index + 1]
-            state.load_screen_state.current_dir_index += 1
-            get_current_dir_files()
-        }
-    }
-    cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
-  
-    path_text_length := bounds.width - cursor_x - (NAVBAR_SIZE * 3)
-    GuiLabel({cursor_x, cursor_y, path_text_length, NAVBAR_SIZE}, state.load_screen_state.current_dir)
-    cursor_x += path_text_length + NAVBAR_PADDING
+		inject_at(
+			&state.load_screen_state.dir_nav_list,
+			state.load_screen_state.current_dir_index,
+			outer_directory,
+		)
+		state.load_screen_state.current_dir = outer_directory
+		get_current_dir_files()
+	}
+	cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
 
-    if (GuiButton({cursor_x, cursor_y, (NAVBAR_SIZE * 3), NAVBAR_SIZE}, "Select")) {
-        //Check selected file and return true.
-        //For logic with this element interacting with the outer program.
-        if (rl.FileExists(state.load_screen_state.selected_file)) {
-            if (rl.GetFileExtension(state.load_screen_state.selected_file) == cstring(".combat")) {
-                state.load_screen_state.first_load = true
-                return true
-            }
-        }
-    }
-    cursor_x = bounds.x
-    cursor_y += NAVBAR_SIZE + NAVBAR_PADDING
+	if (GuiButton(
+			   {cursor_x, cursor_y, NAVBAR_SIZE, NAVBAR_SIZE},
+			   rl.GuiIconText(.ICON_ARROW_RIGHT, ""),
+		   )) {
+		if (state.load_screen_state.current_dir_index <
+			   (cast(u32)len(state.load_screen_state.dir_nav_list) - 1)) {
+			state.load_screen_state.current_dir =
+				state.load_screen_state.dir_nav_list[state.load_screen_state.current_dir_index + 1]
+			state.load_screen_state.current_dir_index += 1
+			get_current_dir_files()
+		}
+	}
+	cursor_x += NAVBAR_SIZE + NAVBAR_PADDING
 
-    panel_width := bounds.width
-    panel_height := state.window_height - cursor_y - PADDING_BOTTOM
+	path_text_length := bounds.width - cursor_x - (NAVBAR_SIZE * 3)
+	GuiLabel(
+		{cursor_x, cursor_y, path_text_length, NAVBAR_SIZE},
+		state.load_screen_state.current_dir,
+	)
+	cursor_x += path_text_length + NAVBAR_PADDING
 
-    if (state.load_screen_state.first_load) {
-        //State reset in case of going in and out of loading screen.
-        state.load_screen_state.selected_file = nil
-        state.load_screen_state.first_load = false
-        state.load_screen_state.panel.content_rec = {
-            cursor_x,
-            cursor_y,
-            panel_width,
-            0}
-    }
+	if (GuiButton({cursor_x, cursor_y, (NAVBAR_SIZE * 3), NAVBAR_SIZE}, "Select")) {
+		//Check selected file and return true.
+		//For logic with this element interacting with the outer program.
+		if (rl.FileExists(state.load_screen_state.selected_file)) {
+			if (rl.GetFileExtension(state.load_screen_state.selected_file) == cstring(".combat")) {
+				state.load_screen_state.first_load = true
+				return true
+			}
+		}
+	}
+	cursor_x = bounds.x
+	cursor_y += NAVBAR_SIZE + NAVBAR_PADDING
 
-    GuiPanel({cursor_x, cursor_y, panel_width, panel_height}, &state.load_screen_state.panel, "Files")
-  
-    cursor_x += PADDING_ICONS
-    cursor_y += LINE_HEIGHT + PADDING_ICONS + state.load_screen_state.panel.scroll.y
+	panel_width := bounds.width
+	panel_height := state.window_height - cursor_y - PADDING_BOTTOM
 
-    icons_per_row := cast(i32)(state.load_screen_state.panel.content_rec.width / (ICON_SIZE + PADDING_ICONS))
-    num_rows_max := cast(i32)((state.load_screen_state.panel.rec.height - PADDING_TOP - PADDING_BOTTOM) / (ICON_SIZE + PADDING_ICONS))
+	if (state.load_screen_state.first_load) {
+		//State reset in case of going in and out of loading screen.
+		state.load_screen_state.selected_file = nil
+		state.load_screen_state.first_load = false
+		state.load_screen_state.panel.content_rec = {cursor_x, cursor_y, panel_width, 0}
+	}
 
-    file_counter : u32 = 0
-    dir_count : u32 = cast(u32)len(state.load_screen_state.dirs_list)
-    file_count : u32 = cast(u32)len(state.load_screen_state.files_list)
+	GuiPanel(
+		{cursor_x, cursor_y, panel_width, panel_height},
+		&state.load_screen_state.panel,
+		"Files",
+	)
 
-    num_rows_needed := (cast(f32)(dir_count + file_count) / cast(f32)icons_per_row)
+	cursor_x += PADDING_ICONS
+	cursor_y += LINE_HEIGHT + PADDING_ICONS + state.load_screen_state.panel.scroll.y
 
-    if (num_rows_needed / cast(f32)cast(i32)(num_rows_needed)) > 1 {
-        num_rows_needed = cast(f32)cast(i32)(num_rows_needed) + 1
-    }
+	icons_per_row := cast(i32)(state.load_screen_state.panel.content_rec.width /
+		(ICON_SIZE + PADDING_ICONS))
+	num_rows_max := cast(i32)((state.load_screen_state.panel.rec.height -
+			PADDING_TOP -
+			PADDING_BOTTOM) /
+		(ICON_SIZE + PADDING_ICONS))
 
-    dynamic_icon_padding := cast(f32)((cast(i32)state.load_screen_state.panel.content_rec.width % (icons_per_row * cast(i32)ICON_SIZE)) / (icons_per_row + 1))
+	file_counter: u32 = 0
+	dir_count: u32 = cast(u32)len(state.load_screen_state.dirs_list)
+	file_count: u32 = cast(u32)len(state.load_screen_state.files_list)
 
-    if (dynamic_icon_padding < PADDING_ICONS) {
-        dynamic_icon_padding = PADDING_ICONS
-    }
-  
-    if (cast(i32)num_rows_needed > num_rows_max) {
-        state.load_screen_state.panel.content_rec.width = panel_width - 14
-        state.load_screen_state.panel.content_rec.height = (num_rows_needed * ICON_SIZE + PADDING_ICONS) + (PADDING_ICONS * 2) + LINE_HEIGHT
-        rl.GuiScrollPanel(state.load_screen_state.panel.rec, nil, state.load_screen_state.panel.content_rec, &state.load_screen_state.panel.scroll, &state.load_screen_state.panel.view)
+	num_rows_needed := (cast(f32)(dir_count + file_count) / cast(f32)icons_per_row)
 
-        rl.BeginScissorMode(cast(i32)state.load_screen_state.panel.view.x, cast(i32)state.load_screen_state.panel.view.y, cast(i32)state.load_screen_state.panel.view.width, cast(i32)state.load_screen_state.panel.view.height)
-    } else {
-        state.load_screen_state.panel.content_rec.width = panel_width
-    }
+	if (num_rows_needed / cast(f32)cast(i32)(num_rows_needed)) > 1 {
+		num_rows_needed = cast(f32)cast(i32)(num_rows_needed) + 1
+	}
 
-    rl.GuiSetIconScale(10)
+	dynamic_icon_padding := cast(f32)((cast(i32)state.load_screen_state.panel.content_rec.width %
+			(icons_per_row * cast(i32)ICON_SIZE)) /
+		(icons_per_row + 1))
 
-    draw_loop: for _ in 0..<num_rows_needed {
-        for _ in 0..<icons_per_row {
-            //Draw each file icon, with padding
-            if file_counter < dir_count + file_count {
-                filename : cstring = ""
-                if (file_counter < dir_count) {
-                    path_split := strings.split(string(state.load_screen_state.dirs_list[file_counter]), FILE_SEPERATOR, allocator=frame_alloc)
-                    filename = strings.clone_to_cstring(path_split[len(path_split)-1], allocator=frame_alloc)
+	if (dynamic_icon_padding < PADDING_ICONS) {
+		dynamic_icon_padding = PADDING_ICONS
+	}
 
-                    if (GuiButton({cursor_x, cursor_y, ICON_SIZE, ICON_SIZE}, filename, rl.GuiIconName.ICON_FOLDER)) {
-                        //Folder clicked, change this to be current folder.
-                        inject_at(&state.load_screen_state.dir_nav_list, state.load_screen_state.current_dir_index, state.load_screen_state.dirs_list[file_counter])
-                        state.load_screen_state.current_dir = state.load_screen_state.dirs_list[file_counter]
-                        get_current_dir_files()
-                        break draw_loop
-                    }
-                    state.gui_properties.TEXT_SIZE = 20
-                    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-                } else {
-                    path_split := strings.split(string(state.load_screen_state.files_list[file_counter - dir_count]), FILE_SEPERATOR, allocator=frame_alloc)
-                    filename = strings.clone_to_cstring(path_split[len(path_split)-1], allocator=frame_alloc)
-                    if (GuiButton({cursor_x, cursor_y, ICON_SIZE, ICON_SIZE}, filename, rl.GuiIconName.ICON_FILETYPE_TEXT)) {
-                        state.load_screen_state.selected_file = state.load_screen_state.files_list[file_counter - dir_count]
-                    }
-                    //GuiLabel({cursor_x, cursor_y, ICON_SIZE, ICON_SIZE}, filename)
-                    TEXT_SIZE = 20
-                    rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
-                }
-                cursor_x += ICON_SIZE + dynamic_icon_padding
-                file_counter += 1
-            }
-        }
-        cursor_x = bounds.x + PADDING_ICONS
-        cursor_y += ICON_SIZE + PADDING_ICONS
-    }
+	if (cast(i32)num_rows_needed > num_rows_max) {
+		state.load_screen_state.panel.content_rec.width = panel_width - 14
+		state.load_screen_state.panel.content_rec.height =
+			(num_rows_needed * ICON_SIZE + PADDING_ICONS) + (PADDING_ICONS * 2) + LINE_HEIGHT
+		rl.GuiScrollPanel(
+			state.load_screen_state.panel.rec,
+			nil,
+			state.load_screen_state.panel.content_rec,
+			&state.load_screen_state.panel.scroll,
+			&state.load_screen_state.panel.view,
+		)
 
-    rl.GuiSetIconScale(2)
+		rl.BeginScissorMode(
+			cast(i32)state.load_screen_state.panel.view.x,
+			cast(i32)state.load_screen_state.panel.view.y,
+			cast(i32)state.load_screen_state.panel.view.width,
+			cast(i32)state.load_screen_state.panel.view.height,
+		)
+	} else {
+		state.load_screen_state.panel.content_rec.width = panel_width
+	}
 
-    if (cast(i32)num_rows_needed > num_rows_max) {
-        rl.EndScissorMode()
-    } else {
-        state.load_screen_state.panel.scroll.y = 0
-    }
-    return false
+	rl.GuiSetIconScale(10)
+
+	draw_loop: for _ in 0 ..< num_rows_needed {
+		for _ in 0 ..< icons_per_row {
+			//Draw each file icon, with padding
+			if file_counter < dir_count + file_count {
+				filename: cstring = ""
+				if (file_counter < dir_count) {
+					path_split := strings.split(
+						string(state.load_screen_state.dirs_list[file_counter]),
+						FILE_SEPERATOR,
+						allocator = frame_alloc,
+					)
+					filename = strings.clone_to_cstring(
+						path_split[len(path_split) - 1],
+						allocator = frame_alloc,
+					)
+
+					if (GuiButton(
+							   {cursor_x, cursor_y, ICON_SIZE, ICON_SIZE},
+							   filename,
+							   rl.GuiIconName.ICON_FOLDER,
+						   )) {
+						//Folder clicked, change this to be current folder.
+						inject_at(
+							&state.load_screen_state.dir_nav_list,
+							state.load_screen_state.current_dir_index,
+							state.load_screen_state.dirs_list[file_counter],
+						)
+						state.load_screen_state.current_dir =
+							state.load_screen_state.dirs_list[file_counter]
+						get_current_dir_files()
+						break draw_loop
+					}
+					state.gui_properties.TEXT_SIZE = 20
+					rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+				} else {
+					path_split := strings.split(
+						string(state.load_screen_state.files_list[file_counter - dir_count]),
+						FILE_SEPERATOR,
+						allocator = frame_alloc,
+					)
+					filename = strings.clone_to_cstring(
+						path_split[len(path_split) - 1],
+						allocator = frame_alloc,
+					)
+					if (GuiButton(
+							   {cursor_x, cursor_y, ICON_SIZE, ICON_SIZE},
+							   filename,
+							   rl.GuiIconName.ICON_FILETYPE_TEXT,
+						   )) {
+						state.load_screen_state.selected_file =
+							state.load_screen_state.files_list[file_counter - dir_count]
+					}
+					//GuiLabel({cursor_x, cursor_y, ICON_SIZE, ICON_SIZE}, filename)
+					TEXT_SIZE = 20
+					rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+				}
+				cursor_x += ICON_SIZE + dynamic_icon_padding
+				file_counter += 1
+			}
+		}
+		cursor_x = bounds.x + PADDING_ICONS
+		cursor_y += ICON_SIZE + PADDING_ICONS
+	}
+
+	rl.GuiSetIconScale(2)
+
+	if (cast(i32)num_rows_needed > num_rows_max) {
+		rl.EndScissorMode()
+	} else {
+		state.load_screen_state.panel.scroll.y = 0
+	}
+	return false
 }
 
-GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextInputState=nil) {
-    using state.gui_properties
+GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextInputState = nil) {
+	using state.gui_properties
 
-    context.allocator = frame_alloc
-    
-    if entity != nil {
-        cursor_x := bounds.x
-        cursor_y := bounds.y
+	context.allocator = frame_alloc
 
-        start_x := bounds.x
+	if entity != nil {
+		cursor_x := bounds.x
+		cursor_y := bounds.y
 
-        defer state.cursor.x = cursor_x
-        defer state.cursor.y = cursor_y
+		start_x := bounds.x
 
-        width := bounds.width
-        height := bounds.height
+		defer state.cursor.x = cursor_x
+		defer state.cursor.y = cursor_y
 
-        //Display info for selected entity.
-        GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.alias)
-        cursor_y += LINE_HEIGHT
+		width := bounds.width
+		height := bounds.height
 
-        text_align_left()
+		//Display info for selected entity.
+		GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.alias)
+		cursor_y += LINE_HEIGHT
 
-        if initiative != nil {
-            GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative: ")
-            cursor_x += width / 2
+		text_align_left()
 
-            GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
-            entity.initiative = to_i32(initiative.text)
-            cursor_x = start_x
-            cursor_y += LINE_HEIGHT
-        }
+		if initiative != nil {
+			GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative: ")
+			cursor_x += width / 2
 
-        text_align_center()
-        GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
-        cursor_x += width / 2
-        GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+			GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
+			entity.initiative = to_i32(initiative.text)
+			cursor_x = start_x
+			cursor_y += LINE_HEIGHT
+		}
 
-        GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)))
-        cursor_x += width / 2
-        GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, rl.GuiIconText(.ICON_HEART, cstr(entity.HP)))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		text_align_center()
+		GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
+		cursor_x += width / 2
+		GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.speed)
-        cursor_y += LINE_HEIGHT
+		GuiLabel(
+			{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
+			rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)),
+		)
+		cursor_x += width / 2
+		GuiLabel(
+			{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
+			rl.GuiIconText(.ICON_HEART, cstr(entity.HP)),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Stat")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Score")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Modifier")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Save")
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.speed)
+		cursor_y += LINE_HEIGHT
 
-        text_align_center()
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Stat")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Score")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Modifier")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Save")
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		text_align_center()
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "STR: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_mod, sep="") if (entity.STR_mod >= 0) else cstr(entity.STR_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.STR_save, sep="") if (entity.STR_save >= 0) else cstr(entity.STR_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "STR: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.STR))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.STR_mod, sep = "") if (entity.STR_mod >= 0) else cstr(entity.STR_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.STR_save, sep = "") if (entity.STR_save >= 0) else cstr(entity.STR_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "DEX: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_mod, sep="") if (entity.DEX_mod >= 0) else cstr(entity.DEX_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.DEX_save, sep="") if (entity.DEX_save >= 0) else cstr(entity.DEX_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "DEX: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.DEX))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.DEX_mod, sep = "") if (entity.DEX_mod >= 0) else cstr(entity.DEX_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.DEX_save, sep = "") if (entity.DEX_save >= 0) else cstr(entity.DEX_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CON: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_mod, sep="") if (entity.CON_mod >= 0) else cstr(entity.CON_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CON_save, sep="") if (entity.CON_save >= 0) else cstr(entity.CON_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CON: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CON))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.CON_mod, sep = "") if (entity.CON_mod >= 0) else cstr(entity.CON_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.CON_save, sep = "") if (entity.CON_save >= 0) else cstr(entity.CON_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "INT: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_mod, sep="") if (entity.INT_mod >= 0) else cstr(entity.INT_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.INT_save, sep="") if (entity.INT_save >= 0) else cstr(entity.INT_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "INT: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.INT))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.INT_mod, sep = "") if (entity.INT_mod >= 0) else cstr(entity.INT_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.INT_save, sep = "") if (entity.INT_save >= 0) else cstr(entity.INT_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "WIS: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_mod, sep="") if (entity.WIS_mod >= 0) else cstr(entity.WIS_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.WIS_save, sep="") if (entity.WIS_save >= 0) else cstr(entity.WIS_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "WIS: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.WIS))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.WIS_mod, sep = "") if (entity.WIS_mod >= 0) else cstr(entity.WIS_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.WIS_save, sep = "") if (entity.WIS_save >= 0) else cstr(entity.WIS_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CHA: ")
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CHA))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_mod, sep="") if (entity.CHA_mod >= 0) else cstr(entity.CHA_mod, sep=""))
-        cursor_x += width / 4
-        GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr("+", entity.CHA_save, sep="") if (entity.CHA_save >= 0) else cstr(entity.CHA_save, sep=""))
-        cursor_x = start_x
-        cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-        rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "CHA: ")
+		cursor_x += width / 4
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, cstr(entity.CHA))
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.CHA_mod, sep = "") if (entity.CHA_mod >= 0) else cstr(entity.CHA_mod, sep = ""),
+		)
+		cursor_x += width / 4
+		GuiLabel(
+			{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+			cstr("+", entity.CHA_save, sep = "") if (entity.CHA_save >= 0) else cstr(entity.CHA_save, sep = ""),
+		)
+		cursor_x = start_x
+		cursor_y += LINE_HEIGHT
 
-        if (entity.conditions != ConditionSet{}) {
-            GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Conditions:")
-            cursor_y += LINE_HEIGHT
+		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
-            for condition in gen_condition_string(entity.conditions) {
-                GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(condition))
-                cursor_y += LINE_HEIGHT
-            }
-        }
+		if (entity.conditions != ConditionSet{}) {
+			GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Conditions:")
+			cursor_y += LINE_HEIGHT
 
-        vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_vulnerabilities)
-        resistances     : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_resistances)
-        immunities      : []string = gen_vulnerability_resistance_or_immunity_string(entity.dmg_immunities)
-    
-        if len(vulnerabilities) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
-            cursor_x += width / 3
-        }
-        if len(resistances) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
-            cursor_x += width / 3
-        }
-        if len(immunities) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
-            cursor_x = start_x
-            cursor_y += LINE_HEIGHT
-        }
+			for condition in gen_condition_string(entity.conditions) {
+				GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(condition))
+				cursor_y += LINE_HEIGHT
+			}
+		}
 
-        vulnerability_y, resistance_y, immunity_y: f32
-        prev_y := cursor_y
+		vulnerabilities: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.dmg_vulnerabilities,
+		)
+		resistances: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.dmg_resistances,
+		)
+		immunities: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.dmg_immunities,
+		)
 
-        for vulnerability in vulnerabilities {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
-            cursor_y += LINE_HEIGHT
-        }
-        vulnerability_y = cursor_y
-        if len(vulnerabilities) > 0 {
-            cursor_x += width / 3
-            cursor_y = prev_y
-        }
-    
-        for resistance in resistances {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
-            cursor_y += LINE_HEIGHT
-        }
-        resistance_y = cursor_y
-        if len(resistances) > 0 {
-            cursor_x += width / 3
-            cursor_y = prev_y
-        }
+		if len(vulnerabilities) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
+			cursor_x += width / 3
+		}
+		if len(resistances) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
+			cursor_x += width / 3
+		}
+		if len(immunities) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
+			cursor_x = start_x
+			cursor_y += LINE_HEIGHT
+		}
 
-        for immunity in immunities {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
-            cursor_y += LINE_HEIGHT
-        }
-        immunity_y = cursor_y
-        if len(immunities) > 0 {
-            cursor_x = start_x
-        }
-    
-        if ((len(resistances) >= len(immunities)) && (len(resistances) >= len(vulnerabilities))) {
-            cursor_y = resistance_y
-        } else if ((len(immunities) >= len(resistances)) && (len(immunities) >= len(vulnerabilities))) {
-            cursor_y = immunity_y
-        } else {
-            cursor_y = vulnerability_y
-        }
-        cursor_x = start_x
+		vulnerability_y, resistance_y, immunity_y: f32
+		prev_y := cursor_y
 
-        temp_vulnerabilities : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_vulnerabilities)
-        temp_resistances     : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_resistances)
-        temp_immunities      : []string = gen_vulnerability_resistance_or_immunity_string(entity.temp_dmg_immunities)
-    
-        if len(temp_vulnerabilities) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
-            cursor_x += width / 3
-        }
-        if len(temp_resistances) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
-            cursor_x += width / 3
-        }
-        if len(temp_immunities) > 0 {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
-            cursor_x = start_x
-        }
+		for vulnerability in vulnerabilities {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
+			cursor_y += LINE_HEIGHT
+		}
+		vulnerability_y = cursor_y
+		if len(vulnerabilities) > 0 {
+			cursor_x += width / 3
+			cursor_y = prev_y
+		}
 
-        if (len(temp_vulnerabilities) > 0 || len(temp_resistances) > 0 || len(temp_immunities) > 0) {
-            cursor_x = start_x
-            cursor_y += LINE_HEIGHT
-        }
+		for resistance in resistances {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
+			cursor_y += LINE_HEIGHT
+		}
+		resistance_y = cursor_y
+		if len(resistances) > 0 {
+			cursor_x += width / 3
+			cursor_y = prev_y
+		}
 
-        temp_vulnerability_y, temp_resistance_y, temp_immunity_y: f32
-        temp_prev_y := cursor_y
+		for immunity in immunities {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
+			cursor_y += LINE_HEIGHT
+		}
+		immunity_y = cursor_y
+		if len(immunities) > 0 {
+			cursor_x = start_x
+		}
 
-        for vulnerability in temp_vulnerabilities {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
-            cursor_y += LINE_HEIGHT
-        }
-        temp_vulnerability_y = cursor_y
-        if len(temp_vulnerabilities) > 0 {
-            cursor_x += width / 3
-            cursor_y = temp_prev_y
-        }
-    
-        for resistance in temp_resistances {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
-            cursor_y += LINE_HEIGHT
-        }
-        temp_resistance_y = cursor_y
-        if len(temp_resistances) > 0 {
-            cursor_x += width / 3
-            cursor_y = temp_prev_y
-        }
+		if ((len(resistances) >= len(immunities)) && (len(resistances) >= len(vulnerabilities))) {
+			cursor_y = resistance_y
+		} else if ((len(immunities) >= len(resistances)) &&
+			   (len(immunities) >= len(vulnerabilities))) {
+			cursor_y = immunity_y
+		} else {
+			cursor_y = vulnerability_y
+		}
+		cursor_x = start_x
 
-        for immunity in temp_immunities {
-            GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
-            cursor_y += LINE_HEIGHT
-        }
-        temp_immunity_y = cursor_y
-        if len(temp_immunities) > 0 {
-            cursor_x = start_x
-        }
-    
-        if ((len(temp_resistances) >= len(temp_immunities)) && (len(temp_resistances) >= len(temp_vulnerabilities))) {
-            cursor_y = temp_resistance_y
-        } else if ((len(temp_immunities) >= len(temp_resistances)) && (len(temp_immunities) >= len(temp_vulnerabilities))) {
-            cursor_y = temp_immunity_y
-        } else {
-            cursor_y = temp_vulnerability_y
-        }
-        cursor_x = start_x
+		temp_vulnerabilities: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.temp_dmg_vulnerabilities,
+		)
+		temp_resistances: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.temp_dmg_resistances,
+		)
+		temp_immunities: []string = gen_vulnerability_resistance_or_immunity_string(
+			entity.temp_dmg_immunities,
+		)
 
-        text_align_left()
+		if len(temp_resistances) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Resistances:")
+			cursor_x += width / 3
+		}
+		if len(temp_immunities) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Immunities:")
+			cursor_x += width / 3
+		}
+		if len(temp_vulnerabilities) > 0 {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, "Vulnerabilities:")
+			cursor_x = start_x
+		}
+		if (len(temp_resistances) > 0 ||
+			   len(temp_immunities) > 0 ||
+			   len(temp_vulnerabilities) > 0) {
+			cursor_x = start_x
+			cursor_y += LINE_HEIGHT
+		}
 
-        if entity.skills != "" {
-            GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Skills:")
-            cursor_y += LINE_HEIGHT
-            skills := strings.split(cast(string)entity.skills, ", ", allocator=frame_alloc)
-            for skill in skills {
-                GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(skill))
-                cursor_y += LINE_HEIGHT
-            }
-        }
-        GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.CR)
-        cursor_y += LINE_HEIGHT
+		temp_resistance_y, temp_immunity_y, temp_vulnerability_y: f32
+		temp_prev_y := cursor_y
 
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE, cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE)
-        rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL, cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
-    }
-    context.allocator = static_alloc
+		for resistance in temp_resistances {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(resistance))
+			cursor_y += LINE_HEIGHT
+		}
+		temp_resistance_y = cursor_y
+		if len(temp_resistances) > 0 {
+			cursor_x += width / 3
+			cursor_y = temp_prev_y
+		}
+
+		for immunity in temp_immunities {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(immunity))
+			cursor_y += LINE_HEIGHT
+		}
+		temp_immunity_y = cursor_y
+		if len(temp_immunities) > 0 {
+			cursor_x += width / 3
+			cursor_y = temp_prev_y
+		}
+
+		for vulnerability in temp_vulnerabilities {
+			GuiLabel({cursor_x, cursor_y, width / 3, LINE_HEIGHT}, cstr(vulnerability))
+			cursor_y += LINE_HEIGHT
+		}
+		temp_vulnerability_y = cursor_y
+		if len(temp_vulnerabilities) > 0 {
+			cursor_x = start_x
+		}
+
+		if ((len(temp_resistances) >= len(temp_immunities)) &&
+			   (len(temp_resistances) >= len(temp_vulnerabilities))) {
+			cursor_y = temp_resistance_y
+		} else if ((len(temp_immunities) >= len(temp_resistances)) &&
+			   (len(temp_immunities) >= len(temp_vulnerabilities))) {
+			cursor_y = temp_immunity_y
+		} else {
+			cursor_y = temp_vulnerability_y
+		}
+		cursor_x = start_x
+
+		text_align_left()
+
+		if entity.skills != "" {
+			GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, "Skills:")
+			cursor_y += LINE_HEIGHT
+			skills := strings.split(cast(string)entity.skills, ", ", allocator = frame_alloc)
+			for skill in skills {
+				GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, cstr(skill))
+				cursor_y += LINE_HEIGHT
+			}
+		}
+		GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.CR)
+		cursor_y += LINE_HEIGHT
+
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE,
+			cast(i32)rl.GuiTextWrapMode.TEXT_WRAP_NONE,
+		)
+		rl.GuiSetStyle(
+			.DEFAULT,
+			cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL,
+			cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
+		)
+	}
+	context.allocator = static_alloc
 }
-
