@@ -1126,7 +1126,7 @@ draw_combat_screen :: proc() {
 }
 
 resolve_damage :: proc() {
-	dmg_amount: i32 = to_i32(state.combat_screen_state.dmg_input.text)
+	total_dmg_amount: i32 = to_i32(state.combat_screen_state.dmg_input.text)
 
 	switch state.combat_screen_state.dmg_type_dropdown.labels[state.combat_screen_state.dmg_type_dropdown.selected] {
 	case "Any":
@@ -1162,10 +1162,11 @@ resolve_damage :: proc() {
 	}
 
 	for i in 0 ..< state.combat_screen_state.num_entities {
-		entity := &state.combat_screen_state.entities[i]
 		if (state.combat_screen_state.to_dropdown.selected[i]) {
+			entity := &state.combat_screen_state.entities[i]
 			if state.combat_screen_state.dmg_type_selected not_in entity.dmg_immunities &&
 			   state.combat_screen_state.dmg_type_selected not_in entity.temp_dmg_immunities {
+				dmg_amount := total_dmg_amount
 				if state.combat_screen_state.dmg_type_selected in entity.dmg_resistances {
 					dmg_amount /= 2
 				} else if state.combat_screen_state.dmg_type_selected in
@@ -1173,6 +1174,8 @@ resolve_damage :: proc() {
 				   state.combat_screen_state.dmg_type_selected in entity.temp_dmg_vulnerabilities {
 					dmg_amount *= 2
 				}
+				log_dmg_amount := dmg_amount
+
 				dmg_amount -= entity.temp_HP
 				if dmg_amount >= 0 {
 					entity.temp_HP = 0
@@ -1182,27 +1185,26 @@ resolve_damage :: proc() {
 					entity.temp_HP = -dmg_amount
 				}
 
-				entity_from :=
-					state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
+				entity_from := &state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
 				if (entity.HP > 0) {
 					if (entity.alias != state.combat_screen_state.current_entity.alias) {
 						logger_add_damage_dealt(
 							&state.combat_screen_state.combat_logger,
-							int(dmg_amount),
-							&entity_from,
+							int(log_dmg_amount),
+							entity_from,
 							entity,
 						)
 					} else {
 						logger_add_damage_recieved(
 							&state.combat_screen_state.combat_logger,
-							int(dmg_amount),
-							&entity_from,
+							int(log_dmg_amount),
+							entity_from,
 						)
 					}
 				} else {
 					logger_add_hit_dead(
 						&state.combat_screen_state.combat_logger,
-						&entity_from,
+						entity_from,
 						entity,
 					)
 				}
@@ -1218,10 +1220,27 @@ resolve_healing :: proc() {
 	heal_amount: i32 = to_i32(state.combat_screen_state.heal_input.text)
 
 	for i in 0 ..< state.combat_screen_state.num_entities {
-		entity := &state.combat_screen_state.entities[i]
 		if (state.combat_screen_state.to_dropdown.selected[i]) {
+			entity := &state.combat_screen_state.entities[i]
 			entity.HP += heal_amount
 			is_entity_over_max(entity)
+
+			entity_from := &state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
+
+			if (entity.alias != state.combat_screen_state.current_entity.alias) {
+				logger_add_healing_done(
+					&state.combat_screen_state.combat_logger,
+					int(heal_amount),
+					entity,
+				)
+			} else {
+				logger_add_healing_recieved(
+					&state.combat_screen_state.combat_logger,
+					int(heal_amount),
+					entity_from,
+					entity,
+				)
+			}
 		}
 		state.combat_screen_state.to_dropdown.selected[i] = false
 	}
@@ -1229,12 +1248,30 @@ resolve_healing :: proc() {
 }
 
 resolve_temp_HP :: proc() {
-	HP_amount: i32 = to_i32(state.combat_screen_state.temp_HP_input.text)
+	hp_amount: i32 = to_i32(state.combat_screen_state.temp_HP_input.text)
 
 	for i in 0 ..< state.combat_screen_state.num_entities {
-		entity := &state.combat_screen_state.entities[i]
 		if (state.combat_screen_state.to_dropdown.selected[i]) {
-			entity.temp_HP = HP_amount if (HP_amount > entity.temp_HP) else entity.temp_HP
+			entity := &state.combat_screen_state.entities[i]
+			entity.temp_HP = hp_amount if (hp_amount > entity.temp_HP) else entity.temp_HP
+
+			entity_from := &state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
+
+			if (entity.alias != state.combat_screen_state.current_entity.alias) {
+				logger_add_temp_hp_given(
+					&state.combat_screen_state.combat_logger,
+					int(hp_amount),
+					entity_from,
+					entity,
+				)
+			} else {
+				logger_add_temp_hp_recieved(
+					&state.combat_screen_state.combat_logger,
+					int(hp_amount),
+					entity_from,
+					entity,
+				)
+			}
 		}
 		state.combat_screen_state.to_dropdown.selected[i] = false
 	}
@@ -1243,89 +1280,833 @@ resolve_temp_HP :: proc() {
 
 resolve_conditions :: proc() {
 	for i in 0 ..< state.combat_screen_state.num_entities {
-		entity := &state.combat_screen_state.entities[i]
 		if state.combat_screen_state.to_dropdown.selected[i] {
-			entity.conditions = ConditionSet{}
+			entity := &state.combat_screen_state.entities[i]
+			entity_from := &state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
 			for check_box, j in state.combat_screen_state.condition_dropdown.check_box_states {
 				condition := check_box.text
 				if state.combat_screen_state.condition_dropdown.selected[j] {
 					switch condition {
 					case "Blinded":
 						if .BLINDED not_in entity.condition_immunities {
-							entity.conditions |= {.BLINDED}
+							entity.conditions ~= {.BLINDED}
+							if (.BLINDED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.BLINDED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.BLINDED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.BLINDED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.BLINDED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.BLINDED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.BLINDED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Charmed":
 						if .CHARMED not_in entity.condition_immunities {
-							entity.conditions |= {.CHARMED}
+							entity.conditions ~= {.CHARMED}
+							if (.CHARMED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.CHARMED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.CHARMED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.CHARMED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.CHARMED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.CHARMED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.CHARMED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Deafened":
 						if .DEAFENED not_in entity.condition_immunities {
-							entity.conditions |= {.DEAFENED}
+							entity.conditions ~= {.DEAFENED}
+							if (.DEAFENED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.DEAFENED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.DEAFENED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.DEAFENED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.DEAFENED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.DEAFENED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.DEAFENED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Frightened":
 						if .FRIGHTENED not_in entity.condition_immunities {
-							entity.conditions |= {.FRIGHTENED}
+							entity.conditions ~= {.FRIGHTENED}
+							if (.FRIGHTENED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.FRIGHTENED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.FRIGHTENED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.FRIGHTENED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.FRIGHTENED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.FRIGHTENED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.FRIGHTENED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Grappled":
 						if .GRAPPLED not_in entity.condition_immunities {
-							entity.conditions |= {.GRAPPLED}
+							entity.conditions ~= {.GRAPPLED}
+							if (.GRAPPLED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.GRAPPLED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.GRAPPLED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.GRAPPLED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.GRAPPLED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.GRAPPLED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.GRAPPLED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Incapacitated":
 						if .INCAPACITATED not_in entity.condition_immunities {
-							entity.conditions |= {.INCAPACITATED}
+							entity.conditions ~= {.INCAPACITATED}
+							if (.INCAPACITATED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.INCAPACITATED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.INCAPACITATED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.INCAPACITATED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.INCAPACITATED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.INCAPACITATED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.INCAPACITATED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Invisible":
 						if .INVISIBLE not_in entity.condition_immunities {
-							entity.conditions |= {.INVISIBLE}
+							entity.conditions ~= {.INVISIBLE}
+							if (.INVISIBLE in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.INVISIBLE,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.INVISIBLE,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.INVISIBLE,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.INVISIBLE,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.INVISIBLE,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.INVISIBLE,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Paralyzed":
 						if .PARALYZED not_in entity.condition_immunities {
-							entity.conditions |= {.PARALYZED}
+							entity.conditions ~= {.PARALYZED}
+							if (.PARALYZED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.PARALYZED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.PARALYZED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.PARALYZED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.PARALYZED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.PARALYZED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.PARALYZED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Petrified":
 						if .PETRIFIED not_in entity.condition_immunities {
-							entity.conditions |= {.PETRIFIED}
+							entity.conditions ~= {.PETRIFIED}
+							if (.PETRIFIED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.PETRIFIED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.PETRIFIED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.PETRIFIED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.PETRIFIED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.PETRIFIED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.PETRIFIED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Poisoned":
 						if .POISONED not_in entity.condition_immunities {
-							entity.conditions |= {.POISONED}
+							entity.conditions ~= {.POISONED}
+							if (.POISONED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.POISONED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.POISONED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.POISONED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.POISONED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.POISONED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.POISONED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Prone":
 						if .PRONE not_in entity.condition_immunities {
-							entity.conditions |= {.PRONE}
+							entity.conditions ~= {.PRONE}
+							if (.PRONE in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.PRONE,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.PRONE,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.PRONE,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.PRONE,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.PRONE,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.PRONE,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Restrained":
 						if .RESTRAINED not_in entity.condition_immunities {
-							entity.conditions |= {.RESTRAINED}
+							entity.conditions ~= {.RESTRAINED}
+							if (.RESTRAINED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.RESTRAINED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.RESTRAINED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.RESTRAINED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.RESTRAINED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.RESTRAINED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.RESTRAINED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Stunned":
 						if .STUNNED not_in entity.condition_immunities {
-							entity.conditions |= {.STUNNED}
+							entity.conditions ~= {.STUNNED}
+							if (.STUNNED in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.STUNNED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.STUNNED,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.STUNNED,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.STUNNED,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.STUNNED,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.STUNNED,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Unconscious":
 						if .UNCONSCIOUS not_in entity.condition_immunities {
-							entity.conditions |= {.UNCONSCIOUS}
+							entity.conditions ~= {.UNCONSCIOUS}
+							if (.UNCONSCIOUS in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.UNCONSCIOUS,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.UNCONSCIOUS,
+										entity_from,
+										entity,
+									)
+								}
+							} else {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_healed(
+										&state.combat_screen_state.combat_logger,
+										.UNCONSCIOUS,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_healed_self(
+										&state.combat_screen_state.combat_logger,
+										.UNCONSCIOUS,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.UNCONSCIOUS,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.UNCONSCIOUS,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					case "Exhaustion":
 						if .EXHAUSTION not_in entity.condition_immunities {
-							entity.conditions |= {.EXHAUSTION}
+							entity.conditions ~= {.EXHAUSTION}
+							if (.EXHAUSTION in entity.conditions) {
+								if (entity.alias !=
+									   state.combat_screen_state.current_entity.alias) {
+									logger_add_condition_applied(
+										&state.combat_screen_state.combat_logger,
+										.EXHAUSTION,
+										entity_from,
+										entity,
+									)
+								} else {
+									logger_add_condition_recieved(
+										&state.combat_screen_state.combat_logger,
+										.EXHAUSTION,
+										entity_from,
+										entity,
+									)
+								}
+							}
+						} else {
+							if (entity.alias != state.combat_screen_state.current_entity.alias) {
+								logger_add_attempt_give_condition(
+									&state.combat_screen_state.combat_logger,
+									.EXHAUSTION,
+									entity_from,
+									entity,
+								)
+							} else {
+								logger_add_attempt_recieve_condition(
+									&state.combat_screen_state.combat_logger,
+									.EXHAUSTION,
+									entity_from,
+									entity,
+								)
+							}
 						}
 					}
-					state.combat_screen_state.condition_dropdown.selected[j] = false
 				}
 			}
 		}
 		state.combat_screen_state.to_dropdown.selected[i] = false
 	}
+	for &dropdown, j in state.combat_screen_state.condition_dropdown.selected {
+		dropdown = false
+	}
 }
 
 resolve_temp_resistance_or_immunity :: proc() {
-	fmt.printfln(
-		"Resistances: %v\nImmunities: %v\nVulnerabilities: %v",
-		state.combat_screen_state.current_entity.temp_dmg_resistances,
-		state.combat_screen_state.current_entity.temp_dmg_immunities,
-		state.combat_screen_state.current_entity.temp_dmg_vulnerabilities,
-	)
 	switch state.combat_screen_state.temp_resist_immunity_toggle.selected {
 	case 0:
 		for i in 0 ..< state.combat_screen_state.num_entities {
