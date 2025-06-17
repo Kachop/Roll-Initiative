@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:log"
+import vmem "core:mem/virtual"
 import "core:strings"
 import "core:time"
 import "core:unicode/utf8"
@@ -142,7 +143,9 @@ draw_combat_screen :: proc() {
 		rl.GuiIconName.ICON_PLAYER_PLAY if (!state.combat_screen_state.combat_timer.running) else rl.GuiIconName.ICON_PLAYER_PAUSE,
 	) {
 		if !state.combat_screen_state.combat_timer.running {
+			context.allocator = logger_alloc
 			init_logger(&state.combat_screen_state.combat_logger)
+			context.allocator = static_alloc
 			logger_set_entity(
 				&state.combat_screen_state.combat_logger,
 				state.combat_screen_state.current_entity,
@@ -163,9 +166,9 @@ draw_combat_screen :: proc() {
 		&state.combat_screen_state.stop_button,
 		rl.GuiIconText(.ICON_PLAYER_STOP, ""),
 	) {
-		temp_entities_list: #soa[dynamic]Entity
+		temp_entities_list: []Entity
 		load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &temp_entities_list)
-		defer delete_soa(temp_entities_list)
+		defer delete(temp_entities_list)
 
 		player_count := 0
 		for i in 0 ..< state.combat_screen_state.num_entities {
@@ -212,6 +215,7 @@ draw_combat_screen :: proc() {
 			init_message_box(&new_message, "Error!", fmt.caprintf("Error saving combat log"))
 			add_message(&state.combat_screen_state.message_queue, new_message)
 		}
+		vmem.arena_free_all(&logger_arena)
 	}
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
@@ -383,13 +387,8 @@ draw_combat_screen :: proc() {
 			for i in 0 ..< state.combat_screen_state.num_entities {
 				if !state.combat_screen_state.remove_entity_mode {
 					if rl.CheckCollisionRecs(
-						{
-							state.combat_screen_state.panel_left_top.rec.x,
-							state.combat_screen_state.panel_left_top.rec.y,
-							state.combat_screen_state.panel_left_top.rec.width,
-							state.combat_screen_state.panel_left_top.rec.height,
-						},
 						{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+						state.combat_screen_state.panel_left_top.rec,
 					) {
 						state.combat_screen_state.entity_button_states[i].index = i
 						if GuiEntityButtonClickable(
@@ -816,20 +815,26 @@ draw_combat_screen :: proc() {
 		state.cursor.x += PANEL_PADDING
 		state.cursor.y += PANEL_PADDING
 
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage type:")
 		state.cursor.x += draw_width / 2
 
 		dmg_type_x := state.cursor.x
 		dmg_type_y := state.cursor.y
 
-		GuiDropdownControl(
+		defer if rl.CheckCollisionRecs(
 			{dmg_type_x, dmg_type_y, draw_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.dmg_type_dropdown,
-		)
-		register_button(
-			&state.combat_screen_state.btn_list,
-			&state.combat_screen_state.dmg_type_dropdown,
-		)
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiDropdownControl(
+				{dmg_type_x, dmg_type_y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.dmg_type_dropdown,
+			)
+			register_button(
+				&state.combat_screen_state.btn_list,
+				&state.combat_screen_state.dmg_type_dropdown,
+			)
+		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
@@ -843,115 +848,171 @@ draw_combat_screen :: proc() {
 			)
 		}
 
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-		state.cursor.x += draw_width / 3
-		GuiTextInput(
-			{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-			&state.combat_screen_state.dmg_input,
-		)
-		state.cursor.x += draw_width / 3
-		if (GuiButton({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Resolve") &&
-			   !state.combat_screen_state.to_dropdown.active) {
-			resolve_damage()
+		if rl.CheckCollisionRecs(
+			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+			state.cursor.x += draw_width / 3
+			GuiTextInput(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				&state.combat_screen_state.dmg_input,
+			)
+			state.cursor.x += draw_width / 3
+			if (GuiButton(
+					   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					   "Resolve",
+				   ) &&
+				   !state.combat_screen_state.to_dropdown.active) {
+				resolve_damage()
+			}
 		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Healing")
+		if rl.CheckCollisionRecs(
+			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Healing")
+		}
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-		state.cursor.x += draw_width / 3
-		GuiTextInput(
+
+		if rl.CheckCollisionRecs(
 			{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-			&state.combat_screen_state.heal_input,
-		)
-		state.cursor.x += draw_width / 3
-		if (GuiButton({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Resolve") &&
-			   !state.combat_screen_state.to_dropdown.active) {
-			resolve_healing()
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+			state.cursor.x += draw_width / 3
+			GuiTextInput(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				&state.combat_screen_state.heal_input,
+			)
+			state.cursor.x += draw_width / 3
+			if (GuiButton(
+					   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					   "Resolve",
+				   ) &&
+				   !state.combat_screen_state.to_dropdown.active) {
+				resolve_healing()
+			}
 		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Temp HP")
+		if rl.CheckCollisionRecs(
+			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Temp HP")
+		}
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-		state.cursor.x += draw_width / 3
-		GuiTextInput(
+
+		if rl.CheckCollisionRecs(
 			{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-			&state.combat_screen_state.temp_HP_input,
-		)
-		state.cursor.x += draw_width / 3
-		if GuiButton({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Resolve") {
-			resolve_temp_HP()
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+			state.cursor.x += draw_width / 3
+			GuiTextInput(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				&state.combat_screen_state.temp_HP_input,
+			)
+			state.cursor.x += draw_width / 3
+			if GuiButton(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				"Resolve",
+			) {
+				resolve_temp_HP()
+			}
 		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Conditions")
+		if rl.CheckCollisionRecs(
+			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Conditions")
+		}
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
 		conditions_x := state.cursor.x
 		conditions_y := state.cursor.y
 
-		GuiDropdownSelectControl(
+		if rl.CheckCollisionRecs(
 			{conditions_x, conditions_y, draw_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.condition_dropdown,
-		)
-		register_button(
-			&state.combat_screen_state.btn_list,
-			&state.combat_screen_state.condition_dropdown,
-		)
-		state.cursor.x += draw_width / 2
-
-		if (state.combat_screen_state.panel_mid.height_needed >
-			   state.combat_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.combat_screen_state.panel_mid.view.x,
-				cast(i32)state.combat_screen_state.panel_mid.view.y,
-				cast(i32)state.combat_screen_state.panel_mid.view.width,
-				cast(i32)state.combat_screen_state.panel_mid.view.height,
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiDropdownSelectControl(
+				{conditions_x, conditions_y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.condition_dropdown,
 			)
-		}
+			register_button(
+				&state.combat_screen_state.btn_list,
+				&state.combat_screen_state.condition_dropdown,
+			)
+			state.cursor.x += draw_width / 2
 
-		if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
-			resolve_conditions()
+			if (state.combat_screen_state.panel_mid.height_needed >
+				   state.combat_screen_state.panel_mid.rec.height) {
+				rl.BeginScissorMode(
+					cast(i32)state.combat_screen_state.panel_mid.view.x,
+					cast(i32)state.combat_screen_state.panel_mid.view.y,
+					cast(i32)state.combat_screen_state.panel_mid.view.width,
+					cast(i32)state.combat_screen_state.panel_mid.view.height,
+				)
+			}
+
+			if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
+				resolve_conditions()
+			}
 		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Temp")
-		state.cursor.x += draw_width / 2
-
-		GuiToggleSlider(
+		if rl.CheckCollisionRecs(
 			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.temp_resist_immunity_toggle,
-		)
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Temp")
+			state.cursor.x += draw_width / 2
+
+			GuiToggleSlider(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.temp_resist_immunity_toggle,
+			)
+		}
 		state.cursor.x = current_panel_x + PANEL_PADDING
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		GuiDropdownSelectControl(
+		if rl.CheckCollisionRecs(
 			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.temp_resist_immunity_dropdown,
-		)
-		register_button(
-			&state.combat_screen_state.btn_list,
-			&state.combat_screen_state.temp_resist_immunity_dropdown,
-		)
-		state.cursor.x += draw_width / 2
-
-		if (state.combat_screen_state.panel_mid.height_needed >
-			   state.combat_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.combat_screen_state.panel_mid.view.x,
-				cast(i32)state.combat_screen_state.panel_mid.view.y,
-				cast(i32)state.combat_screen_state.panel_mid.view.width,
-				cast(i32)state.combat_screen_state.panel_mid.view.height,
+			state.combat_screen_state.panel_mid.rec,
+		) {
+			GuiDropdownSelectControl(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.temp_resist_immunity_dropdown,
 			)
-		}
+			register_button(
+				&state.combat_screen_state.btn_list,
+				&state.combat_screen_state.temp_resist_immunity_dropdown,
+			)
+			state.cursor.x += draw_width / 2
 
-		if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
-			resolve_temp_resistance_or_immunity()
+			if (state.combat_screen_state.panel_mid.height_needed >
+				   state.combat_screen_state.panel_mid.rec.height) {
+				rl.BeginScissorMode(
+					cast(i32)state.combat_screen_state.panel_mid.view.x,
+					cast(i32)state.combat_screen_state.panel_mid.view.y,
+					cast(i32)state.combat_screen_state.panel_mid.view.width,
+					cast(i32)state.combat_screen_state.panel_mid.view.height,
+				)
+			}
+
+			if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
+				resolve_temp_resistance_or_immunity()
+			}
 		}
 		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
@@ -1231,6 +1292,7 @@ resolve_healing :: proc() {
 				logger_add_healing_done(
 					&state.combat_screen_state.combat_logger,
 					int(heal_amount),
+					entity_from,
 					entity,
 				)
 			} else {

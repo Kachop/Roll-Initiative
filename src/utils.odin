@@ -108,8 +108,16 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 
 reload_entities :: proc() {
 	vmem.arena_free_all(&entities_arena)
-	load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
-	load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
+	//state.srd_entities = make([]Entity, 1024, allocator = entities_alloc)
+	//state.custom_entities = make([]Entity, 256, allocator = entities_alloc)
+	state.num_srd_entities = load_entities_from_file(
+		state.config.ENTITY_FILE_PATH,
+		&state.srd_entities,
+	)
+	state.num_custom_entities = load_entities_from_file(
+		state.config.CUSTOM_ENTITY_FILE_PATH,
+		&state.custom_entities,
+	)
 }
 
 order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
@@ -173,6 +181,7 @@ get_entity_icon_from_paths :: proc(
 	rl.Texture,
 	string,
 ) {
+	context.allocator = frame_alloc
 	temp_icon_image := rl.LoadImage(
 		cstr(state.config.CUSTOM_ENTITIES_DIR, "images", icon_path, sep = FILE_SEPERATOR),
 	)
@@ -202,8 +211,12 @@ get_entity_icon_from_paths :: proc(
 	)
 	rl.ExportImage(temp_border_image, "temp.png")
 	icon_data, _ := os.read_entire_file("temp.png")
+	defer delete(icon_data)
 	os.remove("temp.png")
-	return rl.LoadTextureFromImage(temp_border_image), base64.encode(icon_data)
+	context.allocator = static_alloc
+	return rl.LoadTextureFromImage(
+		temp_border_image,
+	), base64.encode(icon_data, allocator = frame_alloc)
 }
 
 get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, string) {

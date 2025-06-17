@@ -24,11 +24,15 @@ VERSION_MINOR :: 0
 
 static_arena: vmem.Arena
 entities_arena: vmem.Arena
+icons_arena: vmem.Arena
+logger_arena: vmem.Arena
 server_arena: vmem.Arena
 frame_arena: vmem.Arena
 
 static_alloc: mem.Allocator
 entities_alloc: mem.Allocator
+icons_alloc: mem.Allocator
+logger_alloc: mem.Allocator
 server_alloc: mem.Allocator
 frame_alloc: mem.Allocator
 
@@ -50,6 +54,14 @@ init :: proc() {
 	arena_err = vmem.arena_init_static(&entities_arena, 100 * mem.Megabyte)
 	if arena_err == .None {
 		entities_alloc = vmem.arena_allocator(&entities_arena)
+	}
+	arena_err = vmem.arena_init_static(&icons_arena, 50 * mem.Megabyte)
+	if arena_err == .None {
+		icons_alloc = vmem.arena_allocator(&icons_arena)
+	}
+	arena_err = vmem.arena_init_static(&logger_arena, 10 * mem.Megabyte)
+	if arena_err == .None {
+		logger_alloc = vmem.arena_allocator(&logger_arena)
 	}
 	arena_err = vmem.arena_init_static(&server_arena, 100 * mem.Megabyte)
 	if arena_err == .None {
@@ -145,17 +157,27 @@ main :: proc() {
 				static_arena.total_used,
 			)
 			log.infof(
-				"Entities alloc   | Reserved: %v, Used: %v",
+				"Entities alloc | Reserved: %v, Used: %v",
 				entities_arena.total_reserved,
 				entities_arena.total_used,
 			)
 			log.infof(
-				"Server alloc   | Reserved: %v, Used: %v",
+				"Icons alloc | Reserved: %v, Used: %v",
+				icons_arena.total_reserved,
+				entities_arena.total_used,
+			)
+			log.infof(
+				"Logger alloc | Reserved: %v, Used: %v",
+				logger_arena.total_reserved,
+				logger_arena.total_used,
+			)
+			log.infof(
+				"Server alloc | Reserved: %v, Used: %v",
 				server_arena.total_reserved,
 				server_arena.total_used,
 			)
 			log.infof(
-				"Frame alloc  | Reserved: %v, Used: %v",
+				"Frame alloc | Reserved: %v, Used: %v",
 				frame_arena.total_reserved,
 				frame_arena.total_used,
 			)

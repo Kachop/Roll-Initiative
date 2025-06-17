@@ -292,22 +292,90 @@ GuiButtonStateless :: proc(
 TextInputState :: struct {
 	using gui_control: GuiControl,
 	edit_mode:         bool,
-	alloc:             [256]rune,
+	loaded:            bool,
+	delete_mode_count: int,
+	left_mode_count:   int,
+	right_mode_count:  int,
+	builder:           strings.Builder,
 	text:              cstring,
+	edit_text:         string,
+	start_idx:         int,
+	end_idx:           int,
+	cursor_idx:        int,
+	cursor_pos:        f32,
 }
 
 init_text_input_state :: proc(input_state: ^TextInputState) {
 	input_state.id = GUI_ID
-	input_state.text = fmt.caprint(utf8.runes_to_string(input_state.alloc[:]))
+	input_state.builder = strings.builder_make()
 
 	GUI_ID += 1
 }
 
-clear_text_input :: proc(text_inpit: ^TextInputState) {
-	text_inpit.text = fmt.caprint(utf8.runes_to_string(text_inpit.alloc[:]))
+clear_text_input :: proc(input_state: ^TextInputState) {
+	strings.builder_reset(&input_state.builder)
+	input_state.text = strings.to_cstring(&input_state.builder)
+	input_state.edit_text = ""
+	input_state.start_idx = 0
+	input_state.end_idx = 0
+	input_state.cursor_idx = 0
+	input_state.cursor_pos = 0
+}
+
+set_text_input :: proc(input_state: ^TextInputState, text: cstring, width: f32) {
+	clear(&input_state.builder.buf)
+	for char in string(text) {
+		append(&input_state.builder.buf, byte(char))
+	}
+	input_state.text = strings.to_cstring(&input_state.builder)
+
+	input_state.start_idx = 0
+	input_state.end_idx = len(string(input_state.text))
+
+	for rl.MeasureText(
+		    cstr(string(input_state.text)[input_state.start_idx:input_state.end_idx]),
+		    25,
+	    ) >=
+	    cast(i32)width {
+		input_state.end_idx -= 1
+	}
+	input_state.edit_text = string(input_state.text)[input_state.start_idx:input_state.end_idx]
 }
 
 GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
+	using state.gui_properties
+
+	border: f32 : 2
+	SPACING: f32 : 2.4
+
+	x := bounds.x + border
+	y := bounds.y + border
+	width := bounds.width - (border * 2)
+	height := bounds.height - (border * 2)
+
+	initial_text_spacing := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING)
+	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING, 2)
+	initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
+
+	text_align_left()
+
+	defer {
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING, initial_text_spacing)
+		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+	}
+
+	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 25)
+	TEXT_SIZE = 25
+
+	rl.DrawRectangle(
+		cast(i32)(x - border),
+		cast(i32)(y - border),
+		cast(i32)(width + (border * 2)),
+		cast(i32)(height + (border * 2)),
+		BUTTON_BORDER_COLOUR if !input_state.edit_mode else BUTTON_ACTIVE_COLOUR,
+	)
+	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BACKGROUND_COLOUR)
+
 	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
 		input_state.hovered = true
 		hover_stack_add(input_state)
@@ -315,20 +383,317 @@ GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
 		input_state.hovered = false
 	}
 
-	text_align_left()
-	if (rl.GuiTextBox(
-			   bounds,
-			   input_state.text,
-			   size_of(input_state.alloc),
-			   input_state.edit_mode,
-		   )) {
-		if is_current_hover(input_state) && !input_state.edit_mode {
+	if input_state.edit_mode {
+		char: rune
+
+		char = rl.GetCharPressed()
+		for int(char) != 0 {
+			switch char {
+			case 'A' ..= 'Z', 'a' ..= 'z', '0' ..= '9':
+				inject_at(&input_state.builder.buf, input_state.cursor_idx, byte(char))
+				input_state.text = strings.to_cstring(&input_state.builder)
+				input_state.cursor_idx += 1
+				input_state.end_idx += 1
+
+				if rl.MeasureText(input_state.text, TEXT_SIZE) < cast(i32)width {
+					input_state.cursor_pos +=
+						cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE) + SPACING
+				} else {
+					input_state.edit_text =
+					string(input_state.text)[input_state.start_idx:input_state.end_idx]
+
+					if rl.MeasureText(cstr(input_state.edit_text), TEXT_SIZE) < cast(i32)width {
+						input_state.cursor_pos +=
+							cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE) + SPACING
+					} else {
+						input_state.start_idx += 1
+						input_state.cursor_pos -=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.start_idx - 1]),
+							TEXT_SIZE,
+						)
+						input_state.cursor_pos += cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE)
+						input_state.edit_text =
+						string(input_state.text)[input_state.start_idx:input_state.end_idx]
+					}
+				}
+			case '_', '-', '/', '\\', '.', ',', '!', '@', ' ':
+				inject_at(&input_state.builder.buf, input_state.cursor_idx, byte(char))
+				input_state.text = strings.to_cstring(&input_state.builder)
+				input_state.cursor_idx += 1
+				input_state.end_idx += 1
+
+				if rl.MeasureText(input_state.text, TEXT_SIZE) < cast(i32)width {
+					input_state.cursor_pos +=
+						cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE) + SPACING
+				} else {
+					input_state.edit_text =
+					string(input_state.text)[input_state.start_idx:input_state.end_idx]
+
+					if rl.MeasureText(cstr(input_state.edit_text), TEXT_SIZE) < cast(i32)width {
+						input_state.cursor_pos +=
+							cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE) + SPACING
+					} else {
+						input_state.start_idx += 1
+						input_state.cursor_pos -=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.start_idx - 1]),
+							TEXT_SIZE,
+						)
+						input_state.cursor_pos += cast(f32)rl.MeasureText(cstr(char), TEXT_SIZE)
+						input_state.edit_text =
+						string(input_state.text)[input_state.start_idx:input_state.end_idx]
+					}
+				}
+			}
+			char = rl.GetCharPressed()
+		}
+
+		if rl.IsKeyPressed(.BACKSPACE) {
+			if input_state.text != "" && input_state.cursor_idx > 0 {
+				popped_rune := rune(input_state.builder.buf[input_state.cursor_idx - 1])
+				ordered_remove(&input_state.builder.buf, input_state.cursor_idx - 1)
+				input_state.cursor_idx -= 1
+				input_state.end_idx -= 1
+				input_state.cursor_pos -=
+					cast(f32)rl.MeasureText(cstr(popped_rune), TEXT_SIZE) + SPACING
+
+				if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+				   input_state.start_idx > 0 {
+					input_state.start_idx -= 1
+					input_state.cursor_pos +=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.start_idx]),
+							TEXT_SIZE,
+						) +
+						SPACING
+					input_state.edit_text =
+					string(input_state.text)[input_state.start_idx:input_state.end_idx]
+				}
+				input_state.text = strings.to_cstring(&input_state.builder)
+			}
+		}
+
+		if rl.IsKeyDown(.BACKSPACE) {
+			input_state.delete_mode_count += 1
+		} else if rl.IsKeyReleased(.BACKSPACE) {
+			input_state.delete_mode_count = 0
+		}
+
+		if input_state.delete_mode_count >= 30 {
+			if input_state.text != "" {
+				if (FRAME % 5 == 0) && input_state.cursor_idx > 0 {
+					popped_rune := rune(input_state.builder.buf[input_state.cursor_idx - 1])
+					ordered_remove(&input_state.builder.buf, input_state.cursor_idx - 1)
+					input_state.cursor_idx -= 1
+					input_state.end_idx -= 1
+					input_state.cursor_pos -=
+						cast(f32)rl.MeasureText(cstr(popped_rune), TEXT_SIZE) + SPACING
+
+					if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+					   input_state.start_idx > 0 {
+						input_state.start_idx -= 1
+						input_state.cursor_pos +=
+							cast(f32)rl.MeasureText(
+								cstr(cast(rune)string(input_state.text)[input_state.start_idx]),
+								TEXT_SIZE,
+							) +
+							SPACING
+						input_state.edit_text =
+						string(input_state.text)[input_state.start_idx:input_state.end_idx]
+					}
+					input_state.text = strings.to_cstring(&input_state.builder)
+				}
+			}
+			if rl.IsKeyReleased(.BACKSPACE) {
+				input_state.delete_mode_count = 0
+			}
+		}
+
+		if rl.IsKeyPressed(.LEFT) {
+			if input_state.text != "" && input_state.cursor_idx > 0 {
+				input_state.cursor_idx -= 1
+				input_state.cursor_pos -=
+					cast(f32)rl.MeasureText(
+						cstr(cast(rune)string(input_state.text)[input_state.cursor_idx]),
+						TEXT_SIZE,
+					) +
+					SPACING
+
+				if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+				   input_state.start_idx > 0 {
+					input_state.start_idx -= 1
+					input_state.end_idx -= 1
+					input_state.cursor_pos +=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.start_idx]),
+							TEXT_SIZE,
+						) +
+						SPACING
+					input_state.edit_text =
+					string(input_state.text)[input_state.start_idx:input_state.end_idx]
+				}
+			}
+		}
+
+		if rl.IsKeyDown(.LEFT) {
+			input_state.left_mode_count += 1
+		} else if rl.IsKeyReleased(.LEFT) {
+			input_state.left_mode_count = 0
+		}
+
+		if input_state.left_mode_count >= 30 {
+			if input_state.text != "" && input_state.cursor_idx > 0 {
+				if (FRAME % 5 == 0) {
+					input_state.cursor_idx -= 1
+					input_state.cursor_pos -=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.cursor_idx]),
+							TEXT_SIZE,
+						) +
+						SPACING
+
+					if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+					   input_state.start_idx > 0 {
+						input_state.start_idx -= 1
+						input_state.end_idx -= 1
+						input_state.cursor_pos +=
+							cast(f32)rl.MeasureText(
+								cstr(cast(rune)string(input_state.text)[input_state.start_idx]),
+								TEXT_SIZE,
+							) +
+							SPACING
+						input_state.edit_text =
+						string(input_state.text)[input_state.start_idx:input_state.end_idx]
+					}
+				}
+			}
+			if rl.IsKeyReleased(.LEFT) {
+				input_state.left_mode_count = 0
+			}
+		}
+
+		if rl.IsKeyPressed(.RIGHT) {
+			if input_state.text != "" && input_state.cursor_idx < len(string(input_state.text)) {
+				input_state.cursor_idx += 1
+				input_state.cursor_pos +=
+					cast(f32)rl.MeasureText(
+						cstr(cast(rune)string(input_state.text)[input_state.cursor_idx - 1]),
+						TEXT_SIZE,
+					) +
+					SPACING
+
+				if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+				   input_state.end_idx < input_state.cursor_idx {
+					input_state.end_idx += 1
+				}
+				if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+				   input_state.cursor_pos > width {
+					input_state.start_idx += 1
+					input_state.cursor_pos -=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.start_idx - 1]),
+							TEXT_SIZE,
+						) +
+						SPACING
+					input_state.edit_text =
+					string(input_state.text)[input_state.start_idx:input_state.end_idx]
+				}
+			}
+		}
+
+		if rl.IsKeyDown(.RIGHT) {
+			input_state.right_mode_count += 1
+		} else if rl.IsKeyReleased(.RIGHT) {
+			input_state.right_mode_count = 0
+		}
+
+		if input_state.right_mode_count >= 30 {
+			if input_state.text != "" && input_state.cursor_idx < len(string(input_state.text)) {
+				if (FRAME % 5 == 0) {
+					input_state.cursor_idx += 1
+					input_state.cursor_pos +=
+						cast(f32)rl.MeasureText(
+							cstr(cast(rune)string(input_state.text)[input_state.cursor_idx - 1]),
+							TEXT_SIZE,
+						) +
+						SPACING
+
+					if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+					   input_state.end_idx < input_state.cursor_idx {
+						input_state.end_idx += 1
+					}
+
+					if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width &&
+					   input_state.cursor_pos > width {
+						input_state.start_idx += 1
+						input_state.cursor_pos -=
+							cast(f32)rl.MeasureText(
+								cstr(
+									cast(rune)string(input_state.text)[input_state.start_idx - 1],
+								),
+								TEXT_SIZE,
+							) +
+							SPACING
+						input_state.edit_text =
+						string(input_state.text)[input_state.start_idx:input_state.end_idx]
+					}
+				}
+			}
+			if rl.IsKeyReleased(.RIGHT) {
+				input_state.right_mode_count += 1
+			}
+		}
+
+		for input_state.cursor_pos > width {
+			input_state.start_idx += 1
+			input_state.cursor_pos -=
+				cast(f32)rl.MeasureText(
+					cstr(cast(rune)string(input_state.text)[input_state.start_idx - 1]),
+					TEXT_SIZE,
+				) +
+				SPACING
+			input_state.edit_text =
+			string(input_state.text)[input_state.start_idx:input_state.end_idx]
+		}
+
+		rl.DrawLine(
+			cast(i32)(x + input_state.cursor_pos),
+			cast(i32)y,
+			cast(i32)(x + input_state.cursor_pos),
+			cast(i32)(y + height),
+			BUTTON_BORDER_COLOUR,
+		)
+
+		if rl.IsKeyPressed(.ENTER) {
+			input_state.edit_mode = false
+		}
+
+		if rl.MeasureText(input_state.text, TEXT_SIZE) > cast(i32)width {
+			GuiLabel({x, y, width, height}, cstr(input_state.edit_text))
+		} else {
+			GuiLabel({x, y, width, height}, input_state.text)
+		}
+	} else {
+		GuiLabel({x, y, width, height}, input_state.text)
+	}
+
+	if is_current_hover(input_state) {
+		rl.DrawRectangle(
+			cast(i32)x,
+			cast(i32)y,
+			cast(i32)width,
+			cast(i32)height,
+			BUTTON_HOVER_COLOUR,
+		)
+		if rl.IsMouseButtonReleased(.LEFT) {
 			input_state.edit_mode = true
-		} else if input_state.edit_mode {
+		}
+	} else {
+		if rl.IsMouseButtonReleased(.LEFT) {
 			input_state.edit_mode = false
 		}
 	}
-	text_align_center()
 }
 
 ToggleState :: struct {

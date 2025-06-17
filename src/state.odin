@@ -44,28 +44,35 @@ d_init_load_screen :: proc() {
 }
 
 SetupScreenState :: struct {
-	first_load:           bool,
-	message_queue:        MessageBoxQueueState,
-	entities_filtered:    #soa[dynamic]Entity,
-	entities_searched:    #soa[dynamic]Entity,
-	entity_button_states: [dynamic]EntityButtonState,
-	entities_selected:    []Entity,
-	num_entities:         int,
-	selected_entity:      ^Entity,
-	selected_entity_idx:  int,
-	filter_tab:           TabControlState,
-	panel_left:           PanelState,
-	entity_search_state:  TextInputState,
-	panel_mid:            PanelState,
-	panel_right:          PanelState,
-	filename_input:       TextInputState,
-	initiative_input:     TextInputState,
+	first_load:            bool,
+	message_queue:         MessageBoxQueueState,
+	entities_filtered:     []Entity,
+	entities_searched:     []Entity,
+	num_entities_filtered: int,
+	num_entities_searched: int,
+	entity_button_states:  [dynamic]EntityButtonState,
+	entities_selected:     []Entity,
+	num_entities:          int,
+	selected_entity:       ^Entity,
+	selected_entity_idx:   int,
+	filter_tab:            TabControlState,
+	panel_left:            PanelState,
+	entity_search_state:   TextInputState,
+	panel_mid:             PanelState,
+	panel_right:           PanelState,
+	filename_input:        TextInputState,
+	initiative_input:      TextInputState,
 }
 
 init_setup_screen :: proc() {
 	state.setup_screen_state.first_load = true
-	state.setup_screen_state.entities_filtered = state.srd_entities
-	state.setup_screen_state.entities_selected = make_slice([]Entity, 256)
+	state.setup_screen_state.entities_filtered = make([]Entity, 1024)
+	state.setup_screen_state.entities_searched = make([]Entity, 1024)
+	state.setup_screen_state.entities_selected = make_slice(
+		[]Entity,
+		256,
+		allocator = entities_alloc,
+	)
 	state.setup_screen_state.selected_entity = nil
 	state.setup_screen_state.selected_entity_idx = 0
 
@@ -141,7 +148,7 @@ init_combat_screen :: proc() {
 	init_button_state(&state.combat_screen_state.start_button)
 	init_button_state(&state.combat_screen_state.stop_button)
 
-	state.combat_screen_state.entities = make_slice([]Entity, 256)
+	state.combat_screen_state.entities = make_slice([]Entity, 256, allocator = entities_alloc)
 	state.combat_screen_state.current_entity_idx = 0
 	state.combat_screen_state.current_entity = nil
 	state.combat_screen_state.view_entity_idx = 0
@@ -388,8 +395,10 @@ State :: struct {
 	entity_screen_state:         EntityScreenState,
 	current_screen_state:        WindowState,
 	screen_state_queue:          [dynamic]WindowState,
-	srd_entities:                #soa[dynamic]Entity,
-	custom_entities:             #soa[dynamic]Entity,
+	srd_entities:                []Entity,
+	custom_entities:             []Entity,
+	num_srd_entities:            int,
+	num_custom_entities:         int,
 	current_combat:              Combat,
 	dmg_type_options:            [dynamic]cstring,
 	condition_options:           []cstring,
@@ -399,6 +408,7 @@ State :: struct {
 	app_dir:                     string,
 	ip_str:                      string,
 	server_state:                ServerState,
+	//test_text_input:             MyTextInputState,
 }
 
 init_state :: proc(state: ^State) {
@@ -409,11 +419,17 @@ init_state :: proc(state: ^State) {
 	state.cursor = {0, 0}
 	state.mouse_pos = rl.GetMousePosition()
 
-	state.srd_entities = make(#soa[dynamic]Entity, allocator = entities_alloc)
-	state.custom_entities = make(#soa[dynamic]Entity, allocator = entities_alloc)
+	state.srd_entities = make([]Entity, 1024, allocator = entities_alloc)
+	state.custom_entities = make([]Entity, 256, allocator = entities_alloc)
 
-	load_entities_from_file(state.config.ENTITY_FILE_PATH, &state.srd_entities)
-	load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &state.custom_entities)
+	state.num_srd_entities = load_entities_from_file(
+		state.config.ENTITY_FILE_PATH,
+		&state.srd_entities,
+	)
+	state.num_custom_entities = load_entities_from_file(
+		state.config.CUSTOM_ENTITY_FILE_PATH,
+		&state.custom_entities,
+	)
 
 	state.dmg_type_options = make([dynamic]cstring)
 	state.dmg_type_options = {
@@ -465,6 +481,8 @@ init_state :: proc(state: ^State) {
 
 	state.server_state.running = true
 	state.server_state.json_data = "{}"
+
+	//init_my_text_input_state(&state.test_text_input)
 }
 
 d_init_state :: proc(state: ^State) {
@@ -475,8 +493,8 @@ d_init_state :: proc(state: ^State) {
 	d_init_entity_screen()
 	state.current_screen_state = nil
 
-	delete_soa(state.srd_entities)
-	delete_soa(state.custom_entities)
+	delete(state.srd_entities)
+	delete(state.custom_entities)
 
 	unload_config(&state.config)
 }

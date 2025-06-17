@@ -31,6 +31,7 @@ Logger :: struct {
 }
 
 init_logger :: proc(logger: ^Logger) {
+	context.allocator = logger_alloc
 	logger.current_turn = Turn{}
 	logger.current_round = 1
 	clear(&logger.round)
@@ -58,11 +59,17 @@ init_logger :: proc(logger: ^Logger) {
 		),
 	)
 	md_add_h1(&logger.stats_file, string(state.setup_screen_state.filename_input.text))
+	context.allocator = static_alloc
 }
 
 logger_set_entity :: proc(logger: ^Logger, entity: ^Entity) {
+	context.allocator = logger_alloc
 	logger.current_turn.entity = entity
-	md_add_h3(&logger.log_file, fmt.aprint(entity.alias, "'s turn:", sep = ""))
+	md_add_h3(
+		&logger.log_file,
+		fmt.aprint(entity.alias, "'s turn:", sep = "", allocator = logger_alloc),
+	)
+	context.allocator = static_alloc
 }
 
 logger_add_damage_dealt :: proc(
@@ -71,6 +78,7 @@ logger_add_damage_dealt :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.damage_dealt += damage
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " dealt ")
@@ -97,9 +105,11 @@ logger_add_damage_dealt :: proc(
 		md_add_text(&logger.log_file, ".")
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_damage_recieved :: proc(logger: ^Logger, damage: int, entity_from: ^Entity) {
+	context.allocator = logger_alloc
 	logger.current_turn.damage_recieved += damage
 	md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
 	md_add_text(&logger.log_file, " was hit for ")
@@ -137,11 +147,18 @@ logger_add_damage_recieved :: proc(logger: ^Logger, damage: int, entity_from: ^E
 
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
-logger_add_healing_done :: proc(logger: ^Logger, healing: int, entity_to: ^Entity) {
+logger_add_healing_done :: proc(
+	logger: ^Logger,
+	healing: int,
+	entity_from: ^Entity,
+	entity_to: ^Entity,
+) {
+	context.allocator = logger_alloc
 	logger.current_turn.healing_done += healing
-	md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
+	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " healed ")
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " for ")
@@ -165,6 +182,7 @@ logger_add_healing_done :: proc(logger: ^Logger, healing: int, entity_to: ^Entit
 		md_add_text(&logger.log_file, " remaining.")
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_healing_recieved :: proc(
@@ -173,6 +191,7 @@ logger_add_healing_recieved :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.healing_recieved += healing
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " was healed for ")
@@ -198,6 +217,7 @@ logger_add_healing_recieved :: proc(
 		md_add_text(&logger.log_file, " remaining.")
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_temp_hp_given :: proc(
@@ -206,6 +226,7 @@ logger_add_temp_hp_given :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.temp_hp_given += temp_hp
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " gave ")
@@ -223,6 +244,7 @@ logger_add_temp_hp_given :: proc(
 	)
 	md_add_text(&logger.log_file, "- remaining.")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_temp_hp_recieved :: proc(
@@ -231,6 +253,7 @@ logger_add_temp_hp_recieved :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.temp_hp_recieved += temp_hp
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " got ")
@@ -248,6 +271,7 @@ logger_add_temp_hp_recieved :: proc(
 	)
 	md_add_text(&logger.log_file, "- remaining.")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_condition_applied :: proc(
@@ -256,6 +280,7 @@ logger_add_condition_applied :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.conditions_applied += 1
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " was ")
@@ -297,6 +322,7 @@ logger_add_condition_applied :: proc(
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, ".")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_condition_recieved :: proc(
@@ -305,6 +331,7 @@ logger_add_condition_recieved :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	logger.current_turn.conditions_recieved += 1
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " was ")
@@ -346,6 +373,7 @@ logger_add_condition_recieved :: proc(
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, ".")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_condition_healed :: proc(
@@ -354,6 +382,7 @@ logger_add_condition_healed :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " helped ")
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
@@ -405,6 +434,7 @@ logger_add_condition_healed :: proc(
 	}
 	md_add_text(&logger.log_file, ".")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_condition_healed_self :: proc(
@@ -413,6 +443,7 @@ logger_add_condition_healed_self :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, fmt.aprint(" was ", sep = ""))
 
@@ -465,6 +496,7 @@ logger_add_condition_healed_self :: proc(
 	md_add_text(&logger.log_file, " by ")
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_attempt_give_condition :: proc(
@@ -473,6 +505,7 @@ logger_add_attempt_give_condition :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " failed to ")
 
@@ -553,6 +586,7 @@ logger_add_attempt_give_condition :: proc(
 		md_add_text(&logger.log_file, ", they are immune.")
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_attempt_recieve_condition :: proc(
@@ -561,6 +595,7 @@ logger_add_attempt_recieve_condition :: proc(
 	entity_from: ^Entity,
 	entity_to: ^Entity,
 ) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " avoided being ")
 
@@ -641,44 +676,55 @@ logger_add_attempt_recieve_condition :: proc(
 		md_add_text(&logger.log_file, ", they are immune.")
 	}
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_hit_dead :: proc(logger: ^Logger, entity_from: ^Entity, entity_to: ^Entity) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
 	md_add_text(&logger.log_file, " hit ")
 	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
 	md_add_text(&logger.log_file, " while they were down.")
 	md_add_bold(&logger.log_file, fmt.aprint(" CRIT!"))
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_dead_entity_turn :: proc(logger: ^Logger) {
+	context.allocator = logger_alloc
 	md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
 	md_add_text(&logger.log_file, " has ")
 	md_add_bold(&logger.log_file, fmt.aprint("0 hp", sep = ""))
 	md_add_text(&logger.log_file, ". Rolling death save.")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_add_turn :: proc(logger: ^Logger) {
+	context.allocator = logger_alloc
 	append(&logger.round, logger.current_turn)
 	logger.current_turn = Turn{}
+	context.allocator = static_alloc
 }
 
 logger_add_round :: proc(logger: ^Logger) {
+	context.allocator = logger_alloc
 	logger.turns[logger.current_round] = slice.clone(logger.round[:])
 	clear(&logger.round)
 	logger.current_round += 1
 	md_newline(&logger.log_file)
 	md_add_h2(&logger.log_file, fmt.aprint("Round ", logger.current_round, ":", sep = ""))
+	context.allocator = static_alloc
 }
 
 logger_end_combat :: proc(logger: ^Logger) {
+	context.allocator = logger_alloc
 	logger.turns[logger.current_round] = slice.clone(logger.round[:])
 	delete(logger.round)
 	md_newline(&logger.log_file)
 	md_add_bold(&logger.log_file, "Combat Finished")
 	md_newline(&logger.log_file)
+	context.allocator = static_alloc
 }
 
 logger_save_to_file :: proc(logger: ^Logger) -> bool {
