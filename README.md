@@ -35,6 +35,7 @@ No install required. Just clone the repository and run the executable (available
 
 ## Build from source
 To build from source simply clone the repository, navigate to it and use one of the following commands.
+
 On Linux:
 ```bash
 odin build src/ -out:Roll-Initiative
