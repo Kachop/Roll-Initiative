@@ -166,8 +166,11 @@ draw_combat_screen :: proc() {
 		&state.combat_screen_state.stop_button,
 		rl.GuiIconText(.ICON_PLAYER_STOP, ""),
 	) {
-		temp_entities_list: []Entity
-		load_entities_from_file(state.config.CUSTOM_ENTITY_FILE_PATH, &temp_entities_list)
+		temp_entities_list := make([]Entity, 256)
+		num_temp_entities := load_entities_from_file(
+			state.config.CUSTOM_ENTITY_FILE_PATH,
+			&temp_entities_list,
+		)
 		defer delete(temp_entities_list)
 
 		player_count := 0
@@ -183,7 +186,8 @@ draw_combat_screen :: proc() {
 			}
 		}
 
-		for entity, i in temp_entities_list {
+		for i in 0 ..< num_temp_entities {
+			entity := temp_entities_list[i]
 			if entity.type == .PLAYER {
 				if i == 0 {
 					add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe = true)
@@ -299,7 +303,6 @@ draw_combat_screen :: proc() {
 			0,
 		}
 
-		//clear(&state.combat_screen_state.entity_names)
 		for i in 0 ..< state.combat_screen_state.num_entities {
 			append(
 				&state.combat_screen_state.entity_names,

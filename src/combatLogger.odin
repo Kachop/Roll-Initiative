@@ -2,7 +2,7 @@ package main
 
 import "core:fmt"
 import "core:slice"
-
+import "core:time"
 /*
 Functionality for logging combats turn by turn in a user readable manner.
 Will also output key statistics
@@ -10,7 +10,7 @@ Will also output key statistics
 
 Turn :: struct {
 	entity:              ^Entity,
-	time:                int,
+	time:                f64,
 	damage_dealt:        int,
 	damage_recieved:     int,
 	healing_done:        int,
@@ -702,6 +702,20 @@ logger_add_dead_entity_turn :: proc(logger: ^Logger) {
 
 logger_add_turn :: proc(logger: ^Logger) {
 	context.allocator = logger_alloc
+	logger.current_turn.time = time.duration_seconds(
+		time.stopwatch_duration(state.combat_screen_state.turn_timer),
+	)
+	md_add_text(&logger.log_file, "Turn took ")
+	if logger.current_turn.time > 60 {
+		minutes := int(
+			time.duration_minutes(time.stopwatch_duration(state.combat_screen_state.turn_timer)),
+		)
+		seconds := logger.current_turn.time - cast(f64)(minutes * 60)
+		md_add_bold(&logger.log_file, fmt.aprintf("%vm:%.0fs.", minutes, seconds))
+	} else {
+		md_add_bold(&logger.log_file, fmt.aprintf("%.1fs.", logger.current_turn.time))
+	}
+	md_newline(&logger.log_file)
 	append(&logger.round, logger.current_turn)
 	logger.current_turn = Turn{}
 	context.allocator = static_alloc

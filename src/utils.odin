@@ -216,7 +216,7 @@ get_entity_icon_from_paths :: proc(
 	context.allocator = static_alloc
 	return rl.LoadTextureFromImage(
 		temp_border_image,
-	), base64.encode(icon_data, allocator = frame_alloc)
+	), base64.encode(icon_data, allocator = icons_alloc)
 }
 
 get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, string) {
@@ -244,6 +244,7 @@ to_i32_cstr :: proc(cstr: cstring) -> i32 {
 
 combat_to_json :: proc() {
 	context.allocator = server_alloc
+
 	result := ""
 
 	combat_timer := cast(i32)time.duration_seconds(
@@ -343,7 +344,6 @@ combat_to_json :: proc() {
 		}
 		result = strings.join([]string{result, entity_string}, "")
 	}
-
 	result = strings.join([]string{result, "]}"}, "")
 	state.server_state.json_data = result
 	context.allocator = static_alloc
