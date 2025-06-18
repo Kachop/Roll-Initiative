@@ -36,9 +36,13 @@ No install required. Just clone the repository and run the executable (available
 ## Build from source
 To build from source simply clone the repository, navigate to it and use one of the following commands.
 On Linux:
-```odin build src/ -out:Roll-Initiative```
+```bash
+odin build src/ -out:Roll-Initiative
+```
 On Windows:
-```odin build src/ -out:Roll-Initiative.exe -define:RAYLIB_SHARED=true```
+```bash
+odin build src/ -out:Roll-Initiative.exe -define:RAYLIB_SHARED=true
+```
 
 ## Screenshots
 ![Example of the icons customising tool.](/Screenshots/working_borders.png)
