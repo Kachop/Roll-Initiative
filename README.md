@@ -17,17 +17,28 @@ Current features:
 - Temporary HP system
 - Combat and turn timer
 - Web based player view which can be cast from the browser or displayed on any device connected to the same WiFi
+- Combat log generation. A human readable file which tracks turn by turn actions in each combat.
 
 Planned features:
-- Full stats and round my round output with turn breakdowns and per player statistics
+- Full stats logging per combat
 - Music controls and playlists linked to saved combats
 - Player view animations for a more immersive experience
 - Random combat generator
 
 The program is still under development so there are some bugs to iron out.
 
-## Issues
-A knowns issues is that the browser will not automatically open on Windows systems. So you will have to open the broweser yourself and go to the address shown on the combat screen.
+## How to use
+No install required. Just clone the repository and run the executable (available for Windows and Linux).
+
+> [!IMPORTANT]
+> A knowns issues is that the browser will not automatically open on Windows systems. So you will have to open the browser yourself and go to the address shown on the combat screen.
+
+## Build from source
+To build from source simply clone the repository, navigate to it and use one of the following commands.
+On Linux:
+> `odin build src/ -out:Roll-Initiative`
+On Windows:
+>`odin build src/ -out:Roll-Initiative.exe -define:RAYLIB_SHARED=true`
 
 ## Screenshots
 ![Example of the icons customising tool.](/Screenshots/working_borders.png)

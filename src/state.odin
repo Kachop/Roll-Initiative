@@ -399,7 +399,6 @@ State :: struct {
 	custom_entities:             []Entity,
 	num_srd_entities:            int,
 	num_custom_entities:         int,
-	current_combat:              Combat,
 	dmg_type_options:            [dynamic]cstring,
 	condition_options:           []cstring,
 	gui_properties:              GuiProperties,

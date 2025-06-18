@@ -2223,7 +2223,8 @@ GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
 						get_current_dir_files()
 						break draw_loop
 					}
-					state.gui_properties.TEXT_SIZE = 20
+
+					TEXT_SIZE = 20
 					rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 				} else {
 					path_split := strings.split(
@@ -2243,7 +2244,18 @@ GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
 						state.load_screen_state.selected_file =
 							state.load_screen_state.files_list[file_counter - dir_count]
 					}
-					//GuiLabel({cursor_x, cursor_y, ICON_SIZE, ICON_SIZE}, filename)
+
+					if state.load_screen_state.files_list[file_counter - dir_count] ==
+					   state.load_screen_state.selected_file {
+						rl.DrawRectangle(
+							cast(i32)cursor_x,
+							cast(i32)cursor_y,
+							cast(i32)ICON_SIZE,
+							cast(i32)ICON_SIZE,
+							BUTTON_ACTIVE_COLOUR,
+						)
+					}
+
 					TEXT_SIZE = 20
 					rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 				}
