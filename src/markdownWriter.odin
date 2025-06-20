@@ -4,54 +4,55 @@ import "core:fmt"
 import rl "vendor:raylib"
 
 MD_File :: struct {
-    filename   : string,
-    file_string: string,
+	filename:    string,
+	file_string: string,
 }
 
 md_init_file :: proc(file: ^MD_File, filename: string) {
-    file.filename = filename
+	file.filename = filename
 }
 
-md_add_h1 :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, "# ", text, sep="")
-    md_newline(file)
+md_add_text :: #force_inline proc(file: ^MD_File, text: ..any) {
+	file.file_string = fmt.aprint(file.file_string, text, sep = "")
 }
 
-md_add_h2 :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, "## ", text, sep="")
-    md_newline(file)
+md_h1 :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint("# ", text, sep = "")
 }
 
-md_add_h3 :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, "### ", text, sep="")
-    md_newline(file)
+md_h2 :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint("## ", text, sep = "")
 }
 
-md_add_indent :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, ">", text, sep="")
-    md_newline(file)
+md_h3 :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint("### ", text, sep = "")
 }
 
-md_add_text :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, text, sep="")
+md_indent :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint(">", text, sep = "")
 }
 
-md_add_bold :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, "**", text, "**", sep="")
+md_bold :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint("**", text, "**", sep = "")
 }
 
-md_add_italic :: proc(file: ^MD_File, text: string) {
-    file.file_string = fmt.aprint(file.file_string, "*", text, "*", sep="")
+md_italic :: #force_inline proc(text: ..any) -> string {
+	return fmt.aprint("*", text, "*", sep = "")
+}
+
+md_underline :: #force_inline proc(file: ^MD_File) {
+	file.file_string = fmt.aprint(file.file_string, "___", sep = "")
+	md_newline(file)
 }
 
 md_tab :: proc(file: ^MD_File) {
-    file.file_string = fmt.aprint(file.file_string, "\t", sep="")
+	file.file_string = fmt.aprint(file.file_string, "\t", sep = "")
 }
 
 md_newline :: proc(file: ^MD_File) {
-    file.file_string = fmt.aprint(file.file_string, "\n", sep="")
+	file.file_string = fmt.aprint(file.file_string, "\n", sep = "")
 }
 
 md_write_file :: proc(file: MD_File) -> bool {
-    return rl.SaveFileText(cstr(file.filename), raw_data(file.file_string))
+	return rl.SaveFileText(cstr(file.filename), raw_data(file.file_string))
 }

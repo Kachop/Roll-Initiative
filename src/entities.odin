@@ -24,6 +24,12 @@ EntitySize :: enum {
 	gargantuan,
 }
 
+EntityTeam :: enum {
+	NONE,
+	PARTY,
+	ENEMIES,
+}
+
 DamageType :: enum {
 	ANY,
 	SLASHING,
@@ -70,6 +76,7 @@ Entity :: struct {
 	race:                     cstring `json:"Race"`,
 	size:                     cstring `json:"Size"`,
 	type:                     EntityType `json:"Type"`,
+	team:                     EntityTeam,
 	initiative:               i32,
 	AC:                       i32 `json:"Armour Class"`,
 	HP_max:                   i32 `json:"Hit Points Max"`,
@@ -114,6 +121,7 @@ Entity :: struct {
 	img_url:                  cstring `json:"img_url"`,
 	img_border:               cstring `json:"img_border"`,
 	icon_data:                string,
+	icon:                     rl.Texture2D,
 }
 
 load_entities_from_file :: proc(filename: string, entities: ^[]Entity) -> int {
@@ -149,10 +157,11 @@ load_entities_from_file :: proc(filename: string, entities: ^[]Entity) -> int {
 					entity_type = .MONSTER
 				}
 
+				texture: rl.Texture2D
 				icon_data: string
 
 				if (("img_url" in entity_fields) && ("img_border" in entity_fields)) {
-					_, icon_data = get_entity_icon_data(
+					texture, icon_data = get_entity_icon_data(
 						cstr(entity_fields["img_url"].(string)),
 						cstr(entity_fields["img_border"].(string)),
 					)
@@ -164,6 +173,7 @@ load_entities_from_file :: proc(filename: string, entities: ^[]Entity) -> int {
 					fmt.caprint(entity_fields["Race"].(string)),
 					fmt.caprint(entity_fields["Size"].(string)),
 					entity_type,
+					.NONE,
 					i32(0),
 					cast(i32)entity_fields["Armour Class"].(f64),
 					cast(i32)entity_fields["Hit Points Max"].(f64) if ("Hit Points Max" in entity_fields) else cast(i32)entity_fields["Hit Points"].(f64),
@@ -208,6 +218,7 @@ load_entities_from_file :: proc(filename: string, entities: ^[]Entity) -> int {
 					fmt.caprint(entity_fields["img_url"].(string)) if ("img_url" in entity_fields) else "",
 					fmt.caprint(entity_fields["img_border"].(string)) if ("img_border" in entity_fields) else "",
 					icon_data,
+					texture,
 				}
 				entities[i] = new_entity
 				num_loaded += 1
@@ -474,8 +485,7 @@ get_vulnerabilities_resistances_or_immunities_json :: proc(
 }
 
 gen_vulnerability_resistance_or_immunity_string :: proc(values: DamageSet) -> (result: []string) {
-	temp_list: [dynamic]string
-	//defer delete(temp_list)
+	temp_list := make([dynamic]string, allocator = frame_alloc)
 	types := []DamageType {
 		.SLASHING,
 		.PIERCING,
@@ -616,8 +626,7 @@ get_conditions_json :: proc(conditions: []json.Value) -> (result: ConditionSet) 
 }
 
 gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {
-	temp_list: [dynamic]string
-	//defer delete(temp_list)
+	temp_list := make([dynamic]string, allocator = frame_alloc)
 	types := []Condition {
 		.BLINDED,
 		.CHARMED,

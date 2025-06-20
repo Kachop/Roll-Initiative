@@ -3,6 +3,7 @@ package main
 import "core:encoding/base64"
 import "core:encoding/json"
 import "core:fmt"
+import mem "core:mem"
 import vmem "core:mem/virtual"
 import "core:os"
 import "core:strconv"
@@ -11,6 +12,10 @@ import "core:time"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
 
+set_text_size :: proc(size: i32) {
+	state.gui_properties.TEXT_SIZE = size
+	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, size)
+}
 
 text_align_left :: proc() {
 	rl.GuiSetStyle(
@@ -92,6 +97,44 @@ crop_text :: proc(text: cstring, width: f32, text_size: i32) -> (result: cstring
 	return
 }
 
+scissor_start :: proc(
+	panel_state: ^PanelState,
+	panel_width: f32,
+	scroll_locked: bool = false,
+) -> bool {
+	if (panel_state.height_needed > panel_state.rec.height) {
+		panel_state.content_rec.width = panel_width - 14
+		panel_state.content_rec.height = panel_state.height_needed
+		if !scroll_locked {
+			rl.GuiScrollPanel(
+				panel_state.rec,
+				nil,
+				panel_state.content_rec,
+				&panel_state.scroll,
+				&panel_state.view,
+			)
+		}
+		rl.BeginScissorMode(
+			cast(i32)panel_state.view.x,
+			cast(i32)panel_state.view.y,
+			cast(i32)panel_state.view.width,
+			cast(i32)panel_state.view.height,
+		)
+		return true
+	} else {
+		panel_state.content_rec.width = panel_width
+		return false
+	}
+}
+
+scissor_stop :: proc(panel_state: ^PanelState) {
+	if (panel_state.height_needed > panel_state.rec.height) {
+		rl.EndScissorMode()
+	} else {
+		panel_state.scroll.y = 0
+	}
+}
+
 register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 	registered := false
 
@@ -107,9 +150,11 @@ register_button :: proc(button_list: ^map[i32]^bool, button: $T/^GuiControl) {
 }
 
 reload_entities :: proc() {
+	vmem.arena_free_all(&icons_arena)
 	vmem.arena_free_all(&entities_arena)
-	//state.srd_entities = make([]Entity, 1024, allocator = entities_alloc)
-	//state.custom_entities = make([]Entity, 256, allocator = entities_alloc)
+	reload_icons_and_borders()
+	state.srd_entities = make([]Entity, 1024, allocator = entities_alloc)
+	state.custom_entities = make([]Entity, 256, allocator = entities_alloc)
 	state.num_srd_entities = load_entities_from_file(
 		state.config.ENTITY_FILE_PATH,
 		&state.srd_entities,
@@ -177,6 +222,7 @@ get_entity_icon_data :: proc {
 get_entity_icon_from_paths :: proc(
 	icon_path: cstring,
 	border_path: cstring,
+	allocator: mem.Allocator = icons_alloc,
 ) -> (
 	rl.Texture,
 	string,
@@ -216,11 +262,14 @@ get_entity_icon_from_paths :: proc(
 	context.allocator = static_alloc
 	return rl.LoadTextureFromImage(
 		temp_border_image,
-	), base64.encode(icon_data, allocator = icons_alloc)
+	), base64.encode(icon_data, allocator = allocator)
 }
 
 get_entity_icon_from_entity :: proc(entity: ^Entity) -> (rl.Texture, string) {
+	rl.UnloadTexture(entity.icon)
+
 	texture, data := get_entity_icon_from_paths(entity.img_url, entity.img_border)
+	entity.icon = texture
 	entity.icon_data = data
 	return texture, data
 }
@@ -281,6 +330,14 @@ combat_to_json :: proc() {
 			entity_type = "NPC"
 		}
 
+		entity_team: string
+		#partial switch entity.team {
+		case .PARTY:
+			entity_team = "party"
+		case .ENEMIES:
+			entity_team = "enemies"
+		}
+
 		if (i < state.combat_screen_state.num_entities - 1) {
 			entity_string = strings.join(
 				[]string {
@@ -290,6 +347,8 @@ combat_to_json :: proc() {
 					fmt.tprint(entity.alias),
 					"\",\"type\": \"",
 					entity_type,
+					"\",\"team\": \"",
+					entity_team,
 					"\",\"health\": ",
 					fmt.tprint(entity.HP),
 					",\"max_health\": ",
@@ -320,6 +379,8 @@ combat_to_json :: proc() {
 					fmt.tprint(entity.alias),
 					"\",\"type\": \"",
 					entity_type,
+					"\",\"team\": \"",
+					entity_team,
 					"\",\"health\": ",
 					fmt.tprint(entity.HP),
 					",\"max_health\": ",

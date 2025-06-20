@@ -166,18 +166,19 @@ draw_combat_screen :: proc() {
 		&state.combat_screen_state.stop_button,
 		rl.GuiIconText(.ICON_PLAYER_STOP, ""),
 	) {
-		temp_entities_list := make([]Entity, 256)
+		temp_entities_list := make([]Entity, 256, allocator = frame_alloc)
 		num_temp_entities := load_entities_from_file(
 			state.config.CUSTOM_ENTITY_FILE_PATH,
 			&temp_entities_list,
 		)
-		defer delete(temp_entities_list)
 
 		player_count := 0
+
 		for i in 0 ..< state.combat_screen_state.num_entities {
 			entity := state.combat_screen_state.entities[i]
 			if entity.type == .PLAYER {
-				for temp_entity, j in temp_entities_list {
+				for j in 0 ..< num_temp_entities {
+					temp_entity := temp_entities_list[j]
 					if entity.name == temp_entity.name {
 						temp_entities_list[j] = entity
 					}
@@ -208,7 +209,6 @@ draw_combat_screen :: proc() {
 		} else {
 			init_message_box(&new_message, "Notification!", fmt.caprintf("No PC's to save."))
 		}
-		reload_entities()
 
 		logger_add_turn(&state.combat_screen_state.combat_logger)
 		logger_end_combat(&state.combat_screen_state.combat_logger)
@@ -358,28 +358,9 @@ draw_combat_screen :: proc() {
 			(cast(f32)state.combat_screen_state.num_entities * (LINE_HEIGHT + PANEL_PADDING)) +
 			(PANEL_PADDING * 2)
 
-		if state.combat_screen_state.panel_left_top.height_needed >
-		   state.combat_screen_state.panel_left_top.rec.height {
-			state.combat_screen_state.panel_left_top.content_rec.width = panel_width - 14
-			state.combat_screen_state.panel_left_top.content_rec.height =
-				state.combat_screen_state.panel_left_top.height_needed
+		if scissor_start(&state.combat_screen_state.panel_left_top, panel_width) {
 			draw_width = panel_width - (PANEL_PADDING * 2) - 14
-			rl.GuiScrollPanel(
-				state.combat_screen_state.panel_left_top.rec,
-				nil,
-				state.combat_screen_state.panel_left_top.content_rec,
-				&state.combat_screen_state.panel_left_top.scroll,
-				&state.combat_screen_state.panel_left_top.view,
-			)
-
-			rl.BeginScissorMode(
-				cast(i32)state.combat_screen_state.panel_left_top.view.x,
-				cast(i32)state.combat_screen_state.panel_left_top.view.y,
-				cast(i32)state.combat_screen_state.panel_left_top.view.width,
-				cast(i32)state.combat_screen_state.panel_left_top.view.height,
-			)
 		} else {
-			state.combat_screen_state.panel_left_top.content_rec.width = panel_width
 			draw_width = panel_width - (PANEL_PADDING * 2)
 		}
 
@@ -466,16 +447,11 @@ draw_combat_screen :: proc() {
 			}
 		}
 
-		if state.combat_screen_state.panel_left_top.height_needed >
-		   state.combat_screen_state.panel_left_top.rec.height {
-			rl.EndScissorMode()
-		} else {
-			state.combat_screen_state.panel_left_top.scroll.y = 0
-		}
+		scissor_stop(&state.combat_screen_state.panel_left_top)
 	} else {
 		switch GuiTabControl(
 			{state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT},
-			&state.setup_screen_state.filter_tab,
+			&state.setup_screen_state.search_tab,
 		) {
 		case 0:
 			state.setup_screen_state.entities_filtered = state.srd_entities
@@ -504,28 +480,9 @@ draw_combat_screen :: proc() {
 				(LINE_HEIGHT + PANEL_PADDING)) +
 			(PANEL_PADDING * 2)
 
-		if state.combat_screen_state.panel_left_top.height_needed >
-		   state.combat_screen_state.panel_left_top.rec.height {
-			state.combat_screen_state.panel_left_top.content_rec.width = panel_width - 14
-			state.combat_screen_state.panel_left_top.content_rec.height =
-				state.combat_screen_state.panel_left_top.height_needed
+		if scissor_start(&state.combat_screen_state.panel_left_top, panel_width) {
 			draw_width = panel_width - (PANEL_PADDING * 2) - 14
-			rl.GuiScrollPanel(
-				state.combat_screen_state.panel_left_top.rec,
-				nil,
-				state.combat_screen_state.panel_left_top.content_rec,
-				&state.combat_screen_state.panel_left_top.scroll,
-				&state.combat_screen_state.panel_left_top.view,
-			)
-
-			rl.BeginScissorMode(
-				cast(i32)state.combat_screen_state.panel_left_top.view.x,
-				cast(i32)state.combat_screen_state.panel_left_top.view.y,
-				cast(i32)state.combat_screen_state.panel_left_top.view.width,
-				cast(i32)state.combat_screen_state.panel_left_top.view.height,
-			)
 		} else {
-			state.combat_screen_state.panel_left_top.content_rec.width = panel_width
 			draw_width = panel_width - (PANEL_PADDING * 2)
 		}
 
@@ -594,12 +551,7 @@ draw_combat_screen :: proc() {
 			}
 		}
 
-		if (state.combat_screen_state.panel_left_top.height_needed >
-			   state.combat_screen_state.panel_left_top.rec.height) {
-			rl.EndScissorMode()
-		} else {
-			state.combat_screen_state.panel_left_top.scroll.y = 0
-		}
+		scissor_stop(&state.combat_screen_state.panel_left_top)
 	}
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y + (panel_height / 2)
@@ -628,30 +580,7 @@ draw_combat_screen :: proc() {
 	}
 	state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_left_bottom.scroll.y
 
-	if (state.combat_screen_state.panel_left_bottom.height_needed >
-		   state.combat_screen_state.panel_left_bottom.rec.height) {
-		state.combat_screen_state.panel_left_bottom.content_rec.width = panel_width - 14
-		state.combat_screen_state.panel_left_bottom.content_rec.height =
-			state.combat_screen_state.panel_left_bottom.height_needed
-		draw_width = panel_width - (PANEL_PADDING * 2) - 14
-
-		rl.GuiScrollPanel(
-			state.combat_screen_state.panel_left_bottom.rec,
-			nil,
-			state.combat_screen_state.panel_left_bottom.content_rec,
-			&state.combat_screen_state.panel_left_bottom.scroll,
-			&state.combat_screen_state.panel_left_bottom.view,
-		)
-		rl.BeginScissorMode(
-			cast(i32)state.combat_screen_state.panel_left_bottom.view.x,
-			cast(i32)state.combat_screen_state.panel_left_bottom.view.y,
-			cast(i32)state.combat_screen_state.panel_left_bottom.view.width,
-			cast(i32)state.combat_screen_state.panel_left_bottom.view.height,
-		)
-	} else {
-		state.combat_screen_state.panel_left_bottom.content_rec.width = panel_width
-		draw_width = panel_width - (PANEL_PADDING * 2)
-	}
+	scissor_start(&state.combat_screen_state.panel_left_bottom, panel_width)
 
 	{
 		start_y := state.cursor.y
@@ -682,6 +611,7 @@ draw_combat_screen :: proc() {
 			)
 			rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
 
+			text_align_left()
 			lines_needed := get_text_lines_needed(
 				state.combat_screen_state.panel_left_bottom_text,
 				state.combat_screen_state.panel_left_bottom.content_rec.width -
@@ -699,17 +629,13 @@ draw_combat_screen :: proc() {
 				TEXT_SIZE,
 				false,
 			)
+			text_align_center()
 			state.cursor.y += cast(f32)lines_needed * 27
 			state.combat_screen_state.panel_left_bottom.height_needed = state.cursor.y - start_y
 		}
 	}
 
-	if (state.combat_screen_state.panel_left_bottom.height_needed >
-		   state.combat_screen_state.panel_left_bottom.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.combat_screen_state.panel_left_bottom.scroll.y = 0
-	}
+	scissor_stop(&state.combat_screen_state.panel_left_bottom)
 
 	rl.GuiSetStyle(
 		.DEFAULT,
@@ -779,11 +705,7 @@ draw_combat_screen :: proc() {
 	state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_mid.scroll.y
 	start_y := state.cursor.y
 
-	if (state.combat_screen_state.panel_mid.height_needed >
-		   state.combat_screen_state.panel_mid.rec.height) {
-		state.combat_screen_state.panel_mid.content_rec.width = panel_width - 14
-		state.combat_screen_state.panel_mid.content_rec.height =
-			state.combat_screen_state.panel_mid.height_needed
+	if scissor_start(&state.combat_screen_state.panel_mid, panel_width, scroll_locked) {
 		draw_width = panel_width - (PANEL_PADDING * 2) - 14
 		rl.GuiLine(
 			{
@@ -794,23 +716,7 @@ draw_combat_screen :: proc() {
 			},
 			"",
 		)
-		if !scroll_locked {
-			rl.GuiScrollPanel(
-				state.combat_screen_state.panel_mid.rec,
-				nil,
-				state.combat_screen_state.panel_mid.content_rec,
-				&state.combat_screen_state.panel_mid.scroll,
-				&state.combat_screen_state.panel_mid.view,
-			)
-		}
-		rl.BeginScissorMode(
-			cast(i32)state.combat_screen_state.panel_mid.view.x,
-			cast(i32)state.combat_screen_state.panel_mid.view.y,
-			cast(i32)state.combat_screen_state.panel_mid.view.width,
-			cast(i32)state.combat_screen_state.panel_mid.view.height,
-		)
 	} else {
-		state.combat_screen_state.panel_mid.content_rec.width = panel_width
 		draw_width = panel_width - (PANEL_PADDING * 2)
 	}
 
@@ -1022,12 +928,7 @@ draw_combat_screen :: proc() {
 		state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y
 	}
 
-	if (state.combat_screen_state.panel_mid.height_needed >
-		   state.combat_screen_state.panel_mid.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.combat_screen_state.panel_mid.scroll.y = 0
-	}
+	scissor_stop(&state.combat_screen_state.panel_mid)
 
 	current_panel_x += panel_width + dynamic_x_padding
 	state.cursor.x = current_panel_x
@@ -1040,27 +941,10 @@ draw_combat_screen :: proc() {
 	)
 	state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_right_top.scroll.y
 
-	if (state.combat_screen_state.panel_right_top.height_needed >
-		   state.combat_screen_state.panel_right_top.rec.height) {
-		state.combat_screen_state.panel_right_top.content_rec.width = panel_width - 14
-		state.combat_screen_state.panel_right_top.content_rec.height =
-			state.combat_screen_state.panel_right_top.height_needed
-		rl.GuiScrollPanel(
-			state.combat_screen_state.panel_right_top.rec,
-			nil,
-			state.combat_screen_state.panel_right_top.content_rec,
-			&state.combat_screen_state.panel_right_top.scroll,
-			&state.combat_screen_state.panel_right_top.view,
-		)
-
-		rl.BeginScissorMode(
-			cast(i32)state.combat_screen_state.panel_right_top.view.x,
-			cast(i32)state.combat_screen_state.panel_right_top.view.y,
-			cast(i32)state.combat_screen_state.panel_right_top.view.width,
-			cast(i32)state.combat_screen_state.panel_right_top.view.height,
-		)
+	if scissor_start(&state.combat_screen_state.panel_right_top, panel_width) {
+		draw_width = panel_width - (PANEL_PADDING * 2) - 14
 	} else {
-		state.combat_screen_state.panel_right_top.content_rec.width = panel_width
+		draw_width = panel_width - (PANEL_PADDING * 2)
 	}
 
 	{
@@ -1078,12 +962,7 @@ draw_combat_screen :: proc() {
 		state.combat_screen_state.panel_right_top.height_needed = state.cursor.y - start_y
 	}
 
-	if (state.combat_screen_state.panel_right_top.height_needed >
-		   state.combat_screen_state.panel_right_top.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.combat_screen_state.panel_right_top.scroll.y = 0
-	}
+	scissor_stop(&state.combat_screen_state.panel_right_top)
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y + (panel_height / 2)
 
@@ -1110,28 +989,7 @@ draw_combat_screen :: proc() {
 	state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_right_bottom.scroll.y
 	state.cursor.y = state.cursor.y
 
-	if (state.combat_screen_state.panel_right_bottom.height_needed >
-		   state.combat_screen_state.panel_right_bottom.rec.height) {
-		state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width - 14
-		state.combat_screen_state.panel_right_bottom.content_rec.height =
-			state.combat_screen_state.panel_right_bottom.height_needed
-		rl.GuiScrollPanel(
-			state.combat_screen_state.panel_right_bottom.rec,
-			nil,
-			state.combat_screen_state.panel_right_bottom.content_rec,
-			&state.combat_screen_state.panel_right_bottom.scroll,
-			&state.combat_screen_state.panel_right_bottom.view,
-		)
-
-		rl.BeginScissorMode(
-			cast(i32)state.combat_screen_state.panel_right_bottom.view.x,
-			cast(i32)state.combat_screen_state.panel_right_bottom.view.y,
-			cast(i32)state.combat_screen_state.panel_right_bottom.view.width,
-			cast(i32)state.combat_screen_state.panel_right_bottom.view.height,
-		)
-	} else {
-		state.combat_screen_state.panel_right_bottom.content_rec.width = panel_width
-	}
+	scissor_start(&state.combat_screen_state.panel_right_bottom, panel_width)
 
 	{
 		start_y := state.cursor.y
@@ -1149,6 +1007,7 @@ draw_combat_screen :: proc() {
 		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_LINE_SPACING, 25)
 
 		if state.combat_screen_state.panel_right_bottom_text != "" {
+			text_align_left()
 			lines_needed := get_text_lines_needed(
 				state.combat_screen_state.panel_right_bottom_text,
 				state.combat_screen_state.panel_right_bottom.content_rec.width -
@@ -1166,17 +1025,13 @@ draw_combat_screen :: proc() {
 				TEXT_SIZE,
 				false,
 			)
+			text_align_center()
 			state.cursor.y += cast(f32)lines_needed * 28
 		}
 		state.combat_screen_state.panel_right_bottom.height_needed = (state.cursor.y - start_y)
 	}
 
-	if (state.combat_screen_state.panel_right_bottom.height_needed >
-		   state.combat_screen_state.panel_right_bottom.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.combat_screen_state.panel_right_bottom.scroll.y = 0
-	}
+	scissor_stop(&state.combat_screen_state.panel_right_bottom)
 	rl.GuiSetStyle(
 		.DEFAULT,
 		cast(i32)rl.GuiDefaultProperty.TEXT_WRAP_MODE,

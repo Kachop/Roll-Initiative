@@ -164,7 +164,7 @@ main :: proc() {
 			log.infof(
 				"Icons alloc | Reserved: %v, Used: %v",
 				icons_arena.total_reserved,
-				entities_arena.total_used,
+				icons_arena.total_used,
 			)
 			log.infof(
 				"Logger alloc | Reserved: %v, Used: %v",

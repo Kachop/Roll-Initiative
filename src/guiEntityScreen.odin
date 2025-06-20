@@ -1,5 +1,3 @@
-#+feature dynamic-literals
-
 package main
 
 import "core:fmt"
@@ -16,73 +14,45 @@ draw_entity_screen :: proc() {
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y = PADDING_TOP
 
-	TEXT_SIZE = TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	start_x := state.cursor.x
 
-	if (GuiButton(
-			   {state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT},
-			   "Back",
-		   )) {
+	set_text_size(TEXT_SIZE_DEFAULT)
+	text_align_center()
+
+	if GuiButton({state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back") {
 		state.entity_screen_state.first_load = true
 		state.current_screen_state = state.title_screen_state
 		return
 	}
-
 	state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
-	TEXT_SIZE = TEXT_SIZE_TITLE
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE_TITLE)
 
-	initial_text_alignment := rl.GuiGetStyle(
-		.DEFAULT,
-		cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
-	)
-	text_align_center()
-	GuiLabel(
-		{
-			state.cursor.x,
-			state.cursor.y,
-			state.window_width - (state.cursor.x * 2),
-			MENU_BUTTON_HEIGHT,
-		},
-		"Add Entity",
-	)
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT, initial_text_alignment)
+	title_width := state.window_width - (state.cursor.x * 2)
+	GuiLabel({state.cursor.x, state.cursor.y, title_width, MENU_BUTTON_HEIGHT}, "Entities")
 
-	TEXT_SIZE = TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE_DEFAULT)
 
-	state.cursor.x = PADDING_LEFT
+	state.cursor.x = start_x
 	state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
+
+	panel_width := (state.window_width - (PADDING_LEFT * 2) - (PADDING_RIGHT * 2)) / 3
+	draw_width := panel_width
+	dynamic_x_padding :=
+		(state.window_width - PADDING_LEFT - PADDING_RIGHT - (3 * panel_width)) / 2
 
 	current_panel_x := state.cursor.x
 	panel_y := state.cursor.y
 
-	panel_width := state.window_width / 3.5
 	panel_height :=
 		state.window_height -
 		state.cursor.y -
 		PADDING_BOTTOM -
 		MENU_BUTTON_HEIGHT -
 		MENU_BUTTON_PADDING
-	dynamic_x_padding: f32 =
-		((state.window_width - PADDING_LEFT - PADDING_RIGHT) - (3 * panel_width)) / 2
 
-	if (state.entity_screen_state.first_load) {
+	if state.entity_screen_state.first_load {
 		state.entity_screen_state.first_load = false
-		state.entity_screen_state.panel_left.content_rec = {
-			state.cursor.x,
-			state.cursor.y,
-			panel_width,
-			0,
-		}
-
-		state.entity_screen_state.panel_mid.content_rec = {
-			state.cursor.x,
-			state.cursor.y,
-			panel_width,
-			0,
-		}
 	}
 
 	scroll_locked := false
@@ -92,8 +62,6 @@ draw_entity_screen :: proc() {
 			scroll_locked = true
 		}
 	}
-
-	draw_width := panel_width - (PANEL_PADDING * 2)
 
 	GuiPanel(
 		{state.cursor.x, state.cursor.y, panel_width, panel_height},
@@ -116,37 +84,20 @@ draw_entity_screen :: proc() {
 		&state.entity_screen_state.reset_button_left,
 		rl.GuiIconText(.ICON_RESTART, ""),
 	) {
+		state.entity_screen_state.entity_edit_mode = false
+		state.entity_screen_state.entity_to_edit = -1
 		reload_entities()
 		set_input_values(draw_width / 2, draw_width / 4)
 	}
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y + LINE_HEIGHT + state.entity_screen_state.panel_left.scroll.y
 
-	if (state.entity_screen_state.panel_left.height_needed >
-		   state.entity_screen_state.panel_left.rec.height) {
-		state.entity_screen_state.panel_left.content_rec.width = panel_width - 14
-		state.entity_screen_state.panel_left.content_rec.height =
-			state.entity_screen_state.panel_left.height_needed
+	if scissor_start(&state.entity_screen_state.panel_left, panel_width, scroll_locked) {
 		draw_width = panel_width - (PANEL_PADDING * 2) - 14
-
-		rl.GuiScrollPanel(
-			state.entity_screen_state.panel_left.rec,
-			nil,
-			state.entity_screen_state.panel_left.content_rec,
-			&state.entity_screen_state.panel_left.scroll,
-			&state.entity_screen_state.panel_left.view,
-		)
-		rl.BeginScissorMode(
-			cast(i32)state.entity_screen_state.panel_left.view.x,
-			cast(i32)state.entity_screen_state.panel_left.view.y,
-			cast(i32)state.entity_screen_state.panel_left.view.width,
-			cast(i32)state.entity_screen_state.panel_left.view.height,
-		)
 	} else {
-		state.entity_screen_state.panel_left.content_rec.width = panel_width
 		draw_width = panel_width - (PANEL_PADDING * 2)
 	}
-	//Panel contents
+
 	{
 		state.entity_screen_state.panel_left.height_needed = 0
 
@@ -158,35 +109,40 @@ draw_entity_screen :: proc() {
 
 		for i in 0 ..< state.num_custom_entities {
 			entity := state.custom_entities[i]
-			if GuiButton(
-				{state.cursor.x, state.cursor.y, draw_width * 0.8, LINE_HEIGHT},
-				entity.name,
-			) {
-				state.entity_screen_state.entity_to_edit = cast(i32)i
-				state.entity_screen_state.entity_edit_mode = true
-				set_input_values(draw_width / 2, draw_width / 4)
-			}
-			state.cursor.x += draw_width * 0.8
 
 			if GuiButton(
-				{state.cursor.x, state.cursor.y, draw_width / 5, LINE_HEIGHT},
+				{
+					state.cursor.x,
+					state.cursor.y,
+					draw_width - LINE_HEIGHT - PANEL_PADDING,
+					LINE_HEIGHT,
+				},
+				entity.name,
+			) {
+				state.entity_screen_state.entity_edit_mode = true
+				state.entity_screen_state.entity_to_edit = cast(i32)i
+				set_input_values(draw_width / 2, draw_width / 4)
+			}
+			state.cursor.x += draw_width - LINE_HEIGHT
+
+			if GuiButton(
+				{state.cursor.x, state.cursor.y, LINE_HEIGHT, LINE_HEIGHT},
 				rl.GuiIconText(.ICON_BIN, ""),
 			) {
 				delete_custom_entity(cast(i32)i)
+				if (state.entity_screen_state.entity_to_edit == cast(i32)i) {
+					state.entity_screen_state.entity_edit_mode = false
+				}
 			}
 			state.cursor.x = start_x
 			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 		}
 		state.entity_screen_state.panel_left.height_needed =
-			state.cursor.y + PANEL_PADDING - start_y
+			state.cursor.y - start_y + PANEL_PADDING
 	}
 
-	if (state.entity_screen_state.panel_left.height_needed >
-		   state.entity_screen_state.panel_left.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.entity_screen_state.panel_left.scroll.y = 0
-	}
+	scissor_stop(&state.entity_screen_state.panel_left)
+
 	current_panel_x += panel_width + dynamic_x_padding
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y
@@ -196,7 +152,6 @@ draw_entity_screen :: proc() {
 		&state.entity_screen_state.panel_mid,
 		"Entity Options:",
 	)
-
 	state.cursor.x += panel_width - (LINE_HEIGHT - (PANEL_PADDING * 2)) - PANEL_PADDING
 	state.cursor.y += PANEL_PADDING
 
@@ -219,34 +174,12 @@ draw_entity_screen :: proc() {
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y + LINE_HEIGHT + state.entity_screen_state.panel_mid.scroll.y
 
-	if (state.entity_screen_state.panel_mid.height_needed >
-		   state.entity_screen_state.panel_mid.rec.height) {
-		state.entity_screen_state.panel_mid.content_rec.width = panel_width - 14
-		state.entity_screen_state.panel_mid.content_rec.height =
-			state.entity_screen_state.panel_mid.height_needed
+	if scissor_start(&state.entity_screen_state.panel_mid, panel_width, scroll_locked) {
 		draw_width = panel_width - (PANEL_PADDING * 2) - 14
-
-		if !scroll_locked {
-			rl.GuiScrollPanel(
-				state.entity_screen_state.panel_mid.rec,
-				nil,
-				state.entity_screen_state.panel_mid.content_rec,
-				&state.entity_screen_state.panel_mid.scroll,
-				&state.entity_screen_state.panel_mid.view,
-			)
-		}
-
-		rl.BeginScissorMode(
-			cast(i32)state.entity_screen_state.panel_mid.view.x,
-			cast(i32)state.entity_screen_state.panel_mid.view.y,
-			cast(i32)state.entity_screen_state.panel_mid.view.width,
-			cast(i32)state.entity_screen_state.panel_mid.view.height,
-		)
 	} else {
-		state.entity_screen_state.panel_mid.content_rec.width = panel_width
 		draw_width = panel_width - (PANEL_PADDING * 2)
 	}
-	//Panel content
+
 	{
 		state.entity_screen_state.panel_mid.height_needed = 0
 
@@ -266,6 +199,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Race:")
 		state.cursor.x += draw_width / 2
@@ -275,6 +209,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Size:")
 		state.cursor.x += draw_width / 2
@@ -284,6 +219,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Type:")
 		state.cursor.x += draw_width / 2
@@ -301,6 +237,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "AC:")
 		state.cursor.x += draw_width / 2
@@ -310,6 +247,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "HP max:")
 		state.cursor.x += draw_width / 2
@@ -319,6 +257,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel(
 			{state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT},
@@ -331,6 +270,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Temp HP:")
 		state.cursor.x += draw_width / 2
@@ -340,6 +280,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Speed:")
 		state.cursor.x += draw_width / 2
@@ -361,8 +302,8 @@ draw_entity_screen :: proc() {
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "Save")
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "STR:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -384,8 +325,8 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "DEX:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -407,8 +348,8 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "CON:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -430,8 +371,8 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "INT:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -453,8 +394,8 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "WIS:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -476,8 +417,8 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
-
 		text_align_left()
+
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 4, TEXT_INPUT_HEIGHT}, "CHA:")
 		state.cursor.x += draw_width / 4
 		GuiTextInput(
@@ -499,6 +440,7 @@ draw_entity_screen :: proc() {
 		)
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
+		text_align_left()
 
 		GuiLabel(
 			{state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT},
@@ -519,15 +461,8 @@ draw_entity_screen :: proc() {
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-		if (state.entity_screen_state.panel_mid.height_needed >
-			   state.entity_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.entity_screen_state.panel_mid.view.x,
-				cast(i32)state.entity_screen_state.panel_mid.view.y,
-				cast(i32)state.entity_screen_state.panel_mid.view.width,
-				cast(i32)state.entity_screen_state.panel_mid.view.height,
-			)
-		}
+		scissor_start(&state.entity_screen_state.panel_mid, panel_width)
+		text_align_left()
 
 		GuiLabel(
 			{state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT},
@@ -554,15 +489,8 @@ draw_entity_screen :: proc() {
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-		if (state.entity_screen_state.panel_mid.height_needed >
-			   state.entity_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.entity_screen_state.panel_mid.view.x,
-				cast(i32)state.entity_screen_state.panel_mid.view.y,
-				cast(i32)state.entity_screen_state.panel_mid.view.width,
-				cast(i32)state.entity_screen_state.panel_mid.view.height,
-			)
-		}
+		scissor_start(&state.entity_screen_state.panel_mid, panel_width)
+		text_align_left()
 
 		GuiLabel(
 			{state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT},
@@ -588,15 +516,8 @@ draw_entity_screen :: proc() {
 		state.cursor.x = start_x
 		state.cursor.y += TEXT_INPUT_HEIGHT + PANEL_PADDING
 
-		if (state.entity_screen_state.panel_mid.height_needed >
-			   state.entity_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.entity_screen_state.panel_mid.view.x,
-				cast(i32)state.entity_screen_state.panel_mid.view.y,
-				cast(i32)state.entity_screen_state.panel_mid.view.width,
-				cast(i32)state.entity_screen_state.panel_mid.view.height,
-			)
-		}
+		scissor_start(&state.entity_screen_state.panel_mid, panel_width)
+		text_align_left()
 
 		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, TEXT_INPUT_HEIGHT}, "Languages:")
 		state.cursor.x += draw_width / 2
@@ -609,15 +530,11 @@ draw_entity_screen :: proc() {
 
 		state.entity_screen_state.panel_mid.height_needed =
 			state.cursor.y + PANEL_PADDING - start_y
+
 	}
 
-	if (state.entity_screen_state.panel_mid.height_needed >
-		   state.entity_screen_state.panel_mid.rec.height) {
-		rl.EndScissorMode()
-	} else {
-		state.entity_screen_state.panel_mid.scroll.y = 0
-	}
-	state.cursor.x = current_panel_x
+	scissor_stop(&state.entity_screen_state.panel_mid)
+
 	state.cursor.y = panel_y + panel_height + MENU_BUTTON_PADDING
 
 	if GuiButton(
@@ -634,31 +551,33 @@ draw_entity_screen :: proc() {
 			entity_type = .MONSTER
 		}
 
-		vulnerabilities: [dynamic]string
-		defer delete(vulnerabilities)
+		if state.entity_screen_state.entity_edit_mode {
+			entity := state.custom_entities[cast(int)state.entity_screen_state.entity_to_edit]
+			rl.UnloadTexture(entity.icon)
+		}
+
+		vulnerabilities := make([dynamic]string, allocator = frame_alloc)
 		for check_box_state in state.entity_screen_state.DMG_vulnerable_input.check_box_states {
 			if check_box_state.toggle^ {
 				append(&vulnerabilities, str(check_box_state.text))
 			}
 		}
 
-		resistances: [dynamic]string
-		defer delete(resistances)
+		resistances := make([dynamic]string, allocator = frame_alloc)
 		for check_box_state in state.entity_screen_state.DMG_resist_input.check_box_states {
 			if check_box_state.toggle^ {
 				append(&resistances, str(check_box_state.text))
 			}
 		}
 
-		immunities: [dynamic]string
-		defer delete(immunities)
+		immunities := make([dynamic]string, allocator = frame_alloc)
 		for check_box_state in state.entity_screen_state.DMG_immune_input.check_box_states {
 			if check_box_state.toggle^ {
 				append(&immunities, str(check_box_state.text))
 			}
 		}
 
-		_, icon_data := get_entity_icon_data(
+		texture, icon_data := get_entity_icon_data(
 			cstr(
 				state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index],
 			),
@@ -673,6 +592,7 @@ draw_entity_screen :: proc() {
 			state.entity_screen_state.race_input.text,
 			state.entity_screen_state.size_input.text,
 			entity_type,
+			.NONE,
 			0,
 			to_i32(state.entity_screen_state.AC_input.text),
 			to_i32(state.entity_screen_state.HP_max_input.text),
@@ -717,21 +637,14 @@ draw_entity_screen :: proc() {
 			cstr(state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index]) if len(state.entity_screen_state.img_file_paths) > 0 else "",
 			cstr(state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index]) if len(state.entity_screen_state.border_file_paths) > 0 else "",
 			icon_data,
+			texture,
 		}
-
-		fmt.println(state.entity_screen_state.STR_input.text)
-		fmt.println(to_i32(state.entity_screen_state.STR_input.text))
 
 		if !state.entity_screen_state.entity_edit_mode {
 			add_entity_to_file(new_entity, state.config.CUSTOM_ENTITY_FILE_PATH)
 		} else {
 			//Edit file. Re-write whole file with current entity being replaced.
-			fmt.println("New STR:", new_entity.STR)
 			state.custom_entities[state.entity_screen_state.entity_to_edit] = new_entity
-			fmt.println(
-				"In list:",
-				state.custom_entities[state.entity_screen_state.entity_to_edit].STR,
-			)
 			for i in 0 ..< state.num_custom_entities {
 				entity := state.custom_entities[i]
 				fmt.println(entity.name, entity.STR)
@@ -745,6 +658,7 @@ draw_entity_screen :: proc() {
 		reload_entities()
 		state.entity_screen_state.entity_edit_mode = false
 		set_input_values(draw_width / 2, draw_width / 4)
+
 	}
 	current_panel_x += panel_width + dynamic_x_padding
 	state.cursor.x = current_panel_x
@@ -779,11 +693,12 @@ draw_entity_screen :: proc() {
 			cstr(
 				state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 			),
+			allocator = frame_alloc,
 		)
 	}
 	state.cursor.x = current_panel_x
 	state.cursor.y = panel_y + LINE_HEIGHT + state.entity_screen_state.panel_right.scroll.y
-	//Panel contents
+
 	{
 		state.entity_screen_state.panel_right.height_needed = 0
 
@@ -804,6 +719,7 @@ draw_entity_screen :: proc() {
 					state.entity_screen_state.current_border_index =
 						cast(i32)len(state.entity_screen_state.borders) - 1
 				}
+				rl.UnloadTexture(state.entity_screen_state.combined_image)
 				state.entity_screen_state.combined_image, _ = get_entity_icon_data(
 					cstr(
 						state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index],
@@ -811,22 +727,21 @@ draw_entity_screen :: proc() {
 					cstr(
 						state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 					),
+					allocator = frame_alloc,
 				)
 			}
 			state.cursor.x = start_x - PANEL_PADDING + (panel_width / 2) - 64
 
-			display_img := rl.LoadImageFromTexture(state.entity_screen_state.combined_image)
-			rl.ImageResize(&display_img, 128, 128)
-			draw_texture := rl.LoadTextureFromImage(display_img)
-			rl.DrawTexture(
-				draw_texture,
-				cast(i32)state.cursor.x,
-				cast(i32)state.cursor.y,
+			scale := 128 / cast(f32)state.entity_screen_state.combined_image.width
+
+			rl.DrawTextureEx(
+				state.entity_screen_state.combined_image,
+				{state.cursor.x, state.cursor.y},
+				0,
+				scale,
 				rl.WHITE,
 			)
 			state.cursor.x = start_x + draw_width + PANEL_PADDING - (PANEL_PADDING * 3)
-
-			rl.UnloadImage(display_img)
 
 			if GuiButton(
 				{state.cursor.x, state.cursor.y, PANEL_PADDING * 3, 128},
@@ -845,6 +760,7 @@ draw_entity_screen :: proc() {
 					cstr(
 						state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 					),
+					allocator = frame_alloc,
 				)
 			}
 			state.cursor.x = start_x
@@ -866,6 +782,7 @@ draw_entity_screen :: proc() {
 					cstr(
 						state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 					),
+					allocator = frame_alloc,
 				)
 			}
 			state.cursor.x += draw_width / 2 + PANEL_PADDING
@@ -884,6 +801,7 @@ draw_entity_screen :: proc() {
 					cstr(
 						state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 					),
+					allocator = frame_alloc,
 				)
 			}
 			state.cursor.x = start_x
@@ -914,6 +832,7 @@ draw_entity_screen :: proc() {
 
 @(private)
 set_input_values :: proc(half_width: f32, quater_width: f32) {
+	context.allocator = frame_alloc
 	if state.entity_screen_state.entity_edit_mode {
 		entity := state.custom_entities[state.entity_screen_state.entity_to_edit]
 		set_text_input(&state.entity_screen_state.name_input, cstr(entity.name), half_width)
@@ -1088,14 +1007,7 @@ set_input_values :: proc(half_width: f32, quater_width: f32) {
 				state.entity_screen_state.current_border_index = cast(i32)i
 			}
 		}
-		state.entity_screen_state.combined_image, _ = get_entity_icon_data(
-			cstr(
-				state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index],
-			),
-			cstr(
-				state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
-			),
-		)
+		state.entity_screen_state.combined_image = entity.icon
 	} else {
 		//Set everything to default options. Will happen when some clear button is clicked.
 		clear_text_input(&state.entity_screen_state.name_input)
@@ -1119,7 +1031,6 @@ set_input_values :: proc(half_width: f32, quater_width: f32) {
 		clear_text_input(&state.entity_screen_state.CHA_save_input)
 		clear_text_input(&state.entity_screen_state.languages_input)
 
-		rl.UnloadTexture(state.entity_screen_state.combined_image)
 		state.entity_screen_state.type_dropdown.selected = 0
 
 		for _, i in state.entity_screen_state.DMG_vulnerable_input.selected {
@@ -1137,12 +1048,16 @@ set_input_values :: proc(half_width: f32, quater_width: f32) {
 			cstr(
 				state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 			),
+			allocator = frame_alloc,
 		)
 	}
+	context.allocator = static_alloc
 }
 
 @(private)
 delete_custom_entity :: proc(index: i32) {
+	rl.UnloadTexture(state.custom_entities[cast(int)index].icon)
+
 	for i in cast(int)index ..< len(state.custom_entities) - 1 {
 		state.custom_entities[i] = state.custom_entities[i + 1]
 	}
@@ -1160,7 +1075,6 @@ delete_custom_entity :: proc(index: i32) {
 }
 
 reload_icons_and_borders :: proc() {
-	vmem.arena_free_all(&icons_arena)
 	reload_icons()
 	reload_borders()
 }
@@ -1174,8 +1088,7 @@ reload_icons :: proc() {
 	delete(state.entity_screen_state.icons)
 	delete(state.entity_screen_state.img_file_paths)
 
-	temp_path_list := [dynamic]string{}
-	defer delete(temp_path_list)
+	temp_path_list := make([dynamic]string, allocator = frame_alloc)
 	dir_handle, ok := os.open(
 		fmt.tprint(state.config.CUSTOM_ENTITIES_DIR, "images", sep = FILE_SEPERATOR),
 	)
@@ -1192,8 +1105,7 @@ reload_icons :: proc() {
 	}
 	state.entity_screen_state.img_file_paths = slice.clone(temp_path_list[:])
 
-	temp_texture_list := [dynamic]rl.Texture{}
-	defer delete(temp_texture_list)
+	temp_texture_list := make([dynamic]rl.Texture, allocator = frame_alloc)
 	for img_path in state.entity_screen_state.img_file_paths {
 		temp_img := rl.LoadImage(
 			cstr(state.config.CUSTOM_ENTITIES_DIR, "images", img_path, sep = FILE_SEPERATOR),
@@ -1223,8 +1135,7 @@ reload_borders :: proc() {
 	delete(state.entity_screen_state.borders)
 	delete(state.entity_screen_state.border_file_paths)
 
-	temp_path_list := [dynamic]string{}
-	defer delete(temp_path_list)
+	temp_path_list := make([dynamic]string, allocator = frame_alloc)
 	dir_handle, ok := os.open(
 		fmt.tprint(state.config.CUSTOM_ENTITIES_DIR, "..", "borders", sep = FILE_SEPERATOR),
 	)
@@ -1241,8 +1152,7 @@ reload_borders :: proc() {
 	}
 	state.entity_screen_state.border_file_paths = slice.clone(temp_path_list[:])
 
-	temp_texture_list := [dynamic]rl.Texture{}
-	defer delete(temp_texture_list)
+	temp_texture_list := make([dynamic]rl.Texture, allocator = frame_alloc)
 	for border_path in state.entity_screen_state.border_file_paths {
 		temp_border := rl.LoadImage(
 			cstr(state.config.CUSTOM_ENTITIES_DIR, "..", "borders", sep = FILE_SEPERATOR),

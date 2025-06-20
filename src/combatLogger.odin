@@ -23,7 +23,7 @@ Turn :: struct {
 
 Logger :: struct {
 	log_file:      MD_File,
-	stats_file:    MD_File,
+	temp_file:     MD_File,
 	current_turn:  Turn,
 	current_round: int,
 	round:         [dynamic]Turn,
@@ -46,29 +46,18 @@ init_logger :: proc(logger: ^Logger) {
 			sep = "",
 		),
 	)
-	md_add_h1(&logger.log_file, string(state.setup_screen_state.filename_input.text))
-	md_add_h2(&logger.log_file, fmt.aprint("Round ", logger.current_round, ":", sep = ""))
-
-	md_init_file(
-		&logger.stats_file,
-		fmt.aprint(
-			state.config.COMBAT_FILES_DIR,
-			state.setup_screen_state.filename_input.text,
-			" combat stats.md",
-			sep = "",
-		),
-	)
-	md_add_h1(&logger.stats_file, string(state.setup_screen_state.filename_input.text))
+	md_add_text(&logger.log_file, md_h1(state.setup_screen_state.filename_input.text))
+	md_newline(&logger.log_file)
+	md_underline(&logger.log_file)
+	md_add_text(&logger.temp_file, md_h2("Combat log"))
+	md_add_text(&logger.temp_file, md_h2("Round ", logger.current_round, ":"))
 	context.allocator = static_alloc
 }
 
 logger_set_entity :: proc(logger: ^Logger, entity: ^Entity) {
 	context.allocator = logger_alloc
 	logger.current_turn.entity = entity
-	md_add_h3(
-		&logger.log_file,
-		fmt.aprint(entity.alias, "'s turn:", sep = "", allocator = logger_alloc),
-	)
+	md_add_text(&logger.temp_file, md_h3(entity.alias, "'s turn:"))
 	context.allocator = static_alloc
 }
 
@@ -80,73 +69,61 @@ logger_add_damage_dealt :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.damage_dealt += damage
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " dealt ")
-	md_add_bold(&logger.log_file, fmt.aprint(damage, " damage", sep = ""))
-	md_add_text(&logger.log_file, " to ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, ".", sep = ""))
-	md_newline(&logger.log_file)
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " has ")
-	if (entity_to.temp_HP > 0) {
-		md_add_bold(
-			&logger.log_file,
-			fmt.aprint(entity_to.HP, "+", entity_to.temp_HP, " hp", sep = ""),
-		)
-	} else {
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.HP, " hp", sep = ""))
-	}
-	md_add_text(&logger.log_file, " remaining.")
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_from.alias),
+		" dealt ",
+		md_bold(damage),
+		" ",
+		md_bold("damage"),
+		" to ",
+		md_bold(entity_to.alias),
+		".",
+	)
+	md_newline(&logger.temp_file)
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_to.alias),
+		" has ",
+		md_bold(entity_to.HP, "+", entity_to.temp_HP, " hp") if (entity_to.temp_HP > 0) else md_bold(entity_to.HP, " hp"),
+		" remaining.",
+	)
 	if (!entity_to.alive) {
-		md_add_bold(
-			&logger.log_file,
-			fmt.aprint(" ", entity_to.alias, " has been slain", sep = ""),
-		)
-		md_add_text(&logger.log_file, ".")
+		md_add_text(&logger.temp_file, " ", md_bold(entity_to.alias, " has been slain."))
 	}
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
 logger_add_damage_recieved :: proc(logger: ^Logger, damage: int, entity_from: ^Entity) {
 	context.allocator = logger_alloc
 	logger.current_turn.damage_recieved += damage
-	md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
-	md_add_text(&logger.log_file, " was hit for ")
-	md_add_bold(&logger.log_file, fmt.aprint(damage, " damage", sep = ""))
-	md_add_text(&logger.log_file, " by ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, ".", sep = ""))
-	md_newline(&logger.log_file)
+	md_add_text(
+		&logger.temp_file,
+		md_bold(logger.current_turn.entity.alias),
+		" was hit for ",
+		md_bold(damage, " damage"),
+		" by ",
+		md_bold(entity_from.alias),
+		".",
+	)
+	md_newline(&logger.temp_file)
 	if (logger.current_turn.entity.alive) {
-		md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
-		md_add_text(&logger.log_file, " has ")
-		if (logger.current_turn.entity.temp_HP > 0) {
-			md_add_text(
-				&logger.log_file,
-				fmt.aprint(
-					logger.current_turn.entity.HP,
-					"+",
-					logger.current_turn.entity.temp_HP,
-					" hp",
-					sep = "",
-				),
-			)
-		} else {
-			md_add_bold(
-				&logger.log_file,
-				fmt.aprint(logger.current_turn.entity.HP, " hp", sep = ""),
-			)
-		}
-		md_add_text(&logger.log_file, " remaining.")
-	} else {
-		md_add_bold(
-			&logger.log_file,
-			fmt.aprint(logger.current_turn.entity.alias, " has dropped to 0 hp", sep = ""),
+		md_add_text(
+			&logger.temp_file,
+			md_bold(logger.current_turn.entity.alias),
+			" has ",
+			md_bold(logger.current_turn.entity.HP, "+", logger.current_turn.entity.temp_HP, " hp") if (logger.current_turn.entity.temp_HP > 0) else md_bold(logger.current_turn.entity.HP, " hp"),
+			" remaining",
 		)
-		md_add_text(&logger.log_file, ".")
-
+	} else {
+		md_add_text(
+			&logger.temp_file,
+			md_bold(logger.current_turn.entity.alias, " has dropped to 0 hp"),
+			".",
+		)
 	}
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -158,30 +135,28 @@ logger_add_healing_done :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.healing_done += healing
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " healed ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " for ")
-	md_add_bold(&logger.log_file, fmt.aprint(healing, " hp", sep = ""))
-	md_add_text(&logger.log_file, ".")
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_from.alias),
+		" healed ",
+		md_bold(entity_to.alias),
+		" for ",
+		md_bold(healing, " hp"),
+		".",
+	)
 	if (entity_to.HP == cast(i32)healing) {
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " got up!")
+		md_add_text(&logger.temp_file, md_bold(entity_to.alias), " got up!")
 	} else {
-		md_newline(&logger.log_file)
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " now has ")
-		if (entity_to.temp_HP > 0) {
-			md_add_bold(
-				&logger.log_file,
-				fmt.aprint(entity_to.HP, "+", entity_to.temp_HP, " hp", sep = ""),
-			)
-		} else {
-			md_add_bold(&logger.log_file, fmt.aprint(entity_to.HP, " hp", sep = ""))
-		}
-		md_add_text(&logger.log_file, " remaining.")
+		md_newline(&logger.temp_file)
+		md_add_text(
+			&logger.temp_file,
+			md_bold(entity_to.alias),
+			" now has ",
+			md_bold(entity_to.HP, "+", entity_to.temp_HP, " hp") if (entity_to.temp_HP > 0) else md_bold(entity_to.HP, " hp"),
+			".",
+		)
 	}
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -193,30 +168,28 @@ logger_add_healing_recieved :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.healing_recieved += healing
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " was healed for ")
-	md_add_bold(&logger.log_file, fmt.aprint(healing, " hp", sep = ""))
-	md_add_text(&logger.log_file, " by ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, ".")
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_to.alias),
+		" was healed for ",
+		md_bold(healing, " hp"),
+		" by ",
+		md_bold(entity_from.alias),
+		".",
+	)
 	if (entity_to.HP == cast(i32)healing) {
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " got up!")
+		md_add_text(&logger.temp_file, md_bold(entity_to.alias), " got up!")
 	} else {
-		md_newline(&logger.log_file)
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " now has ")
-		if (entity_to.temp_HP > 0) {
-			md_add_bold(
-				&logger.log_file,
-				fmt.aprint(entity_to.HP, "+", entity_to.temp_HP, " hp", sep = ""),
-			)
-		} else {
-			md_add_bold(&logger.log_file, fmt.aprint(entity_to.HP, " hp", sep = ""))
-		}
-		md_add_text(&logger.log_file, " remaining.")
+		md_newline(&logger.temp_file)
+		md_add_text(
+			&logger.temp_file,
+			md_bold(entity_to.alias),
+			" now has",
+			md_bold(entity_to.HP, "+", entity_to.temp_HP, " hp") if (entity_to.temp_HP > 0) else md_bold(entity_to.HP, " hp"),
+			".",
+		)
 	}
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -228,22 +201,25 @@ logger_add_temp_hp_given :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.temp_hp_given += temp_hp
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " gave ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " ")
-	md_add_bold(&logger.log_file, fmt.aprint(temp_hp, "temp hp", sep = ""))
-	md_add_text(&logger.log_file, ".")
-	md_newline(&logger.log_file)
-
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " now has ")
-	md_add_bold(
-		&logger.log_file,
-		fmt.aprint(entity_to.HP, "+", entity_to.temp_HP, " hp", sep = ""),
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_from.alias),
+		" gave ",
+		md_bold(entity_to.alias),
+		" ",
+		md_bold(temp_hp, " temp hp"),
+		".",
 	)
-	md_add_text(&logger.log_file, "- remaining.")
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
+
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_to.alias),
+		"now has ",
+		md_bold(entity_to.HP, "+", entity_to.temp_HP, " hp"),
+		".",
+	)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -255,22 +231,25 @@ logger_add_temp_hp_recieved :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.temp_hp_recieved += temp_hp
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " got ")
-	md_add_bold(&logger.log_file, fmt.aprint(temp_hp, " temp hp", sep = ""))
-	md_add_text(&logger.log_file, " from ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, ".")
-	md_newline(&logger.log_file)
-
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " now has ")
-	md_add_bold(
-		&logger.log_file,
-		fmt.aprint(entity_to.HP, "+", entity_to.temp_HP, " hp", sep = ""),
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_to.alias),
+		" got ",
+		md_bold(temp_hp, " temp hp"),
+		" from ",
+		md_bold(entity_from.alias),
+		".",
 	)
-	md_add_text(&logger.log_file, "- remaining.")
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
+
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_to.alias),
+		" now has ",
+		md_bold(entity_to.HP, "+", entity_to.temp_HP, " hp"),
+		".",
+	)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -282,46 +261,43 @@ logger_add_condition_applied :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.conditions_applied += 1
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " was ")
+	md_add_text(&logger.temp_file, md_bold(entity_to.alias), " was ")
 
 	switch condition {
 	case .BLINDED:
-		md_add_bold(&logger.log_file, "blinded")
+		md_add_text(&logger.temp_file, md_bold("blinded"))
 	case .CHARMED:
-		md_add_bold(&logger.log_file, "charmed")
+		md_add_text(&logger.temp_file, md_bold("charmed"))
 	case .DEAFENED:
-		md_add_bold(&logger.log_file, "deafened")
+		md_add_text(&logger.temp_file, md_bold("deafened"))
 	case .FRIGHTENED:
-		md_add_bold(&logger.log_file, "frightened")
+		md_add_text(&logger.temp_file, md_bold("frightened"))
 	case .GRAPPLED:
-		md_add_bold(&logger.log_file, "grappled")
+		md_add_text(&logger.temp_file, md_bold("grappled"))
 	case .INCAPACITATED:
-		md_add_bold(&logger.log_file, "incapacitated")
+		md_add_text(&logger.temp_file, md_bold("incapacitated"))
 	case .INVISIBLE:
-		md_add_bold(&logger.log_file, "made invisible")
+		md_add_text(&logger.temp_file, md_bold("made invisible"))
 	case .PARALYZED:
-		md_add_bold(&logger.log_file, "paralyzed")
+		md_add_text(&logger.temp_file, md_bold("paralyzed"))
 	case .PETRIFIED:
-		md_add_bold(&logger.log_file, "petrified")
+		md_add_text(&logger.temp_file, md_bold("petrified"))
 	case .POISONED:
-		md_add_bold(&logger.log_file, "poisoned")
+		md_add_text(&logger.temp_file, md_bold("poisoned"))
 	case .PRONE:
-		md_add_bold(&logger.log_file, "knocked prone")
+		md_add_text(&logger.temp_file, md_bold("knocked prone"))
 	case .RESTRAINED:
-		md_add_bold(&logger.log_file, "restrained")
+		md_add_text(&logger.temp_file, md_bold("restrained"))
 	case .STUNNED:
-		md_add_bold(&logger.log_file, "stunned")
+		md_add_text(&logger.temp_file, md_bold("stunned"))
 	case .UNCONSCIOUS:
-		md_add_bold(&logger.log_file, "knocked unconscious")
+		md_add_text(&logger.temp_file, md_bold("knocked unconscious"))
 	case .EXHAUSTION:
-		md_add_bold(&logger.log_file, "given a point of exhaustion")
+		md_add_text(&logger.temp_file, md_bold("given a point of exhaustion"))
 	}
 
-	md_add_text(&logger.log_file, " by ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, ".")
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, " by ", md_bold(entity_from.alias), ".")
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -333,46 +309,43 @@ logger_add_condition_recieved :: proc(
 ) {
 	context.allocator = logger_alloc
 	logger.current_turn.conditions_recieved += 1
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " was ")
+	md_add_text(&logger.temp_file, md_bold(entity_to.alias), " was ")
 
 	switch condition {
 	case .BLINDED:
-		md_add_bold(&logger.log_file, "blinded")
+		md_add_text(&logger.temp_file, md_bold("blinded"))
 	case .CHARMED:
-		md_add_bold(&logger.log_file, "charmed")
+		md_add_text(&logger.temp_file, md_bold("charmed"))
 	case .DEAFENED:
-		md_add_bold(&logger.log_file, "deafened")
+		md_add_text(&logger.temp_file, md_bold("deafened"))
 	case .FRIGHTENED:
-		md_add_bold(&logger.log_file, "frightened")
+		md_add_text(&logger.temp_file, md_bold("frightened"))
 	case .GRAPPLED:
-		md_add_bold(&logger.log_file, "grappled")
+		md_add_text(&logger.temp_file, md_bold("grappled"))
 	case .INCAPACITATED:
-		md_add_bold(&logger.log_file, "incapacitated")
+		md_add_text(&logger.temp_file, md_bold("incapacitated"))
 	case .INVISIBLE:
-		md_add_bold(&logger.log_file, "made invisible")
+		md_add_text(&logger.temp_file, md_bold("made invisible"))
 	case .PARALYZED:
-		md_add_bold(&logger.log_file, "paralyzed")
+		md_add_text(&logger.temp_file, md_bold("paralyzed"))
 	case .PETRIFIED:
-		md_add_bold(&logger.log_file, "petrified")
+		md_add_text(&logger.temp_file, md_bold("petrified"))
 	case .POISONED:
-		md_add_bold(&logger.log_file, "poisoned")
+		md_add_text(&logger.temp_file, md_bold("poisoned"))
 	case .PRONE:
-		md_add_bold(&logger.log_file, "knocked prone")
+		md_add_text(&logger.temp_file, md_bold("knocked prone"))
 	case .RESTRAINED:
-		md_add_bold(&logger.log_file, "restrained")
+		md_add_text(&logger.temp_file, md_bold("restrained"))
 	case .STUNNED:
-		md_add_bold(&logger.log_file, "stunned")
+		md_add_text(&logger.temp_file, md_bold("stunned"))
 	case .UNCONSCIOUS:
-		md_add_bold(&logger.log_file, "knocked unconscious")
+		md_add_text(&logger.temp_file, md_bold("knocked unconscious"))
 	case .EXHAUSTION:
-		md_add_bold(&logger.log_file, "given a point of exhaustion")
+		md_add_text(&logger.temp_file, md_bold("given a point of exhaustion"))
 	}
 
-	md_add_text(&logger.log_file, " by ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, ".")
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, " by ", md_bold(entity_from.alias), ".")
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -383,57 +356,125 @@ logger_add_condition_healed :: proc(
 	entity_to: ^Entity,
 ) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " helped ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
+	md_add_text(&logger.temp_file, md_bold(entity_from.alias))
 
 	//Partial switch since nothing other than a rest can remove exhaustion.
 	#partial switch condition {
 	case .BLINDED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "blinded")
+		md_add_text(
+			&logger.temp_file,
+			" stopped",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("blinded"),
+		)
 	case .CHARMED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "charmed")
+		md_add_text(
+			&logger.temp_file,
+			" ridded ",
+			md_bold(entity_to.alias),
+			" of being ",
+			md_bold("charmed"),
+		)
 	case .DEAFENED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "deafened")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("deafened"),
+		)
 	case .FRIGHTENED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "frightened")
+		md_add_text(
+			&logger.temp_file,
+			" stopped ",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("frightened"),
+		)
 	case .GRAPPLED:
-		md_add_text(&logger.log_file, " get out of ")
-		md_add_bold(&logger.log_file, "grappled")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" get out of a ",
+			md_bold("grapple"),
+		)
 	case .INCAPACITATED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "incapacitated")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("incapacitated"),
+		)
 	case .INVISIBLE:
-		md_add_text(&logger.log_file, " remove ")
-		md_add_bold(&logger.log_file, "invisibility")
+		md_add_text(
+			&logger.temp_file,
+			"helped ",
+			md_bold(entity_to.alias),
+			" remove ",
+			md_bold("invisibility"),
+		)
 	case .PARALYZED:
-		md_add_text(&logger.log_file, " from being ")
-		md_add_bold(&logger.log_file, "paralyzed")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("paralyzed"),
+		)
 	case .PETRIFIED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "petrified")
+		md_add_text(
+			&logger.temp_file,
+			" cured ",
+			md_bold(entity_to.alias),
+			" from ",
+			md_bold("petrification"),
+		)
 	case .POISONED:
-		md_add_text(&logger.log_file, " become cured from ")
-		md_add_bold(&logger.log_file, "poisoned")
+		md_add_text(
+			&logger.temp_file,
+			" cured ",
+			md_bold(entity_to.alias),
+			" from being ",
+			md_bold("poisoned"),
+		)
 	case .PRONE:
-		md_add_text(&logger.log_file, " get up from being ")
-		md_add_bold(&logger.log_file, "prone")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" up from being ",
+			md_bold("prone"),
+		)
 	case .RESTRAINED:
-		md_add_text(&logger.log_file, " stop being ")
-		md_add_bold(&logger.log_file, "restrained")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" out of being ",
+			md_bold("restrained"),
+		)
 	case .STUNNED:
-		md_add_text(&logger.log_file, " no longer be ")
-		md_add_bold(&logger.log_file, "stunned")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" to no longer be ",
+			md_bold("stunned"),
+		)
 	case .UNCONSCIOUS:
-		md_add_text(&logger.log_file, " come round from being ")
-		md_add_bold(&logger.log_file, "unconscious")
+		md_add_text(
+			&logger.temp_file,
+			" helped ",
+			md_bold(entity_to.alias),
+			" come around from being ",
+			md_bold("unconscious"),
+		)
 	}
-	md_add_text(&logger.log_file, ".")
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, ".")
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -444,58 +485,42 @@ logger_add_condition_healed_self :: proc(
 	entity_to: ^Entity,
 ) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, fmt.aprint(" was ", sep = ""))
+	md_add_text(&logger.temp_file, md_bold(entity_to.alias), " was ")
 
 	//Partial switch since nothing other than a rest can remove exhaustion.
 	#partial switch condition {
 	case .BLINDED:
-		md_add_text(&logger.log_file, " cured from being ")
-		md_add_bold(&logger.log_file, "blinded")
+		md_add_text(&logger.temp_file, " cured from being ", md_bold("blinded"))
 	case .CHARMED:
-		md_add_text(&logger.log_file, " helped out of being ")
-		md_add_bold(&logger.log_file, "charmed")
+		md_add_text(&logger.temp_file, " helped out of being ", md_bold("charmed"))
 	case .DEAFENED:
-		md_add_text(&logger.log_file, " helped to not be ")
-		md_add_bold(&logger.log_file, "deafened")
+		md_add_text(&logger.temp_file, " helped out from being ", md_bold("deafened"))
 	case .FRIGHTENED:
-		md_add_text(&logger.log_file, " helped from being ")
-		md_add_bold(&logger.log_file, "frightened")
+		md_add_text(&logger.temp_file, " helped out from being ", md_bold("frightened"))
 	case .GRAPPLED:
-		md_add_text(&logger.log_file, " helped out of being ")
-		md_add_bold(&logger.log_file, "grappled")
+		md_add_text(&logger.temp_file, " helped out of a ", md_bold("grapple"))
 	case .INCAPACITATED:
-		md_add_text(&logger.log_file, " helped from being ")
-		md_add_bold(&logger.log_file, "incapacitated")
+		md_add_text(&logger.temp_file, " helped from being ", md_bold("incapacitated"))
 	case .INVISIBLE:
-		md_add_text(&logger.log_file, " stoped from being ")
-		md_add_bold(&logger.log_file, "invisibility")
+		md_add_text(&logger.temp_file, " made ", md_bold("visible"))
 	case .PARALYZED:
-		md_add_text(&logger.log_file, " helped from being ")
-		md_add_bold(&logger.log_file, "paralyzed")
+		md_add_text(&logger.temp_file, " helped out of ", md_bold("paralysis"))
 	case .PETRIFIED:
-		md_add_text(&logger.log_file, " helped from being ")
-		md_add_bold(&logger.log_file, "petrified")
+		md_add_text(&logger.temp_file, " cured of ", md_bold("petrification"))
 	case .POISONED:
-		md_add_text(&logger.log_file, " cured from being ")
-		md_add_bold(&logger.log_file, "poisoned")
+		md_add_text(&logger.temp_file, " cured of being ", md_bold("poisoned"))
 	case .PRONE:
-		md_add_text(&logger.log_file, " got up from being ")
-		md_add_bold(&logger.log_file, "prone")
+		md_add_text(&logger.temp_file, " helped up from being ", md_bold("prone"))
 	case .RESTRAINED:
-		md_add_text(&logger.log_file, " helped out of being ")
-		md_add_bold(&logger.log_file, "restrained")
+		md_add_text(&logger.temp_file, " helped out of being ", md_bold("restrained"))
 	case .STUNNED:
-		md_add_text(&logger.log_file, " stopped from being ")
-		md_add_bold(&logger.log_file, "stunned")
+		md_add_text(&logger.temp_file, " helped out of being ", md_bold("stunned"))
 	case .UNCONSCIOUS:
-		md_add_text(&logger.log_file, " helped out from being ")
-		md_add_bold(&logger.log_file, "unconscious")
+		md_add_text(&logger.temp_file, " helped out of being ", md_bold("unconscious"))
 	}
 
-	md_add_text(&logger.log_file, " by ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, " by ", md_bold(entity_from.alias))
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -506,86 +531,48 @@ logger_add_attempt_give_condition :: proc(
 	entity_to: ^Entity,
 ) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " failed to ")
+	md_add_text(&logger.temp_file, md_bold(entity_from.alias), " failed to ")
 
 	//Partial switch since nothing other than a rest can remove exhaustion.
 	#partial switch condition {
 	case .BLINDED:
-		md_add_bold(&logger.log_file, "blind")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("blind"), " ", md_bold(entity_to.alias))
 	case .CHARMED:
-		md_add_bold(&logger.log_file, "charm")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("charm"), " ", md_bold(entity_to.alias))
 	case .DEAFENED:
-		md_add_bold(&logger.log_file, "deafen")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("deafen"), " ", md_bold(entity_to.alias))
 	case .FRIGHTENED:
-		md_add_bold(&logger.log_file, "frighten")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("frighten"), " ", md_bold(entity_to.alias))
 	case .GRAPPLED:
-		md_add_bold(&logger.log_file, "grapple")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("grapple"), " ", md_bold(entity_to.alias))
 	case .INCAPACITATED:
-		md_add_bold(&logger.log_file, "incapacitate")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("incapacitate"), " ", md_bold(entity_to.alias))
+		md_add_text(&logger.temp_file, ", they are immune.")
 	case .INVISIBLE:
-		md_add_text(&logger.log_file, "make ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, "invisible ")
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.log_file, "make ", md_bold(entity_to.alias), " ", md_bold("invisible"))
 	case .PARALYZED:
-		md_add_bold(&logger.log_file, "paralyze")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("paralyze"), " ", md_bold(entity_to.alias))
 	case .PETRIFIED:
-		md_add_bold(&logger.log_file, "petrify")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("petrify"), " ", md_bold(entity_to.alias))
 	case .POISONED:
-		md_add_bold(&logger.log_file, "poison")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("poison"), " ", md_bold(entity_to.alias))
 	case .PRONE:
-		md_add_text(&logger.log_file, "knock ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, "prone")
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, "knock ", md_bold(entity_to.alias), " ", md_bold("prone"))
 	case .RESTRAINED:
-		md_add_bold(&logger.log_file, "restrain")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("restrain"), " ", md_bold(entity_to.alias))
 	case .STUNNED:
-		md_add_bold(&logger.log_file, "stun")
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("stun"), " ", md_bold(entity_to.alias))
 	case .UNCONSCIOUS:
-		md_add_text(&logger.log_file, "knock ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, " ")
-		md_add_bold(&logger.log_file, "unconscious")
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(
+			&logger.temp_file,
+			"knock ",
+			md_bold(entity_to.alias),
+			" ",
+			md_bold("unconscious"),
+		)
 	}
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, ", they are immune.")
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -596,107 +583,91 @@ logger_add_attempt_recieve_condition :: proc(
 	entity_to: ^Entity,
 ) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " avoided being ")
+	md_add_text(&logger.temp_file, md_bold(entity_to.alias), " avoided being ")
 
 	//Partial switch since nothing other than a rest can remove exhaustion.
 	#partial switch condition {
 	case .BLINDED:
-		md_add_bold(&logger.log_file, "blinded")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("blinded"), " by ", md_bold(entity_from.alias))
 	case .CHARMED:
-		md_add_bold(&logger.log_file, "charmed")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("charmed"), " by ", md_bold(entity_from.alias))
 	case .DEAFENED:
-		md_add_bold(&logger.log_file, "deafened")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("deafened"), " by ", md_bold(entity_from.alias))
 	case .FRIGHTENED:
-		md_add_bold(&logger.log_file, "frightened")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("frightened"), " by ", md_bold(entity_from.alias))
 	case .GRAPPLED:
-		md_add_bold(&logger.log_file, "grappled")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("grappled"), " by ", md_bold(entity_from.alias))
 	case .INCAPACITATED:
-		md_add_bold(&logger.log_file, "incapacitated")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(
+			&logger.temp_file,
+			md_bold("incapacitated"),
+			" by ",
+			md_bold(entity_from.alias),
+		)
 	case .INVISIBLE:
-		md_add_text(&logger.log_file, "made ")
-		md_add_bold(&logger.log_file, "invisible")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(
+			&logger.temp_file,
+			"made ",
+			md_bold("invisible"),
+			" by ",
+			md_bold(entity_from.alias),
+		)
 	case .PARALYZED:
-		md_add_bold(&logger.log_file, "paralyzed")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("paralyzed"), " by ", md_bold(entity_from.alias))
 	case .PETRIFIED:
-		md_add_bold(&logger.log_file, "petrified")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("petrified"), " by ", md_bold(entity_from.alias))
 	case .POISONED:
-		md_add_bold(&logger.log_file, "poisoned")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("poisoned"), " by ", md_bold(entity_from.alias))
 	case .PRONE:
-		md_add_text(&logger.log_file, "knocked ")
-		md_add_bold(&logger.log_file, "prone")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(
+			&logger.temp_file,
+			"knocked ",
+			md_bold("prone"),
+			" by ",
+			md_bold(entity_from.alias),
+		)
 	case .RESTRAINED:
-		md_add_bold(&logger.log_file, "restrained")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("restrained"), " by ", md_bold(entity_from))
 	case .STUNNED:
-		md_add_bold(&logger.log_file, "stunned")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(&logger.temp_file, md_bold("stunned"), " by ", md_bold(entity_from.alias))
 	case .UNCONSCIOUS:
-		md_add_text(&logger.log_file, "knocked ")
-		md_add_bold(&logger.log_file, "unconscious")
-		md_add_text(&logger.log_file, " by ")
-		md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-		md_add_text(&logger.log_file, ", they are immune.")
+		md_add_text(
+			&logger.temp_file,
+			"knocked ",
+			md_bold("unconscious"),
+			" by ",
+			md_bold(entity_from.alias),
+		)
 	}
-	md_newline(&logger.log_file)
+	md_add_text(&logger.temp_file, ", they are immune.")
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
 logger_add_hit_dead :: proc(logger: ^Logger, entity_from: ^Entity, entity_to: ^Entity) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(entity_from.alias, sep = ""))
-	md_add_text(&logger.log_file, " hit ")
-	md_add_bold(&logger.log_file, fmt.aprint(entity_to.alias, sep = ""))
-	md_add_text(&logger.log_file, " while they were down.")
-	md_add_bold(&logger.log_file, fmt.aprint(" CRIT!"))
-	md_newline(&logger.log_file)
+	md_add_text(
+		&logger.temp_file,
+		md_bold(entity_from.alias),
+		" hit ",
+		md_bold(entity_to.alias),
+		" while they were down. ",
+		md_bold("CRIT!"),
+	)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
 logger_add_dead_entity_turn :: proc(logger: ^Logger) {
 	context.allocator = logger_alloc
-	md_add_bold(&logger.log_file, fmt.aprint(logger.current_turn.entity.alias, sep = ""))
-	md_add_text(&logger.log_file, " has ")
-	md_add_bold(&logger.log_file, fmt.aprint("0 hp", sep = ""))
-	md_add_text(&logger.log_file, ". Rolling death save.")
-	md_newline(&logger.log_file)
+	md_add_text(
+		&logger.temp_file,
+		md_bold(logger.current_turn.entity.alias),
+		" has ",
+		md_bold("0 hp"),
+		". Rolling death save.",
+	)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
@@ -705,17 +676,17 @@ logger_add_turn :: proc(logger: ^Logger) {
 	logger.current_turn.time = time.duration_seconds(
 		time.stopwatch_duration(state.combat_screen_state.turn_timer),
 	)
-	md_add_text(&logger.log_file, "Turn took ")
+	md_add_text(&logger.temp_file, "Turn took ")
 	if logger.current_turn.time > 60 {
 		minutes := int(
 			time.duration_minutes(time.stopwatch_duration(state.combat_screen_state.turn_timer)),
 		)
 		seconds := logger.current_turn.time - cast(f64)(minutes * 60)
-		md_add_bold(&logger.log_file, fmt.aprintf("%vm:%.0fs.", minutes, seconds))
+		md_add_text(&logger.temp_file, md_bold(fmt.aprintf("%vm:%.0fs.", minutes, seconds)))
 	} else {
-		md_add_bold(&logger.log_file, fmt.aprintf("%.1fs.", logger.current_turn.time))
+		md_add_text(&logger.temp_file, md_bold(fmt.aprintf("%.1fs.", logger.current_turn.time)))
 	}
-	md_newline(&logger.log_file)
+	md_newline(&logger.temp_file)
 	append(&logger.round, logger.current_turn)
 	logger.current_turn = Turn{}
 	context.allocator = static_alloc
@@ -726,8 +697,8 @@ logger_add_round :: proc(logger: ^Logger) {
 	logger.turns[logger.current_round] = slice.clone(logger.round[:])
 	clear(&logger.round)
 	logger.current_round += 1
-	md_newline(&logger.log_file)
-	md_add_h2(&logger.log_file, fmt.aprint("Round ", logger.current_round, ":", sep = ""))
+	md_newline(&logger.temp_file)
+	md_add_text(&logger.temp_file, md_h2("Round ", logger.current_round, ":"))
 	context.allocator = static_alloc
 }
 
@@ -735,12 +706,31 @@ logger_end_combat :: proc(logger: ^Logger) {
 	context.allocator = logger_alloc
 	logger.turns[logger.current_round] = slice.clone(logger.round[:])
 	delete(logger.round)
-	md_newline(&logger.log_file)
-	md_add_bold(&logger.log_file, "Combat Finished")
-	md_newline(&logger.log_file)
+
+	minutes := int(
+		time.duration_minutes(time.stopwatch_duration(state.combat_screen_state.combat_timer)),
+	)
+	seconds := time.duration_seconds(
+		time.stopwatch_duration(state.combat_screen_state.combat_timer),
+	)
+
+	md_newline(&logger.temp_file)
+	md_add_text(
+		&logger.temp_file,
+		md_bold("Combat Finished"),
+		". Took ",
+		md_bold(fmt.aprintf("%vm:%.0fs", minutes, seconds)),
+	)
+	md_newline(&logger.temp_file)
 	context.allocator = static_alloc
 }
 
+logger_add_summary :: proc(logger: ^Logger) {
+	md_add_text(&logger.log_file, md_h2("Test"))
+	md_newline(&logger.log_file)
+}
+
 logger_save_to_file :: proc(logger: ^Logger) -> bool {
+	md_add_text(&logger.log_file, logger.temp_file.file_string)
 	return md_write_file(logger.log_file)
 }

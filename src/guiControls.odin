@@ -1,5 +1,6 @@
 package main
 
+import "core:encoding/base64"
 import "core:fmt"
 import "core:log"
 import "core:slice"
@@ -63,8 +64,7 @@ clean_hover_stack :: proc() {
 }
 
 clear_hover_stack :: proc() {
-	delete(state.hover_stack.stack)
-	state.hover_stack.stack = make([dynamic]^GuiControl)
+	clear(&state.hover_stack.stack)
 	state.hover_stack.count = 0
 }
 
@@ -355,17 +355,17 @@ GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
 
 	initial_text_spacing := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING)
 	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING, 2)
-	initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
+	initial_text_size := TEXT_SIZE
 
 	text_align_left()
 
 	defer {
 		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SPACING, initial_text_spacing)
-		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+		set_text_size(TEXT_SIZE_DEFAULT)
+		text_align_center()
 	}
 
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, 25)
-	TEXT_SIZE = 25
+	set_text_size(25)
 
 	rl.DrawRectangle(
 		cast(i32)(x - border),
@@ -1771,15 +1771,13 @@ TabControlState :: struct {
 
 init_tab_control_state :: proc(tab_state: ^TabControlState, options: []cstring) {
 	tab_state.id = GUI_ID
-	tab_state.options = options
+	tab_state.options = options[:]
 
 	GUI_ID += 1
 }
 
 GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 {
 	using state.gui_properties
-
-	context.allocator = frame_alloc
 
 	cursor_x := bounds.x
 	cursor_y := bounds.y
@@ -1789,8 +1787,7 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 	selected_padding: f32 : 5
 	border: f32 : 2
 
-	tab_bounds: [dynamic]rl.Rectangle
-	defer delete(tab_bounds)
+	tab_bounds := make([dynamic]rl.Rectangle, allocator = frame_alloc)
 
 	for _, i in tab_state.options {
 		switch i {
@@ -1945,8 +1942,6 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 		tab_state.hovered = false
 	}
 
-	text_align_left()
-	context.allocator = static_alloc
 	return tab_state.selected
 }
 
@@ -2280,8 +2275,6 @@ GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
 GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextInputState = nil) {
 	using state.gui_properties
 
-	context.allocator = frame_alloc
-
 	if entity != nil {
 		cursor_x := bounds.x
 		cursor_y := bounds.y
@@ -2294,43 +2287,90 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
 		width := bounds.width
 		height := bounds.height
 
-		//Display info for selected entity.
 		GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.alias)
 		cursor_y += LINE_HEIGHT
 
-		text_align_left()
+		if entity.icon_data != "" {
+			start_y := cursor_y
 
-		if initiative != nil {
-			GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative: ")
+			scale := (width / 2) / cast(f32)entity.icon.width
+			rl.DrawTextureEx(entity.icon, {cursor_x, cursor_y}, 0, scale, rl.WHITE)
 			cursor_x += width / 2
 
-			GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
-			entity.initiative = to_i32(initiative.text)
+			GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, entity.size)
+			cursor_x += width / 4
+			GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, entity.race)
+			cursor_x = start_x + (width / 2)
+			cursor_y += LINE_HEIGHT
+
+			GuiLabel(
+				{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+				rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)),
+			)
+			cursor_x += width / 4
+			GuiLabel(
+				{cursor_x, cursor_y, width / 4, LINE_HEIGHT},
+				rl.GuiIconText(.ICON_HEART, cstr(entity.HP)),
+			)
+			cursor_x = start_x + (width / 2)
+			cursor_y += LINE_HEIGHT
+
+			GuiLabel({cursor_x, cursor_y, (width / 2), LINE_HEIGHT}, entity.speed)
+			cursor_x = start_x
+			if ((start_y + (width / 2)) > (cursor_y)) {
+				cursor_y = start_y + (width / 2) + PANEL_PADDING
+			} else {
+				cursor_y += LINE_HEIGHT + PANEL_PADDING
+			}
+
+			text_align_left()
+
+			if initiative != nil {
+				GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative:")
+				cursor_x += width / 2
+
+				GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
+				entity.initiative = to_i32(initiative.text)
+				cursor_x = start_x
+				cursor_y += LINE_HEIGHT
+			}
+
+			text_align_center()
+		} else {
+			text_align_left()
+
+			if initiative != nil {
+				GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, "Initiative:")
+				cursor_x += width / 2
+
+				GuiTextInput({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, initiative)
+				entity.initiative = to_i32(initiative.text)
+				cursor_x = start_x
+				cursor_y += LINE_HEIGHT
+			}
+
+			text_align_center()
+			GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
+			cursor_x += width / 2
+			GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
 			cursor_x = start_x
 			cursor_y += LINE_HEIGHT
+
+			GuiLabel(
+				{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
+				rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)),
+			)
+			cursor_x += width / 2
+			GuiLabel(
+				{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
+				rl.GuiIconText(.ICON_HEART, cstr(entity.HP)),
+			)
+			cursor_x = start_x
+			cursor_y += LINE_HEIGHT
+
+			GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.speed)
+			cursor_y += LINE_HEIGHT
 		}
-
-		text_align_center()
-		GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.size)
-		cursor_x += width / 2
-		GuiLabel({cursor_x, cursor_y, width / 2, LINE_HEIGHT}, entity.race)
-		cursor_x = start_x
-		cursor_y += LINE_HEIGHT
-
-		GuiLabel(
-			{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
-			rl.GuiIconText(.ICON_SHIELD, cstr(entity.AC)),
-		)
-		cursor_x += width / 2
-		GuiLabel(
-			{cursor_x, cursor_y, width / 2, LINE_HEIGHT},
-			rl.GuiIconText(.ICON_HEART, cstr(entity.HP)),
-		)
-		cursor_x = start_x
-		cursor_y += LINE_HEIGHT
-
-		GuiLabel({cursor_x, cursor_y, width, LINE_HEIGHT}, entity.speed)
-		cursor_y += LINE_HEIGHT
 
 		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Stat")
 		cursor_x += width / 4
@@ -2341,8 +2381,6 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
 		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Save")
 		cursor_x = start_x
 		cursor_y += LINE_HEIGHT
-
-		text_align_center()
 
 		rl.GuiLine({cursor_x, cursor_y, width, 2}, "")
 
@@ -2627,5 +2665,4 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
 			cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
 		)
 	}
-	context.allocator = static_alloc
 }

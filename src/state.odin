@@ -50,15 +50,19 @@ SetupScreenState :: struct {
 	entities_searched:     []Entity,
 	num_entities_filtered: int,
 	num_entities_searched: int,
-	entity_button_states:  [dynamic]EntityButtonState,
-	entities_selected:     []Entity,
-	num_entities:          int,
+	party_button_states:   [dynamic]EntityButtonState,
+	enemy_button_states:   [dynamic]EntityButtonState,
+	party_selected:        []Entity,
+	enemies_selected:      []Entity,
+	num_party:             int,
+	num_enemies:           int,
 	selected_entity:       ^Entity,
 	selected_entity_idx:   int,
-	filter_tab:            TabControlState,
 	panel_left:            PanelState,
+	search_tab:            TabControlState,
 	entity_search_state:   TextInputState,
 	panel_mid:             PanelState,
+	view_tab:              TabControlState,
 	panel_right:           PanelState,
 	filename_input:        TextInputState,
 	initiative_input:      TextInputState,
@@ -68,19 +72,23 @@ init_setup_screen :: proc() {
 	state.setup_screen_state.first_load = true
 	state.setup_screen_state.entities_filtered = make([]Entity, 1024)
 	state.setup_screen_state.entities_searched = make([]Entity, 1024)
-	state.setup_screen_state.entities_selected = make_slice(
-		[]Entity,
-		256,
-		allocator = entities_alloc,
-	)
-	state.setup_screen_state.selected_entity = nil
-	state.setup_screen_state.selected_entity_idx = 0
+	state.setup_screen_state.party_selected = make([]Entity, 256, allocator = entities_alloc)
+	state.setup_screen_state.enemies_selected = make([]Entity, 256, allocator = entities_alloc)
 
-	options := [dynamic]cstring{"Monsters", "Characters"}
-	init_tab_control_state(&state.setup_screen_state.filter_tab, options[:])
+	state.setup_screen_state.selected_entity = nil
+	state.setup_screen_state.selected_entity_idx = -1
+
 	init_panel_state(&state.setup_screen_state.panel_left)
+	search_options := make([]cstring, 2)
+	search_options[0] = fmt.caprint("Characters")
+	search_options[1] = fmt.caprint("Monsters")
+	init_tab_control_state(&state.setup_screen_state.search_tab, search_options)
 	init_text_input_state(&state.setup_screen_state.entity_search_state)
 	init_panel_state(&state.setup_screen_state.panel_mid)
+	view_options := make([]cstring, 2)
+	view_options[0] = fmt.caprint("Party")
+	view_options[1] = fmt.caprint("Enemies")
+	init_tab_control_state(&state.setup_screen_state.view_tab, view_options)
 	init_panel_state(&state.setup_screen_state.panel_right)
 	init_text_input_state(&state.setup_screen_state.filename_input)
 	init_text_input_state(&state.setup_screen_state.initiative_input)
@@ -293,8 +301,7 @@ init_entity_screen :: proc() {
 	init_button_state(&state.entity_screen_state.reset_button_mid)
 	init_button_state(&state.entity_screen_state.reset_button_right)
 
-	reload_icons()
-	reload_borders()
+	reload_icons_and_borders()
 	state.entity_screen_state.combined_image, _ = get_entity_icon_data(
 		cstr(
 			state.entity_screen_state.img_file_paths[state.entity_screen_state.current_icon_index],
@@ -302,9 +309,10 @@ init_entity_screen :: proc() {
 		cstr(
 			state.entity_screen_state.border_file_paths[state.entity_screen_state.current_border_index],
 		),
+		allocator = frame_alloc,
 	)
 
-	type_options := [dynamic]cstring{"Player", "NPC", "Monster", "Test 1", "Test 2"}
+	type_options := [dynamic]cstring{"Player", "NPC", "Monster"}
 	state.entity_screen_state.first_load = true
 	init_text_input_state(&state.entity_screen_state.name_input)
 	init_text_input_state(&state.entity_screen_state.race_input)
@@ -407,7 +415,6 @@ State :: struct {
 	app_dir:                     string,
 	ip_str:                      string,
 	server_state:                ServerState,
-	//test_text_input:             MyTextInputState,
 }
 
 init_state :: proc(state: ^State) {
@@ -429,6 +436,8 @@ init_state :: proc(state: ^State) {
 		state.config.CUSTOM_ENTITY_FILE_PATH,
 		&state.custom_entities,
 	)
+
+	//reload_entities()
 
 	state.dmg_type_options = make([dynamic]cstring)
 	state.dmg_type_options = {
@@ -480,8 +489,6 @@ init_state :: proc(state: ^State) {
 
 	state.server_state.running = true
 	state.server_state.json_data = "{}"
-
-	//init_my_text_input_state(&state.test_text_input)
 }
 
 d_init_state :: proc(state: ^State) {
