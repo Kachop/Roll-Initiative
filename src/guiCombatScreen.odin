@@ -9,6 +9,8 @@ import "core:unicode/utf8"
 import http "shared:odin-http"
 import rl "vendor:raylib"
 
+//TODO: Potentially add a miss button for logging purposes to track attempted hits in combat.
+
 draw_combat_screen :: proc() {
 	using state.gui_properties
 
@@ -17,7 +19,7 @@ draw_combat_screen :: proc() {
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y = PADDING_TOP
 
-	if (FRAME == 59) {
+	if (FRAME == 59) && state.server_state.running {
 		combat_to_json()
 	}
 
@@ -172,32 +174,27 @@ draw_combat_screen :: proc() {
 			&temp_entities_list,
 		)
 
-		player_count := 0
-
 		for i in 0 ..< state.combat_screen_state.num_entities {
 			entity := state.combat_screen_state.entities[i]
-			if entity.type == .PLAYER {
+			if entity.type == .PLAYER || entity.type == .NPC {
 				for j in 0 ..< num_temp_entities {
 					temp_entity := temp_entities_list[j]
 					if entity.name == temp_entity.name {
 						temp_entities_list[j] = entity
 					}
 				}
-				player_count += 1
 			}
 		}
 
 		for i in 0 ..< num_temp_entities {
 			entity := temp_entities_list[i]
-			if entity.type == .PLAYER {
-				if i == 0 {
-					add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe = true)
-				} else {
-					add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)
-				}
+			if i == 0 {
+				add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe = true)
+			} else {
+				add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)
 			}
 		}
-
+		/*
 		new_message := MessageBoxState{}
 		if (player_count > 0) {
 			init_message_box(
@@ -209,17 +206,31 @@ draw_combat_screen :: proc() {
 		} else {
 			init_message_box(&new_message, "Notification!", fmt.caprintf("No PC's to save."))
 		}
-
+*/
 		logger_add_turn(&state.combat_screen_state.combat_logger)
 		logger_end_combat(&state.combat_screen_state.combat_logger)
 		if logger_save_to_file(&state.combat_screen_state.combat_logger) {
-			init_message_box(&new_message, "Notification!", fmt.caprintf("Combat log saved"))
-			add_message(&state.combat_screen_state.message_queue, new_message)
+			//init_message_box(&new_message, "Notification!", fmt.caprintf("Combat log saved"))
+			//add_message(&state.combat_screen_state.message_queue, new_message)
 		} else {
-			init_message_box(&new_message, "Error!", fmt.caprintf("Error saving combat log"))
-			add_message(&state.combat_screen_state.message_queue, new_message)
+			//init_message_box(&new_message, "Error!", fmt.caprintf("Error saving combat log"))
+			//add_message(&state.combat_screen_state.message_queue, new_message)
 		}
 		vmem.arena_free_all(&logger_arena)
+
+		idx := 0
+
+		for i in 0 ..< state.combat_screen_state.num_entities {
+			entity := state.combat_screen_state.entities[i]
+
+			if (entity.team == .PARTY) {
+				state.setup_screen_state.party_selected[idx] = entity
+				idx += 1
+			}
+		}
+
+		state.combat_screen_state.first_load = true
+		state.current_screen_state = state.setup_screen_state
 	}
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
@@ -303,6 +314,7 @@ draw_combat_screen :: proc() {
 			0,
 		}
 
+		clear(&state.combat_screen_state.entity_names)
 		for i in 0 ..< state.combat_screen_state.num_entities {
 			append(
 				&state.combat_screen_state.entity_names,
@@ -1041,6 +1053,12 @@ draw_combat_screen :: proc() {
 		.DEFAULT,
 		cast(i32)rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL,
 		cast(i32)rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
+	)
+	state.cursor.x = current_panel_x
+	state.cursor.y = panel_y + panel_height
+	GuiLabel(
+		{state.cursor.x, state.cursor.y, panel_width, PADDING_BOTTOM},
+		fmt.ctprintf("http://%v:%v", state.ip_str, state.config.PORT),
 	)
 }
 

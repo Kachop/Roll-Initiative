@@ -22,7 +22,7 @@ draw_title_screen :: proc() {
 	state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
 	TEXT_SIZE = TEXT_SIZE_TITLE
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE)
 
 	rl.GuiSetStyle(
 		.DEFAULT,

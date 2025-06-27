@@ -47,8 +47,7 @@ draw_load_screen :: proc() {
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
 
-	TEXT_SIZE = TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE_DEFAULT)
 
 	rl.GuiLine(
 		{

@@ -7,6 +7,11 @@ import "core:os"
 import "core:strings"
 
 load_combat_file :: proc(filename: string) -> (error: bool) {
+	temp_party_list := make([]Entity, state.setup_screen_state.num_party, allocator = frame_alloc)
+	for i in 0 ..< state.setup_screen_state.num_party {
+		temp_party_list[i] = state.setup_screen_state.party_selected[i]
+	}
+
 	for &entity in state.setup_screen_state.party_selected {
 		entity = Entity{}
 	}
@@ -14,7 +19,11 @@ load_combat_file :: proc(filename: string) -> (error: bool) {
 		entity = Entity{}
 	}
 
+	clear(&state.setup_screen_state.party_button_states)
+	clear(&state.setup_screen_state.enemy_button_states)
+
 	file_data, ok := os.read_entire_file(filename, allocator = frame_alloc)
+	defer delete(file_data)
 
 	idx := 0
 
@@ -26,7 +35,16 @@ load_combat_file :: proc(filename: string) -> (error: bool) {
 			enemies_saved := json_data.(json.Object)["enemies"]
 
 			for alias, fields in party_saved.(json.Object) {
-				loaded_entity, ok := match_entity(fields.(json.Object)["name"].(string))
+				loaded_entity: Entity
+				loaded_entity, ok = match_entity(
+					fields.(json.Object)["name"].(string),
+					temp_party_list,
+					state.setup_screen_state.num_party,
+				)
+
+				if !ok {
+					loaded_entity, ok = match_saved_entity(fields.(json.Object)["name"].(string))
+				}
 
 				loaded_entity.alias = fmt.caprint(alias)
 				loaded_entity.team = .PARTY
@@ -34,7 +52,6 @@ load_combat_file :: proc(filename: string) -> (error: bool) {
 				loaded_entity.visible = cast(bool)fields.(json.Object)["visible"].(json.Boolean)
 
 				state.setup_screen_state.party_selected[idx] = loaded_entity
-
 				entity_button_state := new(EntityButtonState)
 				init_entity_button_state(
 					entity_button_state,
@@ -49,7 +66,7 @@ load_combat_file :: proc(filename: string) -> (error: bool) {
 			idx = 0
 
 			for alias, fields in enemies_saved.(json.Object) {
-				loaded_entity, ok := match_entity(fields.(json.Object)["name"].(string))
+				loaded_entity, ok := match_saved_entity(fields.(json.Object)["name"].(string))
 
 				loaded_entity.alias = fmt.caprint(alias)
 				loaded_entity.team = .ENEMIES
@@ -77,6 +94,7 @@ load_combat_file :: proc(filename: string) -> (error: bool) {
 		log.error("Failed to read file")
 		return false
 	}
+
 	return true
 }
 

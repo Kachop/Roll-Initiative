@@ -98,15 +98,6 @@ init :: proc() {
 	} else when ODIN_OS == .Linux {
 		state.ip_str, _ = get_ip_linux()
 	}
-
-	server_thread = thread.create_and_start(run_combat_server)
-
-	log.infof("Started webserver @: http://%v:%v", state.ip_str, state.config.PORT)
-	web_addr := fmt.tprintf("http://%v:%v", state.ip_str, state.config.PORT)
-	p, err := os2.process_start({command = {BROWSER_COMMAND, web_addr}})
-
-	_, err = os2.process_wait(p)
-	log.debugf("Error launching browser: %v", err)
 }
 
 main :: proc() {

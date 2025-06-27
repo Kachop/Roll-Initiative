@@ -2,7 +2,9 @@ package main
 
 import "core:fmt"
 import "core:log"
+import "core:os/os2"
 import "core:strings"
+import "core:thread"
 import rl "vendor:raylib"
 
 draw_setup_screen :: proc() {
@@ -15,8 +17,29 @@ draw_setup_screen :: proc() {
 
 	start_x := state.cursor.x
 
+	if (FRAME == 59) && state.server_state.running {
+		party_to_json()
+	}
+
 	set_text_size(TEXT_SIZE_DEFAULT)
 	text_align_center()
+
+	defer if state.setup_screen_state.popup_toggled {
+		popup_bounds := rl.Rectangle {
+			(state.window_width / 2) - (POPUP_WIDTH / 2),
+			(state.window_height / 2) - (POPUP_HEIGHT / 2),
+			POPUP_WIDTH,
+			POPUP_HEIGHT,
+		}
+
+		switch GuiPopup(popup_bounds, &state.setup_screen_state.long_rest_popup) {
+		case 0:
+			state.setup_screen_state.popup_toggled = false
+		case 1:
+			long_rest()
+			state.setup_screen_state.popup_toggled = false
+		}
+	}
 
 	if GuiButton({state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT}, "Back") {
 		state.setup_screen_state.first_load = true
@@ -171,12 +194,58 @@ draw_setup_screen :: proc() {
 	if GuiButton({state.cursor.x, state.cursor.y, panel_width / 2, LINE_HEIGHT}, "Short Rest") {}
 	state.cursor.x += panel_width / 2
 
-	if GuiButton({state.cursor.x, state.cursor.y, panel_width / 2, LINE_HEIGHT}, "Long Rest") {}
+	if GuiButton({state.cursor.x, state.cursor.y, panel_width / 2, LINE_HEIGHT}, "Long Rest") {
+		//Loop over all entities in the party and heal them all to full and remove any conditions, temp vulnerabilities, etc.
+		state.setup_screen_state.popup_toggled = true
+		options := make([]cstring, 2)
+		options[0] = "No"
+		options[1] = "Yes"
+		init_popup(
+			&state.setup_screen_state.long_rest_popup,
+			"Are you sure you want to long rest?",
+			options,
+		)
+		return
+	}
+	state.cursor.x += (panel_width / 2) + dynamic_x_padding
+
+	if GuiButton(
+		{state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT},
+		"Launch player-view",
+	) {
+		if !state.server_state.running {
+			log.infof("Started webserver @: http://%v:%v", state.ip_str, state.config.PORT)
+			server_thread = thread.create_and_start(run_combat_server)
+			state.server_state.running = true
+		}
+
+		new_message := MessageBoxState{}
+
+		web_addr := fmt.tprintf("http://%v:%v", state.ip_str, state.config.PORT)
+
+		p, err := os2.process_start({command = {BROWSER_COMMAND, web_addr}})
+
+		if err != nil {
+			init_message_box(&new_message, "Error!", fmt.caprintf("Error launching player-view"))
+			add_message(&state.setup_screen_state.message_queue, new_message)
+		}
+
+		_, err = os2.process_wait(p)
+
+		if err != nil {
+			init_message_box(
+				&new_message,
+				"Error!",
+				fmt.caprintf("Error launching player-view\nGo to: %v", web_addr),
+			)
+			add_message(&state.setup_screen_state.message_queue, new_message)
+		}
+
+		log.debugf("Error launching browser: %v", err)
+	}
+
 	state.cursor.x = start_x
 	state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-	//TODO: Short rest and long rest buttons.
-	//TODO: Figure out how to reset selected entity on tab switch
 
 	current_panel_x := state.cursor.x
 	panel_y := state.cursor.y
@@ -406,7 +475,6 @@ draw_setup_screen :: proc() {
 						state.setup_screen_state.num_party -= 1
 
 						for j in i ..< state.setup_screen_state.num_party {
-							fmt.println("IN LOOP")
 							state.setup_screen_state.party_selected[j] =
 								state.setup_screen_state.party_selected[j + 1]
 							state.setup_screen_state.party_button_states[j].entity =
@@ -415,16 +483,13 @@ draw_setup_screen :: proc() {
 						}
 
 						if (state.setup_screen_state.selected_entity_idx == i) {
-							fmt.println("SELECTED")
 							state.setup_screen_state.selected_entity = nil
 							state.setup_screen_state.selected_entity_idx = -1
 						} else if (i < state.setup_screen_state.selected_entity_idx) {
-							fmt.println("NOT SELECTED")
 							state.setup_screen_state.selected_entity_idx -= 1
 							state.setup_screen_state.selected_entity =
 							&state.setup_screen_state.party_selected[state.setup_screen_state.selected_entity_idx]
 						}
-						fmt.println("FINISHED")
 					}
 				}
 				state.cursor.x = start_x
@@ -589,4 +654,53 @@ filter_entities :: proc() {
 		state.setup_screen_state.num_entities_searched =
 			state.setup_screen_state.num_entities_filtered
 	}
+}
+
+long_rest :: proc() {
+	if state.setup_screen_state.selected_entity != nil {
+		selected_entity := state.setup_screen_state.selected_entity
+		selected_entity.initiative = 0
+	}
+
+	for i in 0 ..< state.setup_screen_state.num_party {
+		entity := &state.setup_screen_state.party_selected[i]
+
+		entity.initiative = 0
+		entity.HP = entity.HP_max
+		entity.temp_HP = 0
+		entity.temp_dmg_vulnerabilities = DamageSet{}
+		entity.temp_dmg_resistances = DamageSet{}
+		entity.temp_dmg_immunities = DamageSet{}
+		entity.conditions = ConditionSet{}
+	}
+
+	temp_entities_list := make([]Entity, 256, allocator = frame_alloc)
+	num_temp_entities := load_entities_from_file(
+		state.config.CUSTOM_ENTITY_FILE_PATH,
+		&temp_entities_list,
+	)
+
+	for i in 0 ..< state.setup_screen_state.num_party {
+		entity := state.setup_screen_state.party_selected[i]
+		if (entity.type == .PLAYER || entity.type == .NPC) {
+			for j in 0 ..< num_temp_entities {
+				temp_entity := temp_entities_list[j]
+				if entity.name == temp_entity.name {
+					temp_entities_list[j] = entity
+				}
+			}
+		}
+	}
+
+	for i in 0 ..< num_temp_entities {
+		entity := temp_entities_list[i]
+		if i == 0 {
+			add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH, wipe = true)
+		} else {
+			add_entity_to_file(entity, state.config.CUSTOM_ENTITY_FILE_PATH)
+		}
+
+		state.custom_entities[i] = entity
+	}
+	state.num_custom_entities = num_temp_entities
 }

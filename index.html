@@ -350,265 +350,410 @@
 <body>
 	<div class=title-bar>
         <h1 class=combat-title class=fantasy-font><stretch class=fantasy-font id="combat_name"></stretch></h1>
-		<h1 class=round-label class=fantasy-font>Round: <stretch class=fantasy-font id="round"></stretch></h1>
+		<h1 class=round-label class=fantasy-font><stretch class=fantasy-font id="round"></stretch></h1>
 	</div>
     <br>
 
 	<div class=fantasy-font class=title-bar id=content>
         <div class=entities-container>
-            <div class=current-entity-header>
-                Current Combatant
+            <div class=current-entity-header id="left_container_header">
             </div>
-            <div class=current-entity-container>
-                <ol id=current-entity-display></ol>
+            <div class=current-entity-container id="left-container">
             </div>
-            <div class=entities-header>
-                Turn Order
+            <div class=entities-header id="right_container_header">
             </div>
-            <div class=entities-list>
-		        <ol id="entities"></ol>
+            <div class=entities-list id="right-container">
             </div>
         </div>
 	</div>
 	<script type="text/javascript">
 		var events = new EventSource("/data");
 
+		var left_container = document.getElementById("left-container");
+		var right_container = document.getElementById("right-container");
+
         var current_entity = document.getElementById("current-entity-display");
 		var entities = document.getElementById("entities");
 
         events.onmessage = function(event) {
 			var combat_data = JSON.parse(event.data);
-			round.innerHTML = combat_data.round;
-            if (combat_data.combat_name != undefined) {
-                combat_name.innerHTML = combat_data.combat_name;
-            }
-			var display_text = document.getElementById("content");
+			if (combat_data.type == "combat_view") {
+				round.innerHTML = "Round: " + combat_data.round;
+				left_container_header.innerHTML = "Current Combatant"
+				right_container_header.innerHTML = "Turn Order"
+				if (combat_data.combat_name != undefined) {
+					combat_name.innerHTML = combat_data.combat_name;
+				}
+				var display_text = document.getElementById("content");
 
-			if (combat_data.round == undefined) {
-				display_text.removeChild(display_text.lastChild);
-				display_text.appendChild(document.createTextNode("Waiting for combat to start"));
-			} else {
-				if ((display_text.childNodes.length) > 2) {
+				if (combat_data.round == undefined) {
 					display_text.removeChild(display_text.lastChild);
-				}
-
-                if (current_entity.firstChild) {
-                    current_entity.removeChild(current_entity.firstChild);
-                }
-
-                for (var i in combat_data.entities) {
-                    var entity = combat_data.entities[i]
-                    if ((entity.visible) && (i == combat_data.current_entity_index)) {
-                        var entry = document.createElement("li");
-                        var container = document.createElement("div");
-                        container.classList.add("container");
-                        var img = document.createElement("img");
-                        img.classList.add("current-entity-img");
-                        var character_label = document.createElement("div");
-                        character_label.classList.add("current-entity-label");
-                        var health_label = document.createElement("div");
-                        health_label.classList.add("current-entity-health");
-                        var conditions_label = document.createElement("div");
-                        conditions_label.classList.add("current-entity-conditions");
-
-                        var image_size;
-                        if (window.innerHeight < window.innerWidth) {
-                            //img_size = window.innerHeight / 1.5;
-                        } else {
-                            //img_size = window.innerWidth / 2;
-                        }
-
-                        if (entity.type == "player") {
-                            img.src = "data:imgage/png;base64," + entity.img_url;
-                        } else {
-                            img.src = entity.img_url;
-                            img.classList.add("img-border");
-                        }
-
-						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
-						character_label.classList.add("fantasy-font");
-
-						if (entity.team == "party") {
-							entry.classList.add('team-party');
-							console.log("Party member.");
-						} else {
-							entry.classList.add('team-enemies');
-						}
-
-						if ((entity.type == "player") || (entity.type == "NPC")) {
-                            health_label.appendChild(document.createTextNode("HP: "));
-							health_label.appendChild(document.createTextNode(entity.health));
-							health_label.appendChild(document.createTextNode("/"));
-							health_label.appendChild(document.createTextNode(entity.max_health));
-							if (entity.temp_health > 0) {
-								health_label.appendChild(document.createTextNode("+"));
-								health_label.appendChild(document.createTextNode(entity.temp_health));
-							}
-
-							if ((entity.health + entity.temp_health) == entity.max_health) {
-								entry.classList.add('full-health');
-							} else if ((entity.health + entity.temp_health) == 0) {
-								entry.classList.add('dead');
-							} else if ((entity.health + entity.temp_health) <= 10) {
-								entry.classList.add('rlc');
-							} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
-								entry.classList.add('low-health');
-							} else {
-								entry.classList.add('mid-health');
-							}
-
-                            var ac_label = document.createElement("div");
-                            ac_label.classList.add("current-entity-ac");
-
-                            ac_label.appendChild(document.createTextNode("AC: "));
-                            ac_label.appendChild(document.createTextNode(entity.ac));
-						} else {
-							//If it's a monster display bloodied, regretting life choices, etc.
-							if (entity.health == entity.max_health) {
-								health_label.appendChild(document.createTextNode("Healthy"));
-								entry.classList.add('full-health');
-							} else if (entity.health == 0) {
-								health_label.appendChild(document.createTextNode("Defeated"));
-								entry.classList.add('dead');
-							} else if (entity.health <= 10) {
-								health_label.appendChild(document.createTextNode("Regretting life choices..."));
-								entry.classList.add('rlc');
-							} else if (entity.health <= (entity.max_health / 2)) {
-								health_label.appendChild(document.createTextNode("Bloodied"));
-								entry.classList.add('low-health');
-							} else {
-								health_label.appendChild(document.createTextNode("Hurt"));
-								entry.classList.add('mid-health');
-							}
-						}
-
-						for (index in entity.conditions) {
-							conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
-							conditions_label.appendChild(document.createTextNode("\n"));
-						}
-
-						container.appendChild(img);
-						container.appendChild(character_label);
-						container.appendChild(health_label);
-                        if ((entity.type == "player") || (entity.type == "NPC")) {
-                            container.appendChild(ac_label);
-                        }
-						container.appendChild(conditions_label);
-
-						entry.appendChild(container);
-
-						current_entity.appendChild(entry);
-                    }
-                }
-
-				while (entities.firstChild) {
-					entities.removeChild(entities.lastChild);
-				}
-                
-                var past_current_entity = false;
-                var insert_point = 1;
-                var first_done = false;
-
-				for (var i in combat_data.entities) {
-					var entity = combat_data.entities[i]
-                    if (combat_data.current_entity_index == i) {
-                        past_current_entity = true;
-                    }
-					if ((entity.visible) && (i != combat_data.current_entity_index)) {
-						var entry = document.createElement("li");
-						var container = document.createElement("div");
-						container.classList.add("container");
-						var img = document.createElement("img");
-						img.classList.add("entity_img");
-						var character_label = document.createElement("div");
-						character_label.classList.add("entity_label");
-						var health_label = document.createElement("div");
-						health_label.classList.add("entity_health");
-						var conditions_label = document.createElement("div");
-						conditions_label.classList.add("entity_conditions");
-
-						if (entity.type == "player") {
-							img.src = "data:image/png;base64," + entity.img_url;
-						} else {
-							img.src = entity.img_url;
-                            img.classList.add("img-border")
-						}
-
-						character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
-						character_label.classList.add("fantasy-font");
-						
-						if (entity.team == "party") {
-							entry.classList.add('team-party');
-							console.log("Party member.");
-						} else {
-							entry.classList.add('team-enemies');
-						}
-						
-						if ((entity.type == "player") || (entity.type == "NPC")) {
-							health_label.appendChild(document.createTextNode(entity.health));
-							health_label.appendChild(document.createTextNode("/"));
-							health_label.appendChild(document.createTextNode(entity.max_health));
-							if (entity.temp_health > 0) {
-								health_label.appendChild(document.createTextNode("+"));
-								health_label.appendChild(document.createTextNode(entity.temp_health));
-							}
-
-							if ((entity.health + entity.temp_health) == entity.max_health) {
-								entry.classList.add('full-health');
-							} else if ((entity.health + entity.temp_health) == 0) {
-								entry.classList.add('dead');
-							} else if ((entity.health + entity.temp_health) <= 10) {
-								entry.classList.add('rlc');
-							} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
-								entry.classList.add('low-health');
-							} else {
-								entry.classList.add('mid-health');
-							}
-						} else {
-							//If it's a monster display bloodied, regretting life choices, etc.
-							if (entity.health == entity.max_health) {
-								health_label.appendChild(document.createTextNode("Healthy"));
-								entry.classList.add('full-health');
-							} else if (entity.health == 0) {
-								health_label.appendChild(document.createTextNode("Defeated"));
-								entry.classList.add('dead');
-							} else if (entity.health <= 10) {
-								health_label.appendChild(document.createTextNode("Regretting life choices..."));
-								entry.classList.add('rlc');
-							} else if (entity.health <= (entity.max_health / 2)) {
-								health_label.appendChild(document.createTextNode("Bloodied"));
-								entry.classList.add('low-health');
-							} else {
-								health_label.appendChild(document.createTextNode("Hurt"));
-								entry.classList.add('mid-health');
-							}
-						}
-
-						for (index in entity.conditions) {
-							conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
-							conditions_label.appendChild(document.createTextNode("\n"));
-						}
-
-						container.appendChild(img);
-						container.appendChild(character_label);
-						container.appendChild(health_label);
-						container.appendChild(conditions_label);
-
-						entry.appendChild(container);
-
-                        if (past_current_entity) {
-                            if (first_done) {
-                                entities.insertBefore(entry, entities.childNodes[insert_point]);                                
-                                insert_point += 1;
-                            } else {
-                                entities.insertBefore(entry, entities.firstChild);
-                                first_done = true;
-                            }
-                        } else {
-                            entities.appendChild(entry);
-                        }
+					display_text.appendChild(document.createTextNode("Waiting for combat to start"));
+				} else {
+					if ((display_text.childNodes.length) > 2) {
+						display_text.removeChild(display_text.lastChild);
 					}
+
+					var current_entity = document.createElement("ol");
+					current_entity.classList.add("current-entity-display");
+
+					var entities = document.createElement("ol");
+					entities.classList.add("entities");
+
+					for (var i in combat_data.entities) {
+						var entity = combat_data.entities[i]
+						if ((entity.visible) && (i == combat_data.current_entity_index)) {
+							var entry = document.createElement("li");
+							var container = document.createElement("div");
+							container.classList.add("container");
+							var img = document.createElement("img");
+							img.classList.add("current-entity-img");
+							var character_label = document.createElement("div");
+							character_label.classList.add("current-entity-label");
+							var health_label = document.createElement("div");
+							health_label.classList.add("current-entity-health");
+							var conditions_label = document.createElement("div");
+							conditions_label.classList.add("current-entity-conditions");
+
+							var image_size;
+							if (window.innerHeight < window.innerWidth) {
+								//img_size = window.innerHeight / 1.5;
+							} else {
+								//img_size = window.innerWidth / 2;
+							}
+
+							if (entity.type == "player") {
+								img.src = "data:imgage/png;base64," + entity.img_url;
+							} else {
+								img.src = entity.img_url;
+								img.classList.add("img-border");
+							}
+
+							character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
+							character_label.classList.add("fantasy-font");
+
+							if (entity.team == "party") {
+								entry.classList.add('team-party');
+								console.log("Party member.");
+							} else {
+								entry.classList.add('team-enemies');
+							}
+
+							if ((entity.type == "player") || (entity.type == "NPC")) {
+								health_label.appendChild(document.createTextNode("HP: "));
+								health_label.appendChild(document.createTextNode(entity.health));
+								health_label.appendChild(document.createTextNode("/"));
+								health_label.appendChild(document.createTextNode(entity.max_health));
+								if (entity.temp_health > 0) {
+									health_label.appendChild(document.createTextNode("+"));
+									health_label.appendChild(document.createTextNode(entity.temp_health));
+								}
+
+								if ((entity.health + entity.temp_health) == entity.max_health) {
+									entry.classList.add('full-health');
+								} else if ((entity.health + entity.temp_health) == 0) {
+									entry.classList.add('dead');
+								} else if ((entity.health + entity.temp_health) <= 10) {
+									entry.classList.add('rlc');
+								} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
+									entry.classList.add('low-health');
+								} else {
+									entry.classList.add('mid-health');
+								}
+
+								var ac_label = document.createElement("div");
+								ac_label.classList.add("current-entity-ac");
+
+								ac_label.appendChild(document.createTextNode("AC: "));
+								ac_label.appendChild(document.createTextNode(entity.ac));
+							} else {
+								//If it's a monster display bloodied, regretting life choices, etc.
+								if (entity.health == entity.max_health) {
+									health_label.appendChild(document.createTextNode("Healthy"));
+									entry.classList.add('full-health');
+								} else if (entity.health == 0) {
+									health_label.appendChild(document.createTextNode("Defeated"));
+									entry.classList.add('dead');
+								} else if (entity.health <= 10) {
+									health_label.appendChild(document.createTextNode("Regretting life choices..."));
+									entry.classList.add('rlc');
+								} else if (entity.health <= (entity.max_health / 2)) {
+									health_label.appendChild(document.createTextNode("Bloodied"));
+									entry.classList.add('low-health');
+								} else {
+									health_label.appendChild(document.createTextNode("Hurt"));
+									entry.classList.add('mid-health');
+								}
+							}
+
+							for (index in entity.conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							container.appendChild(img);
+							container.appendChild(character_label);
+							container.appendChild(health_label);
+							if ((entity.type == "player") || (entity.type == "NPC")) {
+								container.appendChild(ac_label);
+							}
+							container.appendChild(conditions_label);
+
+							entry.appendChild(container);
+
+							current_entity.appendChild(entry);
+						}
+					}
+
+					while (left_container.firstChild) {
+						left_container.removeChild(left_container.lastChild);
+					}
+
+					left_container.appendChild(current_entity);
+                
+					var past_current_entity = false;
+					var insert_point = 1;
+					var first_done = false;
+
+					for (var i in combat_data.entities) {
+						var entity = combat_data.entities[i]
+						if (combat_data.current_entity_index == i) {
+							past_current_entity = true;
+						}
+						if ((entity.visible) && (i != combat_data.current_entity_index)) {
+							var entry = document.createElement("li");
+							var container = document.createElement("div");
+							container.classList.add("container");
+							var img = document.createElement("img");
+							img.classList.add("entity_img");
+							var character_label = document.createElement("div");
+							character_label.classList.add("entity_label");
+							var health_label = document.createElement("div");
+							health_label.classList.add("entity_health");
+							var conditions_label = document.createElement("div");
+							conditions_label.classList.add("entity_conditions");
+
+							if (entity.type == "player") {
+								img.src = "data:image/png;base64," + entity.img_url;
+							} else {
+								img.src = entity.img_url;
+								img.classList.add("img-border")
+							}
+
+							character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
+							character_label.classList.add("fantasy-font");
+						
+							if (entity.team == "party") {
+								entry.classList.add('team-party');
+								console.log("Party member.");
+							} else {
+								entry.classList.add('team-enemies');
+							}
+						
+							if ((entity.type == "player") || (entity.type == "NPC")) {
+								health_label.appendChild(document.createTextNode(entity.health));
+								health_label.appendChild(document.createTextNode("/"));
+								health_label.appendChild(document.createTextNode(entity.max_health));
+								if (entity.temp_health > 0) {
+									health_label.appendChild(document.createTextNode("+"));
+									health_label.appendChild(document.createTextNode(entity.temp_health));
+								}
+
+								if ((entity.health + entity.temp_health) == entity.max_health) {
+									entry.classList.add('full-health');
+								} else if ((entity.health + entity.temp_health) == 0) {
+									entry.classList.add('dead');
+								} else if ((entity.health + entity.temp_health) <= 10) {
+									entry.classList.add('rlc');
+								} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
+									entry.classList.add('low-health');
+								} else {
+									entry.classList.add('mid-health');
+								}
+							} else {
+								//If it's a monster display bloodied, regretting life choices, etc.
+								if (entity.health == entity.max_health) {
+									health_label.appendChild(document.createTextNode("Healthy"));
+									entry.classList.add('full-health');
+								} else if (entity.health == 0) {
+									health_label.appendChild(document.createTextNode("Defeated"));
+									entry.classList.add('dead');
+								} else if (entity.health <= 10) {
+									health_label.appendChild(document.createTextNode("Regretting life choices..."));
+									entry.classList.add('rlc');
+								} else if (entity.health <= (entity.max_health / 2)) {
+									health_label.appendChild(document.createTextNode("Bloodied"));
+									entry.classList.add('low-health');
+								} else {
+									health_label.appendChild(document.createTextNode("Hurt"));
+									entry.classList.add('mid-health');
+								}
+							}
+
+							for (index in entity.conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							container.appendChild(img);
+							container.appendChild(character_label);
+							container.appendChild(health_label);
+							container.appendChild(conditions_label);
+
+							entry.appendChild(container);
+
+							if (past_current_entity) {
+								if (first_done) {
+									entities.insertBefore(entry, entities.childNodes[insert_point]);                                
+									insert_point += 1;
+								} else {
+									entities.insertBefore(entry, entities.firstChild);
+									first_done = true;
+								}
+							} else {
+								entities.appendChild(entry);
+							}
+						}
+					}
+					
+					while (right_container.firstChild) {
+						right_container.removeChild(right_container.lastChild);
+					}
+					
+					right_container.appendChild(entities);
 				}
+			} else if (combat_data.type == "party_view") {
+				round.innerHTML = "Party status";
+				combat_name.innerHTML = "Camp Fire"
+
+				var display_text = document.getElementById("content");
+
+				left_container_header.innerHTML = "";
+				right_container_header.innerHTML = "";
+
+				if (combat_data.entities.length == 0) {
+					display_text.removeChild(display_text.lastChild);
+					display_text.appendChild(document.createTextNode("Your party is empty"));
+				} else {
+					if ((display_text.childNodes.length) > 2) {
+						display_text.removeChild(display_text.lastChild);
+					}
+
+					while (left_container.firstChild) {
+						left_container.removeChild(left_container.lastChild);
+					}
+					
+					while (right_container.firstChild) {
+						right_container.removeChild(right_container.lastChild);
+					}	
+
+					var current_entity = document.createElement("ol");
+					current_entity.classList.add("entities");
+
+					var entities = document.createElement("ol");
+					entities.classList.add("entities");
+
+					var append_left = true;
+
+					for (var i in combat_data.entities) {
+						var entity = combat_data.entities[i]
+
+						if (entity.visible) {
+							var entry = document.createElement("li");
+							var container = document.createElement("div");
+							container.classList.add("container");
+							var img = document.createElement("img");
+							img.classList.add("entity_img");
+							var character_label = document.createElement("div");
+							character_label.classList.add("entity_label");
+							var health_label = document.createElement("div");
+							health_label.classList.add("entity_health");
+							var conditions_label = document.createElement("div");
+							conditions_label.classList.add("entity_conditions");
+
+							if (entity.type == "player") {
+								img.src = "data:image/png;base64," + entity.img_url;
+							} else {
+								img.src = entity.img_url;
+								img.classList.add("img-border")
+							}
+
+							character_label.appendChild(document.createTextNode("\t" + entity.alias + "\t"));
+							character_label.classList.add("fantasy-font");
+						
+							if (entity.team == "party") {
+								entry.classList.add('team-party');
+								console.log("Party member.");
+							} else {
+								entry.classList.add('team-enemies');
+							}
+						
+							if ((entity.type == "player") || (entity.type == "NPC")) {
+								health_label.appendChild(document.createTextNode(entity.health));
+								health_label.appendChild(document.createTextNode("/"));
+								health_label.appendChild(document.createTextNode(entity.max_health));
+								if (entity.temp_health > 0) {
+									health_label.appendChild(document.createTextNode("+"));
+									health_label.appendChild(document.createTextNode(entity.temp_health));
+								}
+
+								if ((entity.health + entity.temp_health) == entity.max_health) {
+									entry.classList.add('full-health');
+								} else if ((entity.health + entity.temp_health) == 0) {
+									entry.classList.add('dead');
+								} else if ((entity.health + entity.temp_health) <= 10) {
+									entry.classList.add('rlc');
+								} else if ((entity.health + entity.temp_health) <= (entity.max_health / 2)) {
+									entry.classList.add('low-health');
+								} else {
+									entry.classList.add('mid-health');
+								}
+							} else {
+								//If it's a monster display bloodied, regretting life choices, etc.
+								if (entity.health == entity.max_health) {
+									health_label.appendChild(document.createTextNode("Healthy"));
+									entry.classList.add('full-health');
+								} else if (entity.health == 0) {
+									health_label.appendChild(document.createTextNode("Defeated"));
+									entry.classList.add('dead');
+								} else if (entity.health <= 10) {
+									health_label.appendChild(document.createTextNode("Regretting life choices..."));
+									entry.classList.add('rlc');
+								} else if (entity.health <= (entity.max_health / 2)) {
+									health_label.appendChild(document.createTextNode("Bloodied"));
+									entry.classList.add('low-health');
+								} else {
+									health_label.appendChild(document.createTextNode("Hurt"));
+									entry.classList.add('mid-health');
+								}
+							}
+
+							for (index in entity.conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							container.appendChild(img);
+							container.appendChild(character_label);
+							container.appendChild(health_label);
+							container.appendChild(conditions_label);
+
+							entry.appendChild(container);
+
+							if (append_left) {
+								current_entity.appendChild(entry);
+								append_left = false;
+							} else {
+								entities.appendChild(entry);
+								append_left = true;
+							}
+						}
+					}
+
+					left_container.appendChild(current_entity);
+					right_container.appendChild(entities);
+				}
+
 			}
 		};
 	</script>

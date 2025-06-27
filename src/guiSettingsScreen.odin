@@ -29,29 +29,27 @@ draw_settings_screen :: proc() {
 	if (state.settings_screen_state.first_load) {
 		set_text_input(
 			&state.settings_screen_state.entities_file_input,
-			fmt.caprint(state.config.ENTITY_FILE_PATH[len(state.app_dir):]),
+			cstr(state.config.ENTITY_FILE_PATH[len(state.app_dir):]),
 			input_width,
 		)
 		set_text_input(
 			&state.settings_screen_state.entities_dir,
-			fmt.caprint(state.config.CUSTOM_ENTITIES_DIR[len(state.app_dir):]),
+			cstr(state.config.CUSTOM_ENTITIES_DIR[len(state.app_dir):]),
 			input_width,
 		)
 		set_text_input(
 			&state.settings_screen_state.custom_entities_input,
-			fmt.caprint(
-				state.config.CUSTOM_ENTITY_FILE_PATH[len(state.config.CUSTOM_ENTITIES_DIR):],
-			),
+			cstr(state.config.CUSTOM_ENTITY_FILE_PATH[len(state.config.CUSTOM_ENTITIES_DIR):]),
 			input_width,
 		)
 		set_text_input(
 			&state.settings_screen_state.webpage_file_inpit,
-			fmt.caprint(state.config.WEBPAGE_FILE_PATH[len(state.app_dir):]),
+			cstr(state.config.WEBPAGE_FILE_PATH[len(state.app_dir):]),
 			input_width,
 		)
 		set_text_input(
 			&state.settings_screen_state.combats_dir_input,
-			fmt.caprint(state.config.COMBAT_FILES_DIR[len(state.app_dir):]),
+			cstr(state.config.COMBAT_FILES_DIR[len(state.app_dir):]),
 			input_width,
 		)
 		state.settings_screen_state.first_load = false
@@ -60,8 +58,7 @@ draw_settings_screen :: proc() {
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y = PADDING_TOP
 
-	TEXT_SIZE = TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE_DEFAULT)
 
 	if (GuiButton(
 			   {state.cursor.x, state.cursor.y, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT},
@@ -73,14 +70,9 @@ draw_settings_screen :: proc() {
 	}
 	state.cursor.x += MENU_BUTTON_WIDTH + MENU_BUTTON_PADDING
 
-	TEXT_SIZE = TEXT_SIZE_TITLE
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+	set_text_size(TEXT_SIZE_TITLE)
+	text_align_center()
 
-	rl.GuiSetStyle(
-		.DEFAULT,
-		cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
-		cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
-	)
 	GuiLabel(
 		{
 			state.cursor.x,
@@ -90,17 +82,12 @@ draw_settings_screen :: proc() {
 		},
 		"Settings",
 	)
-	rl.GuiSetStyle(
-		.DEFAULT,
-		cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
-		cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_LEFT,
-	)
+
+	text_align_left()
+	set_text_size(TEXT_SIZE)
 
 	state.cursor.x = PADDING_LEFT
 	state.cursor.y += MENU_BUTTON_HEIGHT + MENU_BUTTON_PADDING
-
-	TEXT_SIZE = TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
 
 	label_widths := 250 + state.gui_properties.PADDING_ICONS
 

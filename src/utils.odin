@@ -12,6 +12,16 @@ import "core:time"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
 
+gui_enable :: proc() {
+	rl.GuiEnable()
+	state.gui_enabled = true
+}
+
+gui_disable :: proc() {
+	rl.GuiDisable()
+	state.gui_enabled = false
+}
+
 set_text_size :: proc(size: i32) {
 	state.gui_properties.TEXT_SIZE = size
 	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, size)
@@ -199,7 +209,7 @@ order_by_initiative :: proc(entities: ^[]Entity, num_entities: int) {
 	}
 }
 
-match_entity :: proc(entity_name: string) -> (result: Entity, ok: bool) {
+match_saved_entity :: proc(entity_name: string) -> (result: Entity, ok: bool) {
 	for entity in state.srd_entities {
 		if str(entity.name) == entity_name {
 			return entity, true
@@ -213,6 +223,22 @@ match_entity :: proc(entity_name: string) -> (result: Entity, ok: bool) {
 	return Entity{}, false
 }
 
+match_entity :: proc(
+	entity_name: string,
+	entities: []Entity,
+	num_entities: int,
+) -> (
+	result: Entity,
+	ok: bool,
+) {
+	for i in 0 ..< num_entities {
+		to_match := entities[i]
+		if str(to_match.name) == entity_name {
+			return to_match, true
+		}
+	}
+	return Entity{}, false
+}
 
 get_entity_icon_data :: proc {
 	get_entity_icon_from_paths,
@@ -305,7 +331,8 @@ combat_to_json :: proc() {
 
 	result = strings.join(
 		[]string {
-			"{\"combat_name\": \"",
+			"{\"type\": \"combat_view\",",
+			"\"combat_name\": \"",
 			fmt.tprint(state.setup_screen_state.filename_input.text),
 			"\",\"round\": ",
 			fmt.tprint(state.combat_screen_state.current_round),
@@ -408,7 +435,107 @@ combat_to_json :: proc() {
 	result = strings.join([]string{result, "]}"}, "")
 	state.server_state.json_data = result
 	context.allocator = static_alloc
-	return
+}
+
+party_to_json :: proc() {
+	context.allocator = server_alloc
+
+	result := ""
+
+	result = strings.join([]string{"{\"type\": \"party_view\"", ",\"entities\": ["}, "")
+
+	for i in 0 ..< state.setup_screen_state.num_party {
+		entity := state.setup_screen_state.party_selected[i]
+		entity_string: string
+		entity_type: string
+
+		switch entity.type {
+		case .MONSTER:
+			entity_type = "monster"
+		case .PLAYER:
+			entity_type = "player"
+		case .NPC:
+			entity_type = "NPC"
+		}
+
+		entity_team: string
+		#partial switch entity.team {
+		case .PARTY:
+			entity_team = "party"
+		case .ENEMIES:
+			entity_team = "enemies"
+		}
+
+		if (i < state.setup_screen_state.num_party - 1) {
+			entity_string = strings.join(
+				[]string {
+					"{\"name\": \"",
+					fmt.tprint(entity.name),
+					"\",\"alias\": \"",
+					fmt.tprint(entity.alias),
+					"\",\"type\": \"",
+					entity_type,
+					"\",\"team\": \"",
+					entity_team,
+					"\",\"health\": ",
+					fmt.tprint(entity.HP),
+					",\"max_health\": ",
+					fmt.tprint(entity.HP_max),
+					",\"temp_health\": ",
+					fmt.tprint(entity.temp_HP),
+					",\"ac\": ",
+					fmt.tprint(entity.AC),
+					",\"conditions\": ",
+					fmt.tprintf("%v", gen_condition_string(entity.conditions)),
+					",\"visible\": ",
+					"true" if entity.visible else "false",
+					",\"dead\": ",
+					"true" if !entity.alive else "false",
+					",\"img_url\": \"",
+					fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
+					"\"",
+					"},",
+				},
+				"",
+			)
+		} else {
+			entity_string = strings.join(
+				[]string {
+					"{\"name\": \"",
+					fmt.tprint(entity.name),
+					"\",\"alias\": \"",
+					fmt.tprint(entity.alias),
+					"\",\"type\": \"",
+					entity_type,
+					"\",\"team\": \"",
+					entity_team,
+					"\",\"health\": ",
+					fmt.tprint(entity.HP),
+					",\"max_health\": ",
+					fmt.tprint(entity.HP_max),
+					",\"temp_health\": ",
+					fmt.tprint(entity.temp_HP),
+					",\"ac\": ",
+					fmt.tprint(entity.AC),
+					",\"conditions\": ",
+					fmt.tprintf("%v", gen_condition_string(entity.conditions)),
+					",\"visible\": ",
+					"true" if entity.visible else "false",
+					",\"dead\": ",
+					"true" if !entity.alive else "false",
+					",\"img_url\": \"",
+					fmt.tprint(entity.icon_data) if (entity.type == .PLAYER) else fmt.tprint(entity.img_url),
+					"\"",
+					"}",
+				},
+				"",
+			)
+		}
+		result = strings.join([]string{result, entity_string}, "")
+	}
+	result = strings.join([]string{result, "]}"}, "")
+	state.server_state.json_data = result
+	context.allocator = static_alloc
 }
 
 add_to_damage_set :: proc(damage_types: ^DamageSet, damage_type: cstring) {

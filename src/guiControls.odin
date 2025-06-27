@@ -3,6 +3,7 @@ package main
 import "core:encoding/base64"
 import "core:fmt"
 import "core:log"
+import vmem "core:mem/virtual"
 import "core:slice"
 import "core:strings"
 import "core:unicode/utf8"
@@ -46,7 +47,7 @@ hover_stack_add :: proc(gui_control: ^GuiControl) {
 }
 
 is_current_hover :: proc(gui_control: GuiControl) -> bool {
-	if len(state.hover_stack.stack) > 0 {
+	if len(state.hover_stack.stack) > 0 && state.gui_enabled {
 		if state.hover_stack.stack[len(state.hover_stack.stack) - 1].id == gui_control.id {
 			return true
 		}
@@ -69,7 +70,7 @@ clear_hover_stack :: proc() {
 }
 
 GuiLabel :: proc(bounds: rl.Rectangle, text: cstring) {
-	initial_text_size := rl.GuiGetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE)
+	initial_text_size := state.gui_properties.TEXT_SIZE
 	label_string: cstring
 	if text != "" {
 		if string(text)[0] != '#' {
@@ -84,7 +85,7 @@ GuiLabel :: proc(bounds: rl.Rectangle, text: cstring) {
 	}
 	rl.GuiLabel(bounds, label_string)
 	state.gui_properties.TEXT_SIZE = initial_text_size
-	rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+	set_text_size(state.gui_properties.TEXT_SIZE)
 }
 
 ButtonState :: struct {
@@ -121,18 +122,14 @@ GuiButtonWithState :: proc(
 
 	border: f32 : 2
 
-	rl.DrawRectangle(
-		cast(i32)bounds.x,
-		cast(i32)bounds.y,
-		cast(i32)bounds.width,
-		cast(i32)bounds.height,
-		BUTTON_BORDER_COLOUR,
-	)
-	rl.DrawRectangle(
-		cast(i32)(bounds.x + border),
-		cast(i32)(bounds.y + border),
-		cast(i32)(bounds.width - (border * 2)),
-		cast(i32)(bounds.height - (border * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{
+			bounds.x + border,
+			bounds.y + border,
+			bounds.width - (border * 2),
+			bounds.height - (border * 2),
+		},
 		BUTTON_COLOUR,
 	)
 	text_align_center()
@@ -183,14 +180,9 @@ GuiButtonWithState :: proc(
 		button_state.hovered = false
 	}
 
-	if is_current_hover(button_state) {
-		rl.DrawRectangle(
-			cast(i32)bounds.x,
-			cast(i32)bounds.y,
-			cast(i32)bounds.width,
-			cast(i32)bounds.height,
-			BUTTON_HOVER_COLOUR,
-		)
+	if is_current_hover(button_state) && rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
+
 		if rl.IsMouseButtonReleased(.LEFT) {
 			button_state.hovered = false
 			return true
@@ -217,18 +209,14 @@ GuiButtonStateless :: proc(
 
 	border: f32 : 2
 
-	rl.DrawRectangle(
-		cast(i32)bounds.x,
-		cast(i32)bounds.y,
-		cast(i32)bounds.width,
-		cast(i32)bounds.height,
-		BUTTON_BORDER_COLOUR,
-	)
-	rl.DrawRectangle(
-		cast(i32)(bounds.x + border),
-		cast(i32)(bounds.y + border),
-		cast(i32)(bounds.width - (border * 2)),
-		cast(i32)(bounds.height - (border * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{
+			bounds.x + border,
+			bounds.y + border,
+			bounds.width - (border * 2),
+			bounds.height - (border * 2),
+		},
 		BUTTON_COLOUR,
 	)
 	text_align_center()
@@ -272,15 +260,10 @@ GuiButtonStateless :: proc(
 		)
 	}
 
-	if len(state.hover_stack.stack) == 0 {
+	if len(state.hover_stack.stack) == 0 && state.gui_enabled {
 		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-			rl.DrawRectangle(
-				cast(i32)bounds.x,
-				cast(i32)bounds.y,
-				cast(i32)bounds.width,
-				cast(i32)bounds.height,
-				BUTTON_HOVER_COLOUR,
-			)
+			rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
+
 			if rl.IsMouseButtonReleased(.LEFT) {
 				return true
 			}
@@ -367,14 +350,11 @@ GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
 
 	set_text_size(25)
 
-	rl.DrawRectangle(
-		cast(i32)(x - border),
-		cast(i32)(y - border),
-		cast(i32)(width + (border * 2)),
-		cast(i32)(height + (border * 2)),
+	rl.DrawRectangleRec(
+		{x - border, y - border, width + (border * 2), height + (border * 2)},
 		BUTTON_BORDER_COLOUR if !input_state.edit_mode else BUTTON_ACTIVE_COLOUR,
 	)
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BACKGROUND_COLOUR)
+	rl.DrawRectangleRec({x, y, width, height}, BACKGROUND_COLOUR)
 
 	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
 		input_state.hovered = true
@@ -679,13 +659,7 @@ GuiTextInput :: proc(bounds: rl.Rectangle, input_state: ^TextInputState) {
 	}
 
 	if is_current_hover(input_state) {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)y,
-			cast(i32)width,
-			cast(i32)height,
-			BUTTON_HOVER_COLOUR,
-		)
+		rl.DrawRectangleRec({x, y, width, height}, BUTTON_HOVER_COLOUR)
 		if rl.IsMouseButtonReleased(.LEFT) {
 			input_state.edit_mode = true
 		}
@@ -721,35 +695,21 @@ GuiToggle :: proc(bounds: rl.Rectangle, toggle_state: ^ToggleState) -> bool {
 
 	border :: 2
 
-	rl.DrawRectangle(
-		cast(i32)bounds.x,
-		cast(i32)bounds.y,
-		cast(i32)bounds.width,
-		cast(i32)bounds.height,
-		BUTTON_BORDER_COLOUR,
-	)
-	rl.DrawRectangle(
-		cast(i32)bounds.x + border,
-		cast(i32)bounds.y + border,
-		cast(i32)bounds.width - (border * 2),
-		cast(i32)bounds.height - (border * 2),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{
+			bounds.x + border,
+			bounds.y + border,
+			bounds.width - (border * 2),
+			bounds.height - (border * 2),
+		},
 		BUTTON_COLOUR,
 	)
-	rl.GuiSetStyle(
-		.LABEL,
-		cast(i32)rl.GuiControlProperty.TEXT_ALIGNMENT,
-		cast(i32)rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
-	)
+	text_align_center()
 	GuiLabel(bounds, toggle_state.text)
 
 	if toggle_state.toggle^ {
-		rl.DrawRectangle(
-			cast(i32)bounds.x,
-			cast(i32)bounds.y,
-			cast(i32)bounds.width,
-			cast(i32)bounds.height,
-			BUTTON_ACTIVE_COLOUR,
-		)
+		rl.DrawRectangleRec(bounds, BUTTON_ACTIVE_COLOUR)
 	}
 
 	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
@@ -760,13 +720,7 @@ GuiToggle :: proc(bounds: rl.Rectangle, toggle_state: ^ToggleState) -> bool {
 	}
 
 	if is_current_hover(toggle_state) {
-		rl.DrawRectangle(
-			cast(i32)bounds.x,
-			cast(i32)bounds.y,
-			cast(i32)bounds.width,
-			cast(i32)bounds.height,
-			BUTTON_HOVER_COLOUR,
-		)
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
 		if rl.IsMouseButtonReleased(.LEFT) {
 			toggle_state.toggle^ = !toggle_state.toggle^
 			return true
@@ -798,12 +752,9 @@ GuiToggleSlider :: proc(bounds: rl.Rectangle, slider_state: ^ToggleSliderState) 
 
 	border: f32 : 2
 
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-	rl.DrawRectangle(
-		cast(i32)(x + border),
-		cast(i32)(y + border),
-		cast(i32)(width - (border * 2)),
-		cast(i32)(height - (border * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{x + border, y + border, width - (border * 2), height - (border * 2)},
 		BUTTON_COLOUR,
 	)
 
@@ -814,13 +765,7 @@ GuiToggleSlider :: proc(bounds: rl.Rectangle, slider_state: ^ToggleSliderState) 
 		height,
 	}
 
-	rl.DrawRectangle(
-		cast(i32)option_bounds.x,
-		cast(i32)option_bounds.y,
-		cast(i32)option_bounds.width,
-		cast(i32)option_bounds.height,
-		BUTTON_ACTIVE_COLOUR,
-	)
+	rl.DrawRectangleRec(option_bounds, BUTTON_ACTIVE_COLOUR)
 
 	GuiLabel(bounds, slider_state.options[slider_state.selected])
 
@@ -832,13 +777,7 @@ GuiToggleSlider :: proc(bounds: rl.Rectangle, slider_state: ^ToggleSliderState) 
 	}
 
 	if is_current_hover(slider_state) {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)y,
-			cast(i32)width,
-			cast(i32)height,
-			BUTTON_HOVER_COLOUR,
-		)
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
 		if rl.IsMouseButtonReleased(.LEFT) {
 			if (slider_state.selected != len(slider_state.options) - 1) {
 				slider_state.selected += 1
@@ -890,27 +829,16 @@ GuiCheckBoxWithState :: proc(bounds: rl.Rectangle, check_box_state: ^CheckBoxSta
 	label_width := width - box_width - (border * 4)
 	label_height := height
 
-	rl.DrawRectangle(
-		cast(i32)box_x,
-		cast(i32)box_y,
-		cast(i32)box_width,
-		cast(i32)box_height,
-		BUTTON_BORDER_COLOUR,
-	)
+	rl.DrawRectangleRec({box_x, box_y, box_width, box_height}, BUTTON_BORDER_COLOUR)
+
 	if !check_box_state.toggle^ {
-		rl.DrawRectangle(
-			cast(i32)(box_x + border),
-			cast(i32)(box_y + border),
-			cast(i32)(box_width - (border * 2)),
-			cast(i32)(box_height - (border * 2)),
+		rl.DrawRectangleRec(
+			{box_x + border, box_y + border, box_width - (border * 2), box_height - (border * 2)},
 			BUTTON_COLOUR,
 		)
 	} else {
-		rl.DrawRectangle(
-			cast(i32)(box_x + border),
-			cast(i32)(box_y + border),
-			cast(i32)(box_width - (border * 2)),
-			cast(i32)(box_height - (border * 2)),
+		rl.DrawRectangleRec(
+			{box_x + border, box_y + border, box_width - (border * 2), box_height - (border * 2)},
 			BUTTON_ACTIVE_COLOUR,
 		)
 	}
@@ -925,13 +853,7 @@ GuiCheckBoxWithState :: proc(bounds: rl.Rectangle, check_box_state: ^CheckBoxSta
 	}
 
 	if is_current_hover(check_box_state) {
-		rl.DrawRectangle(
-			cast(i32)box_x,
-			cast(i32)box_y,
-			cast(i32)box_width,
-			cast(i32)box_height,
-			BUTTON_HOVER_COLOUR,
-		)
+		rl.DrawRectangleRec({box_x, box_y, box_width, box_height}, BUTTON_HOVER_COLOUR)
 		if rl.IsMouseButtonReleased(.LEFT) {
 			check_box_state.toggle^ = !check_box_state.toggle^
 		}
@@ -959,43 +881,27 @@ GuiCheckBoxStateless :: proc(bounds: rl.Rectangle, text: cstring, toggle: ^bool)
 
 	border: f32 : 2
 
-	rl.DrawRectangle(
-		cast(i32)box_x,
-		cast(i32)box_y,
-		cast(i32)box_width,
-		cast(i32)box_height,
-		BUTTON_BORDER_COLOUR,
-	)
+	rl.DrawRectangleRec({box_x, box_y, box_width, box_height}, BUTTON_BORDER_COLOUR)
 	if !toggle^ {
-		rl.DrawRectangle(
-			cast(i32)(box_x + border),
-			cast(i32)(box_y + border),
-			cast(i32)(box_width - (border * 2)),
-			cast(i32)(box_height - (border * 2)),
+		rl.DrawRectangleRec(
+			{box_x + border, box_y + border, box_width - (border * 2), box_height - (border * 2)},
 			BUTTON_COLOUR,
 		)
 	} else {
-		rl.DrawRectangle(
-			cast(i32)(box_x + border),
-			cast(i32)(box_y + border),
-			cast(i32)(box_width - (border * 2)),
-			cast(i32)(box_height - (border * 2)),
+		rl.DrawRectangleRec(
+			{box_x + border, box_y + border, box_width - (border * 2), box_height - (border * 2)},
 			BUTTON_ACTIVE_COLOUR,
 		)
 	}
 
 	GuiLabel({label_x, label_y, label_width, label_height}, text)
 
-	if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
-		rl.DrawRectangle(
-			cast(i32)box_x,
-			cast(i32)box_y,
-			cast(i32)box_width,
-			cast(i32)box_height,
-			BUTTON_HOVER_COLOUR,
-		)
-		if rl.IsMouseButtonReleased(.LEFT) {
-			toggle^ = !toggle^
+	if state.gui_enabled {
+		if rl.CheckCollisionPointRec(state.mouse_pos, {box_x, box_y, box_width, box_height}) {
+			rl.DrawRectangleRec({box_x, box_y, box_width, box_height}, BUTTON_HOVER_COLOUR)
+			if rl.IsMouseButtonReleased(.LEFT) {
+				toggle^ = !toggle^
+			}
 		}
 	}
 }
@@ -1033,7 +939,7 @@ init_entity_button_state :: proc(
 }
 
 GuiEntityButtonClickable :: proc(
-	rec: rl.Rectangle,
+	bounds: rl.Rectangle,
 	button_state: ^EntityButtonState,
 ) -> (
 	clicked: bool,
@@ -1042,10 +948,10 @@ GuiEntityButtonClickable :: proc(
 	rl.GuiSetIconScale(1)
 	defer rl.GuiSetIconScale(2)
 
-	x := rec.x
-	y := rec.y
-	width := rec.width
-	height := rec.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
 	BORDER: f32 : 2
 	MARGIN: f32 : 0.01
@@ -1072,18 +978,15 @@ GuiEntityButtonClickable :: proc(
 	health_height := height - (BORDER * 2)
 
 	//Draw border
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-	rl.DrawRectangle(
-		cast(i32)(x + BORDER),
-		cast(i32)(y + BORDER),
-		cast(i32)(width - (BORDER * 2)),
-		cast(i32)(height - (BORDER * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{x + BORDER, y + BORDER, width - (BORDER * 2), height - (BORDER * 2)},
 		BUTTON_COLOUR,
 	)
 
 	GuiLabel({name_x, name_y, name_width, name_height}, cstr(button_state.entity.alias))
 
-	if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
 		button_state.hovered = true
 		hover_stack_add(button_state)
 	} else {
@@ -1091,14 +994,7 @@ GuiEntityButtonClickable :: proc(
 	}
 
 	if is_current_hover(button_state) {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)y,
-			cast(i32)width,
-			cast(i32)height,
-			rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2),
-		)
-
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
 		if rl.IsMouseButtonReleased(.LEFT) {
 			clicked = true
 			return
@@ -1162,15 +1058,15 @@ GuiEntityButtonClickable :: proc(
 	return
 }
 
-GuiEntityButton :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) {
+GuiEntityButton :: proc(bounds: rl.Rectangle, button_state: ^EntityButtonState) {
 	using state.gui_properties
 	rl.GuiSetIconScale(1)
 	defer rl.GuiSetIconScale(2)
 
-	x := rec.x
-	y := rec.y
-	width := rec.width
-	height := rec.height
+	x := bounds.x
+	y := bounds.y
+	width := bounds.width
+	height := bounds.height
 
 	BORDER: f32 : 2
 	MARGIN: f32 : 0.01
@@ -1199,18 +1095,15 @@ GuiEntityButton :: proc(rec: rl.Rectangle, button_state: ^EntityButtonState) {
 	name := button_state.entity.alias
 	initiative := button_state.entity.initiative
 	//Draw border
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-	rl.DrawRectangle(
-		cast(i32)(x + BORDER),
-		cast(i32)(y + BORDER),
-		cast(i32)(width - (BORDER * 2)),
-		cast(i32)(height - (BORDER * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{x + BORDER, y + BORDER, width - (BORDER * 2), height - (BORDER * 2)},
 		BUTTON_COLOUR,
 	)
 
 	GuiLabel({name_x, name_y, name_width, name_height}, cstr(name))
 
-	if rl.CheckCollisionPointRec(state.mouse_pos, rec) {
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
 		button_state.hovered = true
 		hover_stack_add(button_state)
 	} else {
@@ -1332,22 +1225,13 @@ GuiDropdownControl :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState)
 		dropdown_state.hovered = false
 	}
 
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-	rl.DrawRectangle(
-		cast(i32)(x + border),
-		cast(i32)(y + border),
-		cast(i32)(width - (border * 2)),
-		cast(i32)(height - (border * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{x + border, y + border, width - (border * 2), height - (border * 2)},
 		BUTTON_COLOUR,
 	)
 	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)y,
-			cast(i32)width,
-			cast(i32)height,
-			BUTTON_HOVER_COLOUR,
-		)
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
 	}
 
 	if !dropdown_state.static_title {
@@ -1422,18 +1306,9 @@ _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
 	}
 
 	if dropdown_state.active {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)cursor_y,
-			cast(i32)width,
-			cast(i32)dropdown_height,
-			BUTTON_BORDER_COLOUR,
-		)
-		rl.DrawRectangle(
-			cast(i32)(x + border),
-			cast(i32)(cursor_y + border),
-			cast(i32)(width - (border * 2)),
-			cast(i32)(dropdown_height - (border * 2)),
+		rl.DrawRectangleRec({x, cursor_y, width, dropdown_height}, BUTTON_BORDER_COLOUR)
+		rl.DrawRectangleRec(
+			{x + border, cursor_y + border, width - (border * 2), dropdown_height - (border * 2)},
 			DROPDOWN_COLOUR,
 		)
 
@@ -1469,13 +1344,7 @@ _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
 			LINE_HEIGHT,
 		}
 
-		rl.DrawRectangle(
-			cast(i32)currently_selected.x,
-			cast(i32)currently_selected.y,
-			cast(i32)currently_selected.width,
-			cast(i32)currently_selected.height,
-			DROPDOWN_SELECTED_COLOUR,
-		)
+		rl.DrawRectangleRec(currently_selected, DROPDOWN_SELECTED_COLOUR)
 
 		for label, i in dropdown_state.labels {
 			option_bounds := rl.Rectangle{x, cursor_y, dropdown_content_rec.width, LINE_HEIGHT}
@@ -1499,13 +1368,7 @@ _draw_dropdown :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownState) {
 				)
 
 				if rl.CheckCollisionPointRec(state.mouse_pos, option_bounds) {
-					rl.DrawRectangle(
-						cast(i32)option_bounds.x,
-						cast(i32)option_bounds.y,
-						cast(i32)option_bounds.width,
-						cast(i32)option_bounds.height,
-						DROPDOWN_HOVER_COLOUR,
-					)
+					rl.DrawRectangleRec(option_bounds, DROPDOWN_HOVER_COLOUR)
 					//Draw highlight colour
 					if rl.IsMouseButtonReleased(.LEFT) {
 						dropdown_state.selected = cast(i32)i
@@ -1577,7 +1440,7 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
 
 	defer {
 		TEXT_SIZE = initial_text_size
-		rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+		set_text_size(initial_text_size)
 	}
 
 	border: f32 : 2
@@ -1592,22 +1455,13 @@ GuiDropdownSelectControl :: proc(bounds: rl.Rectangle, dropdown_state: ^Dropdown
 		}
 	}
 
-	rl.DrawRectangle(cast(i32)x, cast(i32)y, cast(i32)width, cast(i32)height, BUTTON_BORDER_COLOUR)
-	rl.DrawRectangle(
-		cast(i32)(x + border),
-		cast(i32)(y + border),
-		cast(i32)(width - (border * 2)),
-		cast(i32)(height - (border * 2)),
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(
+		{x + border, y + border, width - (border * 2), height - (border * 2)},
 		BUTTON_COLOUR,
 	)
 	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) && is_current_hover(dropdown_state) {
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)y,
-			cast(i32)width,
-			cast(i32)height,
-			rl.ColorAlpha(BUTTON_HOVER_COLOUR, 0.2),
-		)
+		rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
 	}
 	GuiLabel(
 		{x + border, y + border, width - (border * 2), height - (border * 2)},
@@ -1662,18 +1516,9 @@ _draw_dropdown_select :: proc(bounds: rl.Rectangle, dropdown_state: ^DropdownSel
 			dropdown_state.hovered = false
 		}
 
-		rl.DrawRectangle(
-			cast(i32)x,
-			cast(i32)cursor_y,
-			cast(i32)width,
-			cast(i32)dropdown_height,
-			BUTTON_BORDER_COLOUR,
-		)
-		rl.DrawRectangle(
-			cast(i32)(x + border),
-			cast(i32)(cursor_y + border),
-			cast(i32)(width - (border * 2)),
-			cast(i32)(dropdown_height - (border * 2)),
+		rl.DrawRectangleRec({x, cursor_y, width, dropdown_height}, BUTTON_BORDER_COLOUR)
+		rl.DrawRectangleRec(
+			{x + border, cursor_y + border, width - (border * 2), dropdown_height - (border * 2)},
 			DROPDOWN_COLOUR,
 		)
 		dropdown_bounds = {x, cursor_y, width, dropdown_height}
@@ -1869,18 +1714,14 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 
 	for bounds, i in tab_bounds {
 		if cast(i32)i != tab_state.selected {
-			rl.DrawRectangle(
-				cast(i32)bounds.x,
-				cast(i32)bounds.y,
-				cast(i32)bounds.width,
-				cast(i32)bounds.height,
-				BUTTON_BORDER_COLOUR,
-			)
-			rl.DrawRectangle(
-				cast(i32)(bounds.x + border),
-				cast(i32)(bounds.y + border),
-				cast(i32)(bounds.width - (border * 2)),
-				cast(i32)(bounds.height - (border * 2)),
+			rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+			rl.DrawRectangleRec(
+				{
+					bounds.x + border,
+					bounds.y + border,
+					bounds.width - (border * 2),
+					bounds.height - (border * 2),
+				},
 				BUTTON_COLOUR,
 			)
 			GuiLabel(
@@ -1897,18 +1738,14 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 
 	for bounds, i in tab_bounds {
 		if cast(i32)i == tab_state.selected {
-			rl.DrawRectangle(
-				cast(i32)bounds.x,
-				cast(i32)bounds.y,
-				cast(i32)bounds.width,
-				cast(i32)bounds.height,
-				BUTTON_BORDER_COLOUR,
-			)
-			rl.DrawRectangle(
-				cast(i32)(bounds.x + selected_padding),
-				cast(i32)(bounds.y + selected_padding),
-				cast(i32)(bounds.width - (selected_padding * 2)),
-				cast(i32)(bounds.height - (selected_padding * 2)),
+			rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+			rl.DrawRectangleRec(
+				{
+					bounds.x + selected_padding,
+					bounds.y + selected_padding,
+					bounds.width - (selected_padding * 2),
+					bounds.height - (selected_padding * 2),
+				},
 				BUTTON_COLOUR,
 			)
 			GuiLabel(
@@ -1922,14 +1759,17 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 			)
 		}
 
-		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-			hovered = true
-		}
+		if state.gui_enabled {
+			if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+				hovered = true
+				rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
+			}
 
-		if is_current_hover(tab_state) {
-			if rl.IsMouseButtonPressed(.LEFT) {
-				if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
-					tab_state.selected = cast(i32)i
+			if is_current_hover(tab_state) {
+				if rl.IsMouseButtonPressed(.LEFT) {
+					if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+						tab_state.selected = cast(i32)i
+					}
 				}
 			}
 		}
@@ -1971,11 +1811,8 @@ GuiPanel :: proc(bounds: rl.Rectangle, panel_state: ^PanelState, text: cstring) 
 		bounds.height - state.gui_properties.LINE_HEIGHT,
 	}
 
-	rl.DrawRectangle(
-		cast(i32)bounds.x,
-		cast(i32)bounds.y,
-		cast(i32)bounds.width,
-		cast(i32)state.gui_properties.LINE_HEIGHT,
+	rl.DrawRectangleRec(
+		{bounds.x, bounds.y, bounds.width, state.gui_properties.LINE_HEIGHT},
 		state.gui_properties.HEADER_COLOUR,
 	)
 	text_align_center()
@@ -1996,31 +1833,65 @@ init_message_box :: proc(message_box_state: ^MessageBoxState, title: cstring, me
 	GUI_ID += 1
 }
 
-GuiMessageBox :: proc(bounds: rl.Rectangle, message_box_state: ^MessageBoxState) -> i32 {
-	initial_text_size := state.gui_properties.TEXT_SIZE
-	defer rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, initial_text_size)
+GuiMessageBox :: proc(bounds: rl.Rectangle, message_box_state: ^MessageBoxState) -> bool {
+	using state.gui_properties
 
-	if rl.CheckCollisionPointRec(rl.GetMousePosition(), bounds) {
+	initial_text_size := TEXT_SIZE
+	defer set_text_size(initial_text_size)
+
+	border: f32 : 2
+	padding: f32 = bounds.width * 0.1
+
+	inner_bounds := rl.Rectangle {
+		bounds.x + border,
+		bounds.y + border,
+		bounds.width - (border * 2),
+		bounds.height - (border * 2),
+	}
+
+	top_bar_bounds := rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height * 0.3}
+
+	label_bounds := rl.Rectangle {
+		bounds.x + padding,
+		bounds.y + bounds.height * 0.35,
+		bounds.width - (padding * 2),
+		bounds.height * 0.35,
+	}
+
+	button_bounds := rl.Rectangle {
+		bounds.x + padding,
+		bounds.y + bounds.height * 0.7,
+		bounds.width - (padding * 2),
+		bounds.height * 0.25,
+	}
+
+	if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
 		message_box_state.hovered = true
 		hover_stack_add(message_box_state)
 	} else {
 		message_box_state.hovered = false
 	}
 
-	state.gui_properties.TEXT_SIZE = state.gui_properties.TEXT_SIZE_DEFAULT
-	rl.GuiSetStyle(
-		.DEFAULT,
-		cast(i32)rl.GuiDefaultProperty.TEXT_SIZE,
-		state.gui_properties.TEXT_SIZE,
-	)
+	TEXT_SIZE = TEXT_SIZE_DEFAULT
+	set_text_size(TEXT_SIZE)
 
-	output := rl.GuiMessageBox(bounds, message_box_state.title, message_box_state.message, "Close")
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(inner_bounds, rl.WHITE)
 
-	if is_current_hover(message_box_state) {
-		return output
-	} else {
-		return -1
+	rl.DrawRectangleRec(top_bar_bounds, BUTTON_BORDER_COLOUR)
+
+	GuiLabel(top_bar_bounds, message_box_state.title)
+
+	GuiLabel(label_bounds, message_box_state.message)
+
+	button_state := ButtonState{}
+	button_state.id = message_box_state.id
+
+	if GuiButton(button_bounds, &button_state, "Close") {
+		return true
 	}
+
+	return false
 }
 
 MessageBoxQueueState :: struct {
@@ -2045,7 +1916,7 @@ GuiMessageBoxQueue :: proc(message_queue_state: ^MessageBoxQueueState) {
 	cursor_y: f32 = 50
 
 	message_loop: for &message_box, i in message_queue_state.messages {
-		if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) != -1 {
+		if GuiMessageBox({cursor_x, cursor_y, 300, 100}, &message_box) {
 			remove_message(message_queue_state, &message_box)
 		}
 		cursor_y += 110
@@ -2054,6 +1925,106 @@ GuiMessageBoxQueue :: proc(message_queue_state: ^MessageBoxQueueState) {
 			break message_loop
 		}
 	}
+}
+
+PopupState :: struct {
+	using gui_control: GuiControl,
+	dialog:            cstring,
+	options:           []cstring,
+}
+
+init_popup :: proc(popup_state: ^PopupState, dialog: cstring, options: []cstring) {
+	popup_state.id = GUI_ID
+	popup_state.dialog = dialog
+	popup_state.options = options
+
+	GUI_ID += 1
+}
+
+GuiPopup :: proc(bounds: rl.Rectangle, popup_state: ^PopupState) -> int {
+	using state.gui_properties
+
+	gui_enable()
+
+	rl.BeginScissorMode(
+		cast(i32)bounds.x,
+		cast(i32)bounds.y,
+		cast(i32)bounds.width,
+		cast(i32)bounds.height,
+	)
+	defer rl.EndScissorMode()
+
+	border: f32 : 2
+	padding: f32 = bounds.width * 0.1
+
+	inner_bounds := rl.Rectangle {
+		bounds.x + border,
+		bounds.y + border,
+		bounds.width - (border * 2),
+		bounds.height - (border * 2),
+	}
+
+	top_bar_bounds := rl.Rectangle{bounds.x, bounds.y, bounds.width, bounds.height * 0.3}
+
+	label_bounds := rl.Rectangle {
+		bounds.x + padding,
+		bounds.y + bounds.height * 0.35,
+		bounds.width - (padding * 2),
+		bounds.height * 0.35,
+	}
+
+	rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+	rl.DrawRectangleRec(inner_bounds, rl.WHITE)
+
+	rl.DrawRectangleRec(top_bar_bounds, BUTTON_BORDER_COLOUR)
+
+	GuiLabel(label_bounds, popup_state.dialog)
+
+	options_bounds := make([dynamic]rl.Rectangle, allocator = frame_alloc)
+
+	options_y := bounds.y + (bounds.height * 0.7)
+	options_width :=
+		(bounds.width - (padding * 2) - (padding * cast(f32)len(popup_state.options))) /
+		cast(f32)len(popup_state.options)
+
+	cursor_x := bounds.x + padding
+
+	for option, i in popup_state.options {
+		append(
+			&options_bounds,
+			rl.Rectangle {
+				cursor_x + (cast(f32)i * (options_width + padding)),
+				options_y,
+				options_width,
+				bounds.height * 0.25,
+			},
+		)
+	}
+
+	for bounds, i in options_bounds {
+		rl.DrawRectangleRec(bounds, BUTTON_BORDER_COLOUR)
+		rl.DrawRectangleRec(
+			{
+				bounds.x + border,
+				bounds.y + border,
+				bounds.width - (border * 2),
+				bounds.height - (border * 2),
+			},
+			BUTTON_COLOUR,
+		)
+		GuiLabel(bounds, popup_state.options[i])
+		if rl.CheckCollisionPointRec(state.mouse_pos, bounds) {
+			rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
+			rl.DrawRectangleRec(bounds, BUTTON_HOVER_COLOUR)
+			if rl.IsMouseButtonReleased(.LEFT) {
+				gui_enable()
+				return i
+			}
+		}
+	}
+
+	gui_disable()
+	return -1
 }
 
 GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
@@ -2242,17 +2213,13 @@ GuiFileDialog :: proc(bounds: rl.Rectangle) -> bool {
 
 					if state.load_screen_state.files_list[file_counter - dir_count] ==
 					   state.load_screen_state.selected_file {
-						rl.DrawRectangle(
-							cast(i32)cursor_x,
-							cast(i32)cursor_y,
-							cast(i32)ICON_SIZE,
-							cast(i32)ICON_SIZE,
+						rl.DrawRectangleRec(
+							{cursor_x, cursor_y, ICON_SIZE, ICON_SIZE},
 							BUTTON_ACTIVE_COLOUR,
 						)
 					}
 
-					TEXT_SIZE = 20
-					rl.GuiSetStyle(.DEFAULT, cast(i32)rl.GuiDefaultProperty.TEXT_SIZE, TEXT_SIZE)
+					set_text_size(20)
 				}
 				cursor_x += ICON_SIZE + dynamic_icon_padding
 				file_counter += 1

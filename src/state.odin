@@ -66,6 +66,8 @@ SetupScreenState :: struct {
 	panel_right:           PanelState,
 	filename_input:        TextInputState,
 	initiative_input:      TextInputState,
+	long_rest_popup:       PopupState,
+	popup_toggled:         bool,
 }
 
 init_setup_screen :: proc() {
@@ -392,6 +394,7 @@ WindowState :: union {
 State :: struct {
 	window_width, window_height: f32,
 	fullscreen:                  bool,
+	gui_enabled:                 bool,
 	hover_stack:                 HoverStack,
 	cursor:                      [2]f32,
 	mouse_pos:                   [2]f32,
@@ -421,6 +424,8 @@ init_state :: proc(state: ^State) {
 	state.app_dir = double_escape_backslashes(os.get_current_directory())
 	state.app_dir = os.get_current_directory()
 	LOAD_CONFIG(&state.config)
+
+	state.gui_enabled = true
 
 	state.cursor = {0, 0}
 	state.mouse_pos = rl.GetMousePosition()
@@ -486,8 +491,6 @@ init_state :: proc(state: ^State) {
 	state.current_screen_state = state.title_screen_state
 
 	state.server_state = ServerState{}
-
-	state.server_state.running = true
 	state.server_state.json_data = "{}"
 }
 
