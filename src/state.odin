@@ -129,6 +129,7 @@ CombatScreenState :: struct {
 	panel_left_bottom_text:        cstring,
 	entity_button_states:          [dynamic]EntityButtonState,
 	panel_mid:                     PanelState,
+	main_tab_state:                TabControlState,
 	scroll_lock_mid:               bool,
 	from_dropdown:                 DropdownState,
 	to_dropdown:                   DropdownSelectState,
@@ -138,9 +139,40 @@ CombatScreenState :: struct {
 	heal_input:                    TextInputState,
 	temp_HP_input:                 TextInputState,
 	condition_dropdown:            DropdownSelectState,
+	custom_condition_input:        TextInputState,
 	toggle_active:                 i32,
 	temp_resist_immunity_toggle:   ToggleSliderState,
 	temp_resist_immunity_dropdown: DropdownSelectState,
+	blinded_toggle_state:          ToggleState,
+	blinded_toggle:                bool,
+	charmed_toggle_state:          ToggleState,
+	charmed_toggle:                bool,
+	deafened_toggle_state:         ToggleState,
+	deafened_toggle:               bool,
+	frightened_toggle_state:       ToggleState,
+	frightened_toggle:             bool,
+	grappled_toggle_state:         ToggleState,
+	grappled_toggle:               bool,
+	incapacitated_toggle_state:    ToggleState,
+	incapacitated_toggle:          bool,
+	invisible_toggle_state:        ToggleState,
+	invisible_toggle:              bool,
+	paralyzed_toggle_state:        ToggleState,
+	paralyzed_toggle:              bool,
+	petrified_toggle_state:        ToggleState,
+	petrified_toggle:              bool,
+	poisoned_toggle_state:         ToggleState,
+	poisoned_toggle:               bool,
+	prone_toggle_state:            ToggleState,
+	prone_toggle:                  bool,
+	restrained_toggle_state:       ToggleState,
+	restrained_toggle:             bool,
+	stunned_toggle_state:          ToggleState,
+	stunned_toggle:                bool,
+	unconscious_toggle_state:      ToggleState,
+	unconscious_toggle:            bool,
+	exhaustion_toggle_state:       ToggleState,
+	exhaustion_toggle:             bool,
 	panel_right_top:               PanelState,
 	panel_right_bottom:            PanelState,
 	panel_right_bottom_text:       cstring,
@@ -174,6 +206,9 @@ init_combat_screen :: proc() {
 	init_panel_state(&state.combat_screen_state.panel_left_bottom)
 	init_panel_state(&state.combat_screen_state.panel_mid)
 
+	main_tab_options := [dynamic]cstring{"Damage", "Conditions"}
+	init_tab_control_state(&state.combat_screen_state.main_tab_state, main_tab_options[:])
+
 	init_dropdown_state(
 		&state.combat_screen_state.dmg_type_dropdown,
 		"",
@@ -190,6 +225,7 @@ init_combat_screen :: proc() {
 		state.condition_options,
 		&state.combat_screen_state.btn_list,
 	)
+	init_text_input_state(&state.combat_screen_state.custom_condition_input)
 
 	temp_options := [dynamic]cstring{"Resistance", "Immunity", "Vulnerability"}
 	init_toggle_slider_state(
@@ -202,6 +238,96 @@ init_combat_screen :: proc() {
 		"Type:",
 		state.dmg_type_options[:],
 		&state.combat_screen_state.btn_list,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.blinded_toggle_state,
+		"Blinded",
+		&state.combat_screen_state.blinded_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.charmed_toggle_state,
+		"Charmed",
+		&state.combat_screen_state.charmed_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.deafened_toggle_state,
+		"Deafened",
+		&state.combat_screen_state.deafened_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.frightened_toggle_state,
+		"Frightened",
+		&state.combat_screen_state.frightened_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.grappled_toggle_state,
+		"Grappled",
+		&state.combat_screen_state.grappled_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.incapacitated_toggle_state,
+		"Incapacitated",
+		&state.combat_screen_state.incapacitated_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.invisible_toggle_state,
+		"Invisible",
+		&state.combat_screen_state.invisible_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.paralyzed_toggle_state,
+		"Paralyzed",
+		&state.combat_screen_state.paralyzed_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.petrified_toggle_state,
+		"Petrified",
+		&state.combat_screen_state.petrified_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.poisoned_toggle_state,
+		"Poisoned",
+		&state.combat_screen_state.poisoned_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.prone_toggle_state,
+		"Prone",
+		&state.combat_screen_state.prone_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.restrained_toggle_state,
+		"Restrained",
+		&state.combat_screen_state.restrained_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.stunned_toggle_state,
+		"Stunned",
+		&state.combat_screen_state.stunned_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.unconscious_toggle_state,
+		"Unconscious",
+		&state.combat_screen_state.unconscious_toggle,
+	)
+
+	init_toggle_state(
+		&state.combat_screen_state.exhaustion_toggle_state,
+		"Exhausted",
+		&state.combat_screen_state.exhaustion_toggle,
 	)
 
 	init_panel_state(&state.combat_screen_state.panel_right_top)
@@ -426,6 +552,7 @@ init_state :: proc(state: ^State) {
 	LOAD_CONFIG(&state.config)
 
 	state.gui_enabled = true
+	state.hover_stack.enabled = true
 
 	state.cursor = {0, 0}
 	state.mouse_pos = rl.GetMousePosition()

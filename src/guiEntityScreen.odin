@@ -599,6 +599,7 @@ draw_entity_screen :: proc() {
 			to_i32(state.entity_screen_state.HP_input.text),
 			to_i32(state.entity_screen_state.temp_HP_input.text),
 			{},
+			{},
 			true,
 			true,
 			state.entity_screen_state.speed_input.text,

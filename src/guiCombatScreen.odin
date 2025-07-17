@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:log"
 import vmem "core:mem/virtual"
+import "core:slice"
 import "core:strings"
 import "core:time"
 import "core:unicode/utf8"
@@ -394,6 +395,7 @@ draw_combat_screen :: proc() {
 							state.combat_screen_state.view_entity_idx = cast(i32)i
 							state.combat_screen_state.view_entity =
 							&state.combat_screen_state.entities[state.combat_screen_state.view_entity_idx]
+							set_condition_toggles()
 						}
 						if (cast(i32)i == state.combat_screen_state.current_entity_idx) {
 							rl.DrawRectangle(
@@ -669,211 +671,101 @@ draw_combat_screen :: proc() {
 		&state.combat_screen_state.panel_mid,
 		"Combat Controls",
 	)
-	state.combat_screen_state.panel_mid.rec.y += LINE_HEIGHT
-	state.combat_screen_state.panel_mid.rec.height -= LINE_HEIGHT
-	state.cursor.y += LINE_HEIGHT
 
 	draw_width = panel_width - (PANEL_PADDING * 2)
 	draw_height = panel_height - LINE_HEIGHT - (PANEL_PADDING * 2)
 
-	scroll_locked := false
-	for _, btn in state.combat_screen_state.btn_list {
-		if btn^ {
-			scroll_locked = true
+	switch GuiTabControl(
+		{state.cursor.x, state.cursor.y, panel_width, LINE_HEIGHT},
+		&state.combat_screen_state.main_tab_state,
+	) {
+	case 0:
+		state.combat_screen_state.panel_mid.rec.y += LINE_HEIGHT
+		state.combat_screen_state.panel_mid.rec.height -= LINE_HEIGHT
+
+		state.cursor.y += LINE_HEIGHT
+
+		scroll_locked := false
+		for _, btn in state.combat_screen_state.btn_list {
+			if btn^ {
+				scroll_locked = true
+			}
 		}
-	}
 
-	from_dropdown_x := state.cursor.x
-	from_dropdown_y := state.cursor.y
+		from_dropdown_x := state.cursor.x
+		from_dropdown_y := state.cursor.y
 
-	defer {
-		text_align_center()
-		GuiDropdownControl(
-			{from_dropdown_x, from_dropdown_y, panel_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.from_dropdown,
-		)
-		register_button(
-			&state.combat_screen_state.btn_list,
-			&state.combat_screen_state.from_dropdown,
-		)
-	}
-	state.cursor.x += panel_width / 2
-
-	to_dropdown_x := state.cursor.x
-	to_dropdown_y := state.cursor.y
-
-	defer {
-		text_align_center()
-		GuiDropdownSelectControl(
-			{to_dropdown_x, to_dropdown_y, panel_width / 2, LINE_HEIGHT},
-			&state.combat_screen_state.to_dropdown,
-		)
-		register_button(
-			&state.combat_screen_state.btn_list,
-			&state.combat_screen_state.to_dropdown,
-		)
-	}
-	state.cursor.x = current_panel_x
-	state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_mid.scroll.y
-	start_y := state.cursor.y
-
-	if scissor_start(&state.combat_screen_state.panel_mid, panel_width, scroll_locked) {
-		draw_width = panel_width - (PANEL_PADDING * 2) - 14
-		rl.GuiLine(
-			{
-				state.combat_screen_state.panel_mid.rec.x,
-				state.combat_screen_state.panel_mid.rec.y,
-				state.combat_screen_state.panel_mid.rec.width,
-				5,
-			},
-			"",
-		)
-	} else {
-		draw_width = panel_width - (PANEL_PADDING * 2)
-	}
-
-	{
-		state.cursor.x += PANEL_PADDING
-		state.cursor.y += PANEL_PADDING
-
-
-		GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage type:")
-		state.cursor.x += draw_width / 2
-
-		dmg_type_x := state.cursor.x
-		dmg_type_y := state.cursor.y
-
-		defer if rl.CheckCollisionRecs(
-			{dmg_type_x, dmg_type_y, draw_width / 2, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
+		defer {
+			text_align_center()
 			GuiDropdownControl(
+				{from_dropdown_x, from_dropdown_y, panel_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.from_dropdown,
+			)
+			register_button(
+				&state.combat_screen_state.btn_list,
+				&state.combat_screen_state.from_dropdown,
+			)
+		}
+		state.cursor.x += panel_width / 2
+
+		to_dropdown_x := state.cursor.x
+		to_dropdown_y := state.cursor.y
+
+		defer {
+			text_align_center()
+			GuiDropdownSelectControl(
+				{to_dropdown_x, to_dropdown_y, panel_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.to_dropdown,
+			)
+			register_button(
+				&state.combat_screen_state.btn_list,
+				&state.combat_screen_state.to_dropdown,
+			)
+		}
+		state.cursor.x = current_panel_x
+		state.cursor.y += LINE_HEIGHT + state.combat_screen_state.panel_mid.scroll.y
+		start_y := state.cursor.y
+
+		if scissor_start(&state.combat_screen_state.panel_mid, panel_width, scroll_locked) {
+			draw_width = panel_width - (PANEL_PADDING * 2) - 14
+			rl.GuiLine(
+				{
+					state.combat_screen_state.panel_mid.rec.x,
+					state.combat_screen_state.panel_mid.rec.y,
+					state.combat_screen_state.panel_mid.rec.width,
+					5,
+				},
+				"",
+			)
+		} else {
+			draw_width = panel_width - (PANEL_PADDING * 2)
+		}
+
+		{
+			state.cursor.x += PANEL_PADDING
+			state.cursor.y += PANEL_PADDING
+
+			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Damage type:")
+			state.cursor.x += draw_width / 2
+
+			dmg_type_x := state.cursor.x
+			dmg_type_y := state.cursor.y
+
+			defer if rl.CheckCollisionRecs(
 				{dmg_type_x, dmg_type_y, draw_width / 2, LINE_HEIGHT},
-				&state.combat_screen_state.dmg_type_dropdown,
-			)
-			register_button(
-				&state.combat_screen_state.btn_list,
-				&state.combat_screen_state.dmg_type_dropdown,
-			)
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if (state.combat_screen_state.panel_mid.height_needed >
-			   state.combat_screen_state.panel_mid.rec.height) {
-			rl.BeginScissorMode(
-				cast(i32)state.combat_screen_state.panel_mid.view.x,
-				cast(i32)state.combat_screen_state.panel_mid.view.y,
-				cast(i32)state.combat_screen_state.panel_mid.view.width,
-				cast(i32)state.combat_screen_state.panel_mid.view.height,
-			)
-		}
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-			state.cursor.x += draw_width / 3
-			GuiTextInput(
-				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-				&state.combat_screen_state.dmg_input,
-			)
-			state.cursor.x += draw_width / 3
-			if (GuiButton(
-					   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-					   "Resolve",
-				   ) &&
-				   !state.combat_screen_state.to_dropdown.active) {
-				resolve_damage()
-			}
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Healing")
-		}
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-			state.cursor.x += draw_width / 3
-			GuiTextInput(
-				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-				&state.combat_screen_state.heal_input,
-			)
-			state.cursor.x += draw_width / 3
-			if (GuiButton(
-					   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-					   "Resolve",
-				   ) &&
-				   !state.combat_screen_state.to_dropdown.active) {
-				resolve_healing()
-			}
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Temp HP")
-		}
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
-			state.cursor.x += draw_width / 3
-			GuiTextInput(
-				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-				&state.combat_screen_state.temp_HP_input,
-			)
-			state.cursor.x += draw_width / 3
-			if GuiButton(
-				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
-				"Resolve",
+				state.combat_screen_state.panel_mid.rec,
 			) {
-				resolve_temp_HP()
+				GuiDropdownControl(
+					{dmg_type_x, dmg_type_y, draw_width / 2, LINE_HEIGHT},
+					&state.combat_screen_state.dmg_type_dropdown,
+				)
+				register_button(
+					&state.combat_screen_state.btn_list,
+					&state.combat_screen_state.dmg_type_dropdown,
+				)
 			}
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Conditions")
-		}
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
-
-		conditions_x := state.cursor.x
-		conditions_y := state.cursor.y
-
-		if rl.CheckCollisionRecs(
-			{conditions_x, conditions_y, draw_width / 2, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiDropdownSelectControl(
-				{conditions_x, conditions_y, draw_width / 2, LINE_HEIGHT},
-				&state.combat_screen_state.condition_dropdown,
-			)
-			register_button(
-				&state.combat_screen_state.btn_list,
-				&state.combat_screen_state.condition_dropdown,
-			)
-			state.cursor.x += draw_width / 2
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
 			if (state.combat_screen_state.panel_mid.height_needed >
 				   state.combat_screen_state.panel_mid.rec.height) {
@@ -885,62 +777,367 @@ draw_combat_screen :: proc() {
 				)
 			}
 
-			if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
-				resolve_conditions()
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+				state.cursor.x += draw_width / 3
+				GuiTextInput(
+					{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					&state.combat_screen_state.dmg_input,
+				)
+				state.cursor.x += draw_width / 3
+				if (GuiButton(
+						   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+						   "Resolve",
+					   ) &&
+					   !state.combat_screen_state.to_dropdown.active) {
+					resolve_damage()
+				}
 			}
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Temp")
-			state.cursor.x += draw_width / 2
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Healing")
+			}
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-			GuiToggleSlider(
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+				state.cursor.x += draw_width / 3
+				GuiTextInput(
+					{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					&state.combat_screen_state.heal_input,
+				)
+				state.cursor.x += draw_width / 3
+				if (GuiButton(
+						   {state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+						   "Resolve",
+					   ) &&
+					   !state.combat_screen_state.to_dropdown.active) {
+					resolve_healing()
+				}
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT}, "Temp HP")
+			}
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT}, "Amount:")
+				state.cursor.x += draw_width / 3
+				GuiTextInput(
+					{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					&state.combat_screen_state.temp_HP_input,
+				)
+				state.cursor.x += draw_width / 3
+				if GuiButton(
+					{state.cursor.x, state.cursor.y, draw_width / 3, LINE_HEIGHT},
+					"Resolve",
+				) {
+					resolve_temp_HP()
+				}
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if rl.CheckCollisionRecs(
 				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-				&state.combat_screen_state.temp_resist_immunity_toggle,
-			)
-		}
-		state.cursor.x = current_panel_x + PANEL_PADDING
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiLabel({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Temp")
+				state.cursor.x += draw_width / 2
 
-		if rl.CheckCollisionRecs(
-			{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-			state.combat_screen_state.panel_mid.rec,
-		) {
-			GuiDropdownSelectControl(
-				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
-				&state.combat_screen_state.temp_resist_immunity_dropdown,
-			)
-			register_button(
-				&state.combat_screen_state.btn_list,
-				&state.combat_screen_state.temp_resist_immunity_dropdown,
-			)
-			state.cursor.x += draw_width / 2
-
-			if (state.combat_screen_state.panel_mid.height_needed >
-				   state.combat_screen_state.panel_mid.rec.height) {
-				rl.BeginScissorMode(
-					cast(i32)state.combat_screen_state.panel_mid.view.x,
-					cast(i32)state.combat_screen_state.panel_mid.view.y,
-					cast(i32)state.combat_screen_state.panel_mid.view.width,
-					cast(i32)state.combat_screen_state.panel_mid.view.height,
+				GuiToggleSlider(
+					{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+					&state.combat_screen_state.temp_resist_immunity_toggle,
 				)
 			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-			if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
-				resolve_temp_resistance_or_immunity()
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiDropdownSelectControl(
+					{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+					&state.combat_screen_state.temp_resist_immunity_dropdown,
+				)
+				register_button(
+					&state.combat_screen_state.btn_list,
+					&state.combat_screen_state.temp_resist_immunity_dropdown,
+				)
+				state.cursor.x += draw_width / 2
+
+				if (state.combat_screen_state.panel_mid.height_needed >
+					   state.combat_screen_state.panel_mid.rec.height) {
+					rl.BeginScissorMode(
+						cast(i32)state.combat_screen_state.panel_mid.view.x,
+						cast(i32)state.combat_screen_state.panel_mid.view.y,
+						cast(i32)state.combat_screen_state.panel_mid.view.width,
+						cast(i32)state.combat_screen_state.panel_mid.view.height,
+					)
+				}
+
+				if GuiButton(
+					{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+					"Apply",
+				) {
+					resolve_temp_resistance_or_immunity()
+				}
+			}
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y
+		}
+		scissor_stop(&state.combat_screen_state.panel_mid)
+	case 1:
+		state.cursor.y += LINE_HEIGHT
+
+		scroll_locked := false
+		for _, btn in state.combat_screen_state.btn_list {
+			if btn^ {
+				scroll_locked = true
 			}
 		}
-		state.cursor.y += LINE_HEIGHT + PANEL_PADDING
 
-		state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y
+		state.cursor.y += state.combat_screen_state.panel_mid.scroll.y
+		start_y := state.cursor.y
+
+		if scissor_start(&state.combat_screen_state.panel_mid, panel_width, scroll_locked) {
+			draw_width = panel_width - (PANEL_PADDING * 2) - 14
+		} else {
+			draw_width = panel_width - (PANEL_PADDING * 2)
+		}
+
+		{
+			state.cursor.x += PANEL_PADDING
+			state.cursor.y += PANEL_PADDING
+
+			GuiLabel(
+				{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+				"Condition toggles",
+			)
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.blinded_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.BLINDED, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.charmed_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.CHARMED, entity_to, entity_from)
+
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.deafened_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.DEAFENED, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.frightened_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.FRIGHTENED, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.grappled_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.GRAPPLED, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.incapacitated_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.INCAPACITATED, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.invisible_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.INVISIBLE, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.paralyzed_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.PETRIFIED, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.petrified_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.PETRIFIED, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.poisoned_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.POISONED, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.prone_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.PRONE, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.restrained_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.RESTRAINED, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.stunned_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.STUNNED, entity_to, entity_from)
+			}
+			state.cursor.x += draw_width / 2
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.unconscious_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.UNCONSCIOUS, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			if GuiToggle(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				&state.combat_screen_state.exhaustion_toggle_state,
+			) {
+				entity_to := state.combat_screen_state.view_entity
+				entity_from := state.combat_screen_state.current_entity
+				resolve_condition(.EXHAUSTION, entity_to, entity_from)
+			}
+			state.cursor.x = current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			GuiLabel(
+				{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+				"Custom conditions",
+			)
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			for condition, i in state.combat_screen_state.view_entity.custom_conditions {
+				default_highlight := BUTTON_HOVER_COLOUR
+				BUTTON_HOVER_COLOUR = rl.ColorAlpha(rl.RED, 0.2)
+				defer BUTTON_HOVER_COLOUR = default_highlight
+
+				if GuiButton(
+					{state.cursor.x, state.cursor.y, draw_width, LINE_HEIGHT},
+					condition,
+				) {
+					ordered_remove(&state.combat_screen_state.view_entity.custom_conditions, i)
+				}
+				state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+			}
+
+			if rl.CheckCollisionRecs(
+				{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+				state.combat_screen_state.panel_mid.rec,
+			) {
+				GuiTextInput(
+					{state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT},
+					&state.combat_screen_state.custom_condition_input,
+				)
+				state.cursor.x += draw_width / 2
+			}
+			if GuiButton({state.cursor.x, state.cursor.y, draw_width / 2, LINE_HEIGHT}, "Apply") {
+				resolve_custom_condition()
+			}
+			state.cursor.x += current_panel_x + PANEL_PADDING
+			state.cursor.y += LINE_HEIGHT + PANEL_PADDING
+
+			state.combat_screen_state.panel_mid.height_needed = state.cursor.y - start_y
+		}
+		scissor_stop(&state.combat_screen_state.panel_mid)
 	}
 
-	scissor_stop(&state.combat_screen_state.panel_mid)
 
 	current_panel_x += panel_width + dynamic_x_padding
 	state.cursor.x = current_panel_x
@@ -1216,832 +1413,126 @@ resolve_temp_HP :: proc() {
 	clear_text_input(&state.combat_screen_state.temp_HP_input)
 }
 
-resolve_conditions :: proc() {
-	for i in 0 ..< state.combat_screen_state.num_entities {
-		if state.combat_screen_state.to_dropdown.selected[i] {
-			entity := &state.combat_screen_state.entities[i]
-			entity_from := &state.combat_screen_state.entities[state.combat_screen_state.from_dropdown.selected]
-			for check_box, j in state.combat_screen_state.condition_dropdown.check_box_states {
-				condition := check_box.text
-				if state.combat_screen_state.condition_dropdown.selected[j] {
-					switch condition {
-					case "Blinded":
-						if .BLINDED not_in entity.condition_immunities {
-							entity.conditions ~= {.BLINDED}
-							if (.BLINDED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.BLINDED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.BLINDED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.BLINDED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.BLINDED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.BLINDED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.BLINDED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Charmed":
-						if .CHARMED not_in entity.condition_immunities {
-							entity.conditions ~= {.CHARMED}
-							if (.CHARMED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.CHARMED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.CHARMED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.CHARMED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.CHARMED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.CHARMED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.CHARMED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Deafened":
-						if .DEAFENED not_in entity.condition_immunities {
-							entity.conditions ~= {.DEAFENED}
-							if (.DEAFENED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.DEAFENED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.DEAFENED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.DEAFENED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.DEAFENED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.DEAFENED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.DEAFENED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Frightened":
-						if .FRIGHTENED not_in entity.condition_immunities {
-							entity.conditions ~= {.FRIGHTENED}
-							if (.FRIGHTENED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.FRIGHTENED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.FRIGHTENED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.FRIGHTENED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.FRIGHTENED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.FRIGHTENED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.FRIGHTENED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Grappled":
-						if .GRAPPLED not_in entity.condition_immunities {
-							entity.conditions ~= {.GRAPPLED}
-							if (.GRAPPLED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.GRAPPLED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.GRAPPLED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.GRAPPLED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.GRAPPLED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.GRAPPLED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.GRAPPLED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Incapacitated":
-						if .INCAPACITATED not_in entity.condition_immunities {
-							entity.conditions ~= {.INCAPACITATED}
-							if (.INCAPACITATED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.INCAPACITATED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.INCAPACITATED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.INCAPACITATED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.INCAPACITATED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.INCAPACITATED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.INCAPACITATED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Invisible":
-						if .INVISIBLE not_in entity.condition_immunities {
-							entity.conditions ~= {.INVISIBLE}
-							if (.INVISIBLE in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.INVISIBLE,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.INVISIBLE,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.INVISIBLE,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.INVISIBLE,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.INVISIBLE,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.INVISIBLE,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Paralyzed":
-						if .PARALYZED not_in entity.condition_immunities {
-							entity.conditions ~= {.PARALYZED}
-							if (.PARALYZED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.PARALYZED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.PARALYZED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.PARALYZED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.PARALYZED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.PARALYZED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.PARALYZED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Petrified":
-						if .PETRIFIED not_in entity.condition_immunities {
-							entity.conditions ~= {.PETRIFIED}
-							if (.PETRIFIED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.PETRIFIED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.PETRIFIED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.PETRIFIED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.PETRIFIED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.PETRIFIED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.PETRIFIED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Poisoned":
-						if .POISONED not_in entity.condition_immunities {
-							entity.conditions ~= {.POISONED}
-							if (.POISONED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.POISONED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.POISONED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.POISONED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.POISONED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.POISONED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.POISONED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Prone":
-						if .PRONE not_in entity.condition_immunities {
-							entity.conditions ~= {.PRONE}
-							if (.PRONE in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.PRONE,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.PRONE,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.PRONE,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.PRONE,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.PRONE,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.PRONE,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Restrained":
-						if .RESTRAINED not_in entity.condition_immunities {
-							entity.conditions ~= {.RESTRAINED}
-							if (.RESTRAINED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.RESTRAINED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.RESTRAINED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.RESTRAINED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.RESTRAINED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.RESTRAINED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.RESTRAINED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Stunned":
-						if .STUNNED not_in entity.condition_immunities {
-							entity.conditions ~= {.STUNNED}
-							if (.STUNNED in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.STUNNED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.STUNNED,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.STUNNED,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.STUNNED,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.STUNNED,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.STUNNED,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Unconscious":
-						if .UNCONSCIOUS not_in entity.condition_immunities {
-							entity.conditions ~= {.UNCONSCIOUS}
-							if (.UNCONSCIOUS in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.UNCONSCIOUS,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.UNCONSCIOUS,
-										entity_from,
-										entity,
-									)
-								}
-							} else {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_healed(
-										&state.combat_screen_state.combat_logger,
-										.UNCONSCIOUS,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_healed_self(
-										&state.combat_screen_state.combat_logger,
-										.UNCONSCIOUS,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.UNCONSCIOUS,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.UNCONSCIOUS,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					case "Exhaustion":
-						if .EXHAUSTION not_in entity.condition_immunities {
-							entity.conditions ~= {.EXHAUSTION}
-							if (.EXHAUSTION in entity.conditions) {
-								if (entity.alias !=
-									   state.combat_screen_state.current_entity.alias) {
-									logger_add_condition_applied(
-										&state.combat_screen_state.combat_logger,
-										.EXHAUSTION,
-										entity_from,
-										entity,
-									)
-								} else {
-									logger_add_condition_recieved(
-										&state.combat_screen_state.combat_logger,
-										.EXHAUSTION,
-										entity_from,
-										entity,
-									)
-								}
-							}
-						} else {
-							if (entity.alias != state.combat_screen_state.current_entity.alias) {
-								logger_add_attempt_give_condition(
-									&state.combat_screen_state.combat_logger,
-									.EXHAUSTION,
-									entity_from,
-									entity,
-								)
-							} else {
-								logger_add_attempt_recieve_condition(
-									&state.combat_screen_state.combat_logger,
-									.EXHAUSTION,
-									entity_from,
-									entity,
-								)
-							}
-						}
-					}
-				}
+set_condition_toggles :: proc() {
+	entity := state.combat_screen_state.view_entity
+
+	state.combat_screen_state.blinded_toggle = false
+	state.combat_screen_state.charmed_toggle = false
+	state.combat_screen_state.deafened_toggle = false
+	state.combat_screen_state.frightened_toggle = false
+	state.combat_screen_state.grappled_toggle = false
+	state.combat_screen_state.incapacitated_toggle = false
+	state.combat_screen_state.invisible_toggle = false
+	state.combat_screen_state.paralyzed_toggle = false
+	state.combat_screen_state.petrified_toggle = false
+	state.combat_screen_state.poisoned_toggle = false
+	state.combat_screen_state.prone_toggle = false
+	state.combat_screen_state.restrained_toggle = false
+	state.combat_screen_state.stunned_toggle = false
+	state.combat_screen_state.unconscious_toggle = false
+	state.combat_screen_state.exhaustion_toggle = false
+
+	for condition in entity.conditions {
+		switch condition {
+		case .BLINDED:
+			state.combat_screen_state.blinded_toggle = true
+		case .CHARMED:
+			state.combat_screen_state.charmed_toggle = true
+		case .DEAFENED:
+			state.combat_screen_state.deafened_toggle = true
+		case .FRIGHTENED:
+			state.combat_screen_state.frightened_toggle = true
+		case .GRAPPLED:
+			state.combat_screen_state.grappled_toggle = true
+		case .INCAPACITATED:
+			state.combat_screen_state.incapacitated_toggle = true
+		case .INVISIBLE:
+			state.combat_screen_state.invisible_toggle = true
+		case .PARALYZED:
+			state.combat_screen_state.paralyzed_toggle = true
+		case .PETRIFIED:
+			state.combat_screen_state.petrified_toggle = true
+		case .POISONED:
+			state.combat_screen_state.poisoned_toggle = true
+		case .PRONE:
+			state.combat_screen_state.prone_toggle = true
+		case .RESTRAINED:
+			state.combat_screen_state.restrained_toggle = true
+		case .STUNNED:
+			state.combat_screen_state.stunned_toggle = true
+		case .UNCONSCIOUS:
+			state.combat_screen_state.unconscious_toggle = true
+		case .EXHAUSTION:
+			state.combat_screen_state.exhaustion_toggle = true
+		}
+	}
+}
+
+resolve_condition :: proc(condition: Condition, entity_to: ^Entity, entity_from: ^Entity) {
+	if condition not_in entity_to.condition_immunities {
+		entity_to.conditions ~= {condition}
+		if (condition in entity_to.conditions) {
+			if (entity_to.alias != state.combat_screen_state.current_entity.alias) {
+				logger_add_condition_applied(
+					&state.combat_screen_state.combat_logger,
+					condition,
+					entity_from,
+					entity_to,
+				)
+			} else {
+				logger_add_condition_recieved(
+					&state.combat_screen_state.combat_logger,
+					condition,
+					entity_from,
+					entity_to,
+				)
+			}
+		} else {
+			if (entity_to.alias != state.combat_screen_state.current_entity.alias) {
+				logger_add_condition_healed(
+					&state.combat_screen_state.combat_logger,
+					condition,
+					entity_from,
+					entity_to,
+				)
+			} else {
+				logger_add_condition_healed_self(
+					&state.combat_screen_state.combat_logger,
+					condition,
+					entity_from,
+					entity_to,
+				)
 			}
 		}
-		state.combat_screen_state.to_dropdown.selected[i] = false
+	} else {
+		if (entity_to.alias != state.combat_screen_state.current_entity.alias) {
+			logger_add_attempt_give_condition(
+				&state.combat_screen_state.combat_logger,
+				condition,
+				entity_from,
+				entity_to,
+			)
+		} else {
+			logger_add_attempt_recieve_condition(
+				&state.combat_screen_state.combat_logger,
+				condition,
+				entity_from,
+				entity_to,
+			)
+		}
 	}
-	for &dropdown, j in state.combat_screen_state.condition_dropdown.selected {
-		dropdown = false
-	}
+
+}
+
+resolve_custom_condition :: proc() {
+	entity := state.combat_screen_state.view_entity
+
+	condition := strings.clone_to_cstring(
+		cast(string)state.combat_screen_state.custom_condition_input.text,
+	)
+	append(&entity.custom_conditions, condition)
+
+	clear_text_input(&state.combat_screen_state.custom_condition_input)
 }
 
 resolve_temp_resistance_or_immunity :: proc() {

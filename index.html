@@ -312,23 +312,23 @@
 		}
 
 		ol li.full-health {
-			background-color: #FF0800;
+			background-color: rgba(180, 0, 0, 0.8);
 		}
 
 		ol li.mid-health {
-			background-color: #CC0000;
+			background-color: rgba(180, 0, 0, 0.7);
 		}
 
 		ol li.low-health {
-			background-color: #B31B1B;
+			background-color: rgba(180, 0, 0, 0.6);
 		}
 
 		ol li.rlc {
-			background-color: #960018
+			background-color: rgba(180, 0, 0, 0.5);
 		}
 
 		ol li.dead {
-			background-color: #585858;
+			background-color: rgba(100, 100, 100, 1);
 		}
 
 		.container {
@@ -339,11 +339,11 @@
 		}
 
 		.team-party {
-			border: 4px solid #2c569c;
+			border: 4px solid rgba(0, 0, 180, 1);
 		}
 
 		.team-enemies {
-			border: 4px solid #f70707;
+			border: 4px solid rgba(0, 0, 0, 1);
 		}
 	</style>
 </head>
@@ -415,13 +415,6 @@
 							var conditions_label = document.createElement("div");
 							conditions_label.classList.add("current-entity-conditions");
 
-							var image_size;
-							if (window.innerHeight < window.innerWidth) {
-								//img_size = window.innerHeight / 1.5;
-							} else {
-								//img_size = window.innerWidth / 2;
-							}
-
 							if (entity.type == "player") {
 								img.src = "data:imgage/png;base64," + entity.img_url;
 							} else {
@@ -488,6 +481,11 @@
 
 							for (index in entity.conditions) {
 								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							for (index in entity.custom_conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.custom_conditions[index]));
 								conditions_label.appendChild(document.createTextNode("\n"));
 							}
 
@@ -592,6 +590,11 @@
 
 							for (index in entity.conditions) {
 								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							for (index in entity.custom_conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.custom_conditions[index]));
 								conditions_label.appendChild(document.createTextNode("\n"));
 							}
 
@@ -730,6 +733,11 @@
 
 							for (index in entity.conditions) {
 								conditions_label.appendChild(document.createTextNode(entity.conditions[index]));
+								conditions_label.appendChild(document.createTextNode("\n"));
+							}
+
+							for (index in entity.custom_conditions) {
+								conditions_label.appendChild(document.createTextNode(entity.custom_conditions[index]));
 								conditions_label.appendChild(document.createTextNode("\n"));
 							}
 

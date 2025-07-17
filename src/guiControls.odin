@@ -20,29 +20,32 @@ GuiControl :: struct {
 }
 
 HoverStack :: struct {
-	stack: [dynamic]^GuiControl,
-	count: i32,
+	stack:   [dynamic]^GuiControl,
+	count:   i32,
+	enabled: bool,
 }
 
 hover_stack_add :: proc(gui_control: ^GuiControl) {
-	already_added: bool
+	if state.hover_stack.enabled {
+		already_added: bool
 
-	if state.hover_stack.count == 0 {
-		for item in state.hover_stack.stack {
-			if item.id == gui_control.id {
-				already_added = true
+		if state.hover_stack.count == 0 {
+			for item in state.hover_stack.stack {
+				if item.id == gui_control.id {
+					already_added = true
+				}
+			}
+		} else {
+			for item, i in state.hover_stack.stack {
+				if item.id == gui_control.id {
+					ordered_remove(&state.hover_stack.stack, i)
+				}
 			}
 		}
-	} else {
-		for item, i in state.hover_stack.stack {
-			if item.id == gui_control.id {
-				ordered_remove(&state.hover_stack.stack, i)
-			}
+		if !already_added {
+			append(&state.hover_stack.stack, gui_control)
+			state.hover_stack.count += 1
 		}
-	}
-	if !already_added {
-		append(&state.hover_stack.stack, gui_control)
-		state.hover_stack.count += 1
 	}
 }
 
@@ -1778,8 +1781,10 @@ GuiTabControl :: proc(bounds: rl.Rectangle, tab_state: ^TabControlState) -> i32 
 	if hovered {
 		tab_state.hovered = true
 		hover_stack_add(tab_state)
+		state.hover_stack.enabled = false
 	} else {
 		tab_state.hovered = false
+		state.hover_stack.enabled = true
 	}
 
 	return tab_state.selected
@@ -2343,7 +2348,7 @@ GuiEntityStats :: proc(bounds: rl.Rectangle, entity: ^Entity, initiative: ^TextI
 		cursor_x += width / 4
 		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Score")
 		cursor_x += width / 4
-		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Modifier")
+		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Mod")
 		cursor_x += width / 4
 		GuiLabel({cursor_x, cursor_y, width / 4, LINE_HEIGHT}, "Save")
 		cursor_x = start_x

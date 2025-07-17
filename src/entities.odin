@@ -83,6 +83,7 @@ Entity :: struct {
 	HP:                       i32 `json:"Hit Points"`,
 	temp_HP:                  i32 `json:"Temp Hit Points"`,
 	conditions:               ConditionSet `json:"Conditions"`,
+	custom_conditions:        [dynamic]cstring,
 	visible:                  bool,
 	alive:                    bool,
 	speed:                    cstring `json:"Speed"`,
@@ -180,6 +181,7 @@ load_entities_from_file :: proc(filename: string, entities: ^[]Entity) -> int {
 					cast(i32)entity_fields["Hit Points"].(f64),
 					cast(i32)entity_fields["Temp Hit Points"].(f64) if ("Temp Hit Points" in entity_fields) else 0,
 					get_conditions(entity_fields["Conditions"].(json.Array)[:]) if ("Conditions" in entity_fields) else {},
+					{},
 					true,
 					true,
 					fmt.caprint(entity_fields["Speed"].(string)),
@@ -679,6 +681,16 @@ gen_condition_string :: proc(values: ConditionSet) -> (result: []string) {
 			if .EXHAUSTION in values {append(&temp_list, "Exhaustion")}
 		}
 	}
+	result = temp_list[:]
+	return
+}
+
+gen_custom_condition_string :: proc(conditions: [dynamic]cstring) -> (result: []string) {
+	temp_list := make([dynamic]string, allocator = frame_alloc)
+	for condition in conditions {
+		append(&temp_list, string(condition))
+	}
+
 	result = temp_list[:]
 	return
 }

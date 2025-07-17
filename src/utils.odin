@@ -386,6 +386,8 @@ combat_to_json :: proc() {
 					fmt.tprint(entity.AC),
 					",\"conditions\": ",
 					fmt.tprintf("%v", gen_condition_string(entity.conditions)),
+					",\"custom_conditions\": ",
+					fmt.tprintf("%v", gen_custom_condition_string(entity.custom_conditions)),
 					",\"visible\": ",
 					"true" if entity.visible else "false",
 					",\"dead\": ",
